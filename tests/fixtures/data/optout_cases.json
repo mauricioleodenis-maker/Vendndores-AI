@@ -1,0 +1,490 @@
+{
+  "description": "Casos etiquetados para detección de opt-out/opt-in (español Colombia, Cali). Datos ficticios, sin datos personales reales.",
+  "labels": [
+    "optout",
+    "optin",
+    "not_optout"
+  ],
+  "cases": [
+    {
+      "id": "oo-001",
+      "text": "STOP",
+      "label": "optout",
+      "note": "palabra clave de baja"
+    },
+    {
+      "id": "oo-002",
+      "text": "stop",
+      "label": "optout",
+      "note": "palabra clave de baja"
+    },
+    {
+      "id": "oo-003",
+      "text": "STOP por favor",
+      "label": "optout",
+      "note": ""
+    },
+    {
+      "id": "oo-004",
+      "text": "ALTO",
+      "label": "optout",
+      "note": ""
+    },
+    {
+      "id": "oo-005",
+      "text": "BAJA",
+      "label": "optout",
+      "note": "solicitud de baja"
+    },
+    {
+      "id": "oo-006",
+      "text": "Quiero la baja",
+      "label": "optout",
+      "note": ""
+    },
+    {
+      "id": "oo-007",
+      "text": "me dan de baja por favor",
+      "label": "optout",
+      "note": ""
+    },
+    {
+      "id": "oo-008",
+      "text": "Deme de baja ya",
+      "label": "optout",
+      "note": ""
+    },
+    {
+      "id": "oo-009",
+      "text": "no me escriban más",
+      "label": "optout",
+      "note": "pedido explícito de no contacto"
+    },
+    {
+      "id": "oo-010",
+      "text": "No me escriban mas",
+      "label": "optout",
+      "note": ""
+    },
+    {
+      "id": "oo-011",
+      "text": "NO ME ESCRIBAN MÁS",
+      "label": "optout",
+      "note": ""
+    },
+    {
+      "id": "oo-012",
+      "text": "dejen de escribirme",
+      "label": "optout",
+      "note": ""
+    },
+    {
+      "id": "oo-013",
+      "text": "no quiero más mensajes",
+      "label": "optout",
+      "note": ""
+    },
+    {
+      "id": "oo-014",
+      "text": "no me escriban nunca más",
+      "label": "optout",
+      "note": ""
+    },
+    {
+      "id": "oo-015",
+      "text": "sáquenme de la lista",
+      "label": "optout",
+      "note": "retiro de lista"
+    },
+    {
+      "id": "oo-016",
+      "text": "bórrenme de sus contactos",
+      "label": "optout",
+      "note": ""
+    },
+    {
+      "id": "oo-017",
+      "text": "desuscríbeme",
+      "label": "optout",
+      "note": ""
+    },
+    {
+      "id": "oo-018",
+      "text": "unsubscribe",
+      "label": "optout",
+      "note": "palabra en inglés"
+    },
+    {
+      "id": "oo-019",
+      "text": "PARAR",
+      "label": "optout",
+      "note": ""
+    },
+    {
+      "id": "oo-020",
+      "text": "Cancelar suscripción",
+      "label": "optout",
+      "note": "baja, no cita"
+    },
+    {
+      "id": "oo-021",
+      "text": "cancelen el servicio de mensajes",
+      "label": "optout",
+      "note": ""
+    },
+    {
+      "id": "oo-022",
+      "text": "stp",
+      "label": "optout",
+      "note": "typo"
+    },
+    {
+      "id": "oo-023",
+      "text": "bja",
+      "label": "optout",
+      "note": "typo"
+    },
+    {
+      "id": "oo-024",
+      "text": "no me escriban maas",
+      "label": "optout",
+      "note": "typo"
+    },
+    {
+      "id": "oo-025",
+      "text": "dejen de molestarme",
+      "label": "optout",
+      "note": "coloquial"
+    },
+    {
+      "id": "oo-026",
+      "text": "no me jodan mas con mensajes",
+      "label": "optout",
+      "note": "coloquial fuerte"
+    },
+    {
+      "id": "oo-027",
+      "text": "ya no quiero mensajes ni publicidad",
+      "label": "optout",
+      "note": ""
+    },
+    {
+      "id": "oo-028",
+      "text": "cancelen todo, no me escriban más",
+      "label": "optout",
+      "note": "mezcla, hay baja explícita"
+    },
+    {
+      "id": "oo-029",
+      "text": "baja definitiva, gracias",
+      "label": "optout",
+      "note": "baja explícita"
+    },
+    {
+      "id": "oo-030",
+      "text": "no quiero recibir mensajes",
+      "label": "optout",
+      "note": ""
+    },
+    {
+      "id": "oo-031",
+      "text": "cancelar cita",
+      "label": "not_optout",
+      "note": "cancelar cita NO es baja"
+    },
+    {
+      "id": "oo-032",
+      "text": "Quiero cancelar mi cita",
+      "label": "not_optout",
+      "note": ""
+    },
+    {
+      "id": "oo-033",
+      "text": "necesito cancelar la cita del martes",
+      "label": "not_optout",
+      "note": ""
+    },
+    {
+      "id": "oo-034",
+      "text": "¿cómo cancelo una cita?",
+      "label": "not_optout",
+      "note": ""
+    },
+    {
+      "id": "oo-035",
+      "text": "cancelen mi cita por favor",
+      "label": "not_optout",
+      "note": ""
+    },
+    {
+      "id": "oo-036",
+      "text": "cancelar la cita de la señora Ana",
+      "label": "not_optout",
+      "note": ""
+    },
+    {
+      "id": "oo-037",
+      "text": "cancelar",
+      "label": "not_optout",
+      "note": "cancelar solo, sin objeto"
+    },
+    {
+      "id": "oo-038",
+      "text": "CANCELAR",
+      "label": "not_optout",
+      "note": ""
+    },
+    {
+      "id": "oo-039",
+      "text": "cancela",
+      "label": "not_optout",
+      "note": ""
+    },
+    {
+      "id": "oo-040",
+      "text": "cuánto cuesta el plan básico?",
+      "label": "not_optout",
+      "note": "consulta"
+    },
+    {
+      "id": "oo-041",
+      "text": "a qué hora abren hoy?",
+      "label": "not_optout",
+      "note": ""
+    },
+    {
+      "id": "oo-042",
+      "text": "tienen cita para mañana a las 3?",
+      "label": "not_optout",
+      "note": ""
+    },
+    {
+      "id": "oo-043",
+      "text": "quiero agendar una limpieza dental",
+      "label": "not_optout",
+      "note": ""
+    },
+    {
+      "id": "oo-044",
+      "text": "me pueden enviar la dirección",
+      "label": "not_optout",
+      "note": ""
+    },
+    {
+      "id": "oo-045",
+      "text": "gracias, hasta luego",
+      "label": "not_optout",
+      "note": ""
+    },
+    {
+      "id": "oo-046",
+      "text": "buenas tardes",
+      "label": "not_optout",
+      "note": ""
+    },
+    {
+      "id": "oo-047",
+      "text": "necesito factura electrónica",
+      "label": "not_optout",
+      "note": ""
+    },
+    {
+      "id": "oo-048",
+      "text": "tienen promoción de blanqueamiento?",
+      "label": "not_optout",
+      "note": ""
+    },
+    {
+      "id": "oo-049",
+      "text": "no me interesa por ahora",
+      "label": "not_optout",
+      "note": "negación sin baja"
+    },
+    {
+      "id": "oo-050",
+      "text": "no gracias, después los llamo",
+      "label": "not_optout",
+      "note": ""
+    },
+    {
+      "id": "oo-051",
+      "text": "no quiero esa cita, quiero otra fecha",
+      "label": "not_optout",
+      "note": ""
+    },
+    {
+      "id": "oo-052",
+      "text": "no me escriban a las 6 am, por favor",
+      "label": "not_optout",
+      "note": "restricción horaria, no baja"
+    },
+    {
+      "id": "oo-053",
+      "text": "escríbanme mañana por la tarde",
+      "label": "not_optout",
+      "note": ""
+    },
+    {
+      "id": "oo-054",
+      "text": "no me llamen, prefiero WhatsApp",
+      "label": "not_optout",
+      "note": "preferencia de canal"
+    },
+    {
+      "id": "oo-055",
+      "text": "stop motion es mi pasatiempo, tienen cursos?",
+      "label": "not_optout",
+      "note": "'stop' en contexto ajeno"
+    },
+    {
+      "id": "oo-056",
+      "text": "el bus paró en la calle 5 y no llegué",
+      "label": "not_optout",
+      "note": "'paró' en contexto ajeno"
+    },
+    {
+      "id": "oo-057",
+      "text": "me dieron de baja del trabajo",
+      "label": "not_optout",
+      "note": "'baja' sin opt-out"
+    },
+    {
+      "id": "oo-058",
+      "text": "tengo una baja médica por 3 días",
+      "label": "not_optout",
+      "note": ""
+    },
+    {
+      "id": "oo-059",
+      "text": "la baja del pedido aún no llega",
+      "label": "not_optout",
+      "note": ""
+    },
+    {
+      "id": "oo-060",
+      "text": "cancelar el pedido por favor",
+      "label": "not_optout",
+      "note": "cancelar pedido, no baja"
+    },
+    {
+      "id": "oo-061",
+      "text": "quiero cambiar la cita, no cancelarla",
+      "label": "not_optout",
+      "note": ""
+    },
+    {
+      "id": "oo-062",
+      "text": "baja presión, me siento mareado",
+      "label": "not_optout",
+      "note": ""
+    },
+    {
+      "id": "oo-063",
+      "text": "hola, quiero información",
+      "label": "not_optout",
+      "note": ""
+    },
+    {
+      "id": "oo-064",
+      "text": "tienen cita disponible el jueves?",
+      "label": "not_optout",
+      "note": ""
+    },
+    {
+      "id": "oo-065",
+      "text": "ok listo, gracias",
+      "label": "not_optout",
+      "note": ""
+    },
+    {
+      "id": "oo-066",
+      "text": "SI",
+      "label": "optin",
+      "note": "aceptación"
+    },
+    {
+      "id": "oo-067",
+      "text": "sí",
+      "label": "optin",
+      "note": "aceptación"
+    },
+    {
+      "id": "oo-068",
+      "text": "ALTA",
+      "label": "optin",
+      "note": "reactivación"
+    },
+    {
+      "id": "oo-069",
+      "text": "alta",
+      "label": "optin",
+      "note": ""
+    },
+    {
+      "id": "oo-070",
+      "text": "Quiero recibir mensajes",
+      "label": "optin",
+      "note": ""
+    },
+    {
+      "id": "oo-071",
+      "text": "Sí, acepto",
+      "label": "optin",
+      "note": ""
+    },
+    {
+      "id": "oo-072",
+      "text": "Inscríbanme de nuevo",
+      "label": "optin",
+      "note": ""
+    },
+    {
+      "id": "oo-073",
+      "text": "vuelvan a escribirme, por favor",
+      "label": "optin",
+      "note": ""
+    },
+    {
+      "id": "oo-074",
+      "text": "quiero volver a recibir las promociones",
+      "label": "optin",
+      "note": ""
+    },
+    {
+      "id": "oo-075",
+      "text": "REACTIVAR",
+      "label": "optin",
+      "note": ""
+    },
+    {
+      "id": "oo-076",
+      "text": "activar mensajes",
+      "label": "optin",
+      "note": ""
+    },
+    {
+      "id": "oo-077",
+      "text": "Acepto recibir información",
+      "label": "optin",
+      "note": ""
+    },
+    {
+      "id": "oo-078",
+      "text": "dale, mándenme",
+      "label": "optin",
+      "note": ""
+    },
+    {
+      "id": "oo-079",
+      "text": "sí quiero que me sigan escribiendo",
+      "label": "optin",
+      "note": ""
+    },
+    {
+      "id": "oo-080",
+      "text": "reactivar",
+      "label": "optin",
+      "note": ""
+    }
+  ]
+}

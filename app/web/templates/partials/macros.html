@@ -1,0 +1,33 @@
+{# Macros reutilizables: {% from "partials/macros.html" import badge, field, empty_state, pager %} #}
+{% macro badge(value, label=None) -%}
+<span class="badge badge-{{ value | estado_clase }}">{{ label or (value | estado_es) }}</span>
+{%- endmacro %}
+
+{% macro field(name, label, value='', type='text', required=False, error=None, help=None, autocomplete=None) -%}
+<div class="field{% if error %} has-error{% endif %}">
+  <label for="f-{{ name }}">{{ label }}{% if required %} <span aria-hidden="true">*</span>{% endif %}</label>
+  <input id="f-{{ name }}" name="{{ name }}" type="{{ type }}" value="{{ value if type != 'password' else '' }}"
+         {% if required %}required{% endif %} {% if autocomplete %}autocomplete="{{ autocomplete }}"{% endif %}
+         {% if error %}aria-invalid="true" aria-describedby="e-{{ name }}"{% endif %}>
+  {% if help %}<small class="help">{{ help }}</small>{% endif %}
+  {% if error %}<small class="error" id="e-{{ name }}">{{ error }}</small>{% endif %}
+</div>
+{%- endmacro %}
+
+{% macro empty_state(title, text='', action_href=None, action_label=None) -%}
+<div class="empty">
+  <h3>{{ title }}</h3>
+  {% if text %}<p>{{ text }}</p>{% endif %}
+  {% if action_href %}<a class="btn btn-primary" href="{{ action_href }}">{{ action_label }}</a>{% endif %}
+</div>
+{%- endmacro %}
+
+{% macro pager(base_url, page, has_more) -%}
+<nav class="pager" aria-label="Paginación">
+  {% if page > 1 %}<a class="btn btn-ghost" href="{{ base_url }}{{ '&' if '?' in base_url else '?' }}page={{ page - 1 }}">Anterior</a>{% endif %}
+  <span>Página {{ page }}</span>
+  {% if has_more %}<a class="btn btn-ghost" href="{{ base_url }}{{ '&' if '?' in base_url else '?' }}page={{ page + 1 }}">Siguiente</a>{% endif %}
+</nav>
+{%- endmacro %}
+
+{% macro csrf() -%}<input type="hidden" name="csrf_token" value="{{ csrf_token }}">{%- endmacro %}

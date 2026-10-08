@@ -1,0 +1,64 @@
+"""Vista de auditoria (solo owner)."""
+
+from __future__ import annotations
+
+import uuid
+
+from fastapi import APIRouter, Depends, Query, Request
+from fastapi.responses import HTMLResponse
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.audit import service
+from app.core.deps import get_session, require_role
+from app.db.models.users import User
+from app.web.templating import render
+
+router = APIRouter(prefix="/admin/auditoria", tags=["auditoria"])
+PAGE_SIZE = 50
+
+
+@router.get("", response_class=HTMLResponse)
+async def audit_list(
+    request: Request,
+    action: str = Query("", max_length=100),
+    tenant_id: str = Query("", max_length=40),
+    page: int = Query(1, ge=1, le=10_000),
+    _user: User = Depends(require_role()),
+    session: AsyncSession = Depends(get_session),
+) -> HTMLResponse:
+    try:
+        tenant_uuid = uuid.UUID(tenant_id) if tenant_id else None
+    except ValueError:
+        tenant_uuid = None
+    events = await service.list_events(
+        session,
+        action=action or None,
+        tenant_id=tenant_uuid,
+        limit=PAGE_SIZE + 1,
+        offset=(page - 1) * PAGE_SIZE,
+    )
+    base = "/admin/auditoria?"
+    if action:
+        base += f"action={action}"
+    return render(
+        request,
+        "audit/list.html",
+        {
+            "events": events[:PAGE_SIZE],
+            "has_more": len(events) > PAGE_SIZE,
+            "page": page,
+            "action": action,
+            "tenant_id": tenant_id,
+            "base_url": base.rstrip("?&") or "/admin/auditoria",
+        },
+    )
+
+
+@router.post("/verificar", response_class=HTMLResponse)
+async def verify(
+    request: Request,
+    _user: User = Depends(require_role()),
+    session: AsyncSession = Depends(get_session),
+) -> HTMLResponse:
+    ok, bad_id = await service.verify_chain(session)
+    return render(request, "partials/chain_status.html", {"ok": ok, "bad_id": bad_id})

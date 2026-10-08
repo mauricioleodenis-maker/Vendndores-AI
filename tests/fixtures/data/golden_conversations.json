@@ -1,0 +1,964 @@
+{
+  "version": 1,
+  "locale": "es-CO",
+  "timezone": "America/Bogota",
+  "currency": "COP",
+  "note": "Datos ficticios. Telefonos +57 300 000 xxxx.",
+  "conversations": [
+    {
+      "id": "gc-001",
+      "niche": "dentista",
+      "scenario": "Pregunta de precio de limpieza dental",
+      "turns": [
+        {
+          "role": "user",
+          "text": "Hola, ¿cuánto cuesta la limpieza dental?",
+          "expected_tool_calls": [
+            "get_business_info"
+          ],
+          "key_facts": [
+            "limpieza dental"
+          ]
+        },
+        {
+          "role": "assistant",
+          "text": "Hola, con gusto. La limpieza dental tiene un valor de $80.000 COP e incluye profilaxis y revisión.",
+          "expected_tool_calls": [],
+          "key_facts": [
+            "80.000",
+            "COP"
+          ]
+        },
+        {
+          "role": "user",
+          "text": "¿Y la limpieza incluye blanqueamiento?",
+          "expected_tool_calls": [],
+          "key_facts": []
+        },
+        {
+          "role": "assistant",
+          "text": "El blanqueamiento es un servicio aparte. Te puedo indicar su valor o agendar una valoración.",
+          "expected_tool_calls": [],
+          "key_facts": [
+            "blanqueamiento",
+            "servicio aparte"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "gc-002",
+      "niche": "clinica_estetica",
+      "scenario": "Precio de botox con confirmación de que es estimado",
+      "turns": [
+        {
+          "role": "user",
+          "text": "Buenas tardes, cuánto vale una aplicación de bótox?",
+          "expected_tool_calls": [
+            "get_business_info"
+          ],
+          "key_facts": [
+            "bótox"
+          ]
+        },
+        {
+          "role": "assistant",
+          "text": "Buenas tardes. La aplicación de bótox en zona frontal tiene un valor de $650.000 COP por sesión. El valor final lo confirma el especialista en la valoración.",
+          "expected_tool_calls": [],
+          "key_facts": [
+            "650.000",
+            "valoración"
+          ]
+        },
+        {
+          "role": "user",
+          "text": "Ok, es caro. Tienen algún descuento?",
+          "expected_tool_calls": [],
+          "key_facts": []
+        },
+        {
+          "role": "assistant",
+          "text": "No tengo descuentos registrados en este momento. Si quieres, puedo agendarte una valoración sin costo.",
+          "expected_tool_calls": [
+            "check_availability"
+          ],
+          "key_facts": [
+            "no inventar descuentos",
+            "valoración"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "gc-003",
+      "niche": "taller",
+      "scenario": "Precio de cambio de aceite sintético",
+      "turns": [
+        {
+          "role": "user",
+          "text": "Qué precio tiene el cambio de aceite sintético para un Mazda 3?",
+          "expected_tool_calls": [
+            "get_business_info"
+          ],
+          "key_facts": [
+            "aceite sintético"
+          ]
+        },
+        {
+          "role": "assistant",
+          "text": "El cambio de aceite sintético tiene un valor de $190.000 COP, incluye filtro de aceite y revisión de niveles. El precio puede variar según la referencia del vehículo.",
+          "expected_tool_calls": [],
+          "key_facts": [
+            "190.000",
+            "filtro"
+          ]
+        },
+        {
+          "role": "user",
+          "text": "Y si me cambian también las pastillas de freno?",
+          "expected_tool_calls": [],
+          "key_facts": []
+        },
+        {
+          "role": "assistant",
+          "text": "Las pastillas de freno se cotizan aparte después de la revisión del vehículo. ¿Quieres que te agende una cita?",
+          "expected_tool_calls": [
+            "check_availability"
+          ],
+          "key_facts": [
+            "cotización aparte"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "gc-004",
+      "niche": "restaurante",
+      "scenario": "Precio de menú ejecutivo y domicilio",
+      "turns": [
+        {
+          "role": "user",
+          "text": "Hola! cuánto vale el menú del día y hacen domicilios?",
+          "expected_tool_calls": [
+            "get_business_info"
+          ],
+          "key_facts": [
+            "menú del día"
+          ]
+        },
+        {
+          "role": "assistant",
+          "text": "Hola. El menú ejecutivo del día cuesta $22.000 COP e incluye sopa, plato fuerte, jugo y postre. Sí hacemos domicilios en Cali.",
+          "expected_tool_calls": [],
+          "key_facts": [
+            "22.000",
+            "domicilios"
+          ]
+        },
+        {
+          "role": "user",
+          "text": "Cuánto cobran el domicilio?",
+          "expected_tool_calls": [],
+          "key_facts": []
+        },
+        {
+          "role": "assistant",
+          "text": "El costo del domicilio depende de la zona. Te confirmo el valor exacto al momento del pedido.",
+          "expected_tool_calls": [],
+          "key_facts": [
+            "costo variable por zona"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "gc-005",
+      "niche": "dentista",
+      "scenario": "Agendar valoración para mañana en la mañana",
+      "turns": [
+        {
+          "role": "user",
+          "text": "Hola, quiero una cita para valoración mañana en la mañana",
+          "expected_tool_calls": [
+            "check_availability"
+          ],
+          "key_facts": [
+            "valoración",
+            "mañana"
+          ]
+        },
+        {
+          "role": "assistant",
+          "text": "Tengo estos cupos para mañana: 8:00 a.m., 9:30 a.m. y 11:00 a.m. ¿Cuál prefieres?",
+          "expected_tool_calls": [],
+          "key_facts": [
+            "8:00",
+            "9:30",
+            "11:00"
+          ]
+        },
+        {
+          "role": "user",
+          "text": "Las 9:30 está bien. Me llamo Laura Restrepo, mi número es +57 300 000 0101",
+          "expected_tool_calls": [
+            "book"
+          ],
+          "key_facts": [
+            "9:30 a.m.",
+            "Laura Restrepo"
+          ]
+        },
+        {
+          "role": "assistant",
+          "text": "Listo Laura, tu valoración quedó agendada para mañana a las 9:30 a.m. Te enviaremos un recordatorio 24 horas antes.",
+          "expected_tool_calls": [],
+          "key_facts": [
+            "confirmación",
+            "recordatorio 24h"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "gc-006",
+      "niche": "clinica_estetica",
+      "scenario": "Agendar tratamiento de limpieza facial un sábado",
+      "turns": [
+        {
+          "role": "user",
+          "text": "Quisiera agendar limpieza facial profunda el sábado",
+          "expected_tool_calls": [
+            "check_availability"
+          ],
+          "key_facts": [
+            "limpieza facial",
+            "sábado"
+          ]
+        },
+        {
+          "role": "assistant",
+          "text": "El sábado tengo disponibilidad a las 10:00 a.m. y 2:00 p.m. ¿Te sirve alguna?",
+          "expected_tool_calls": [],
+          "key_facts": [
+            "10:00",
+            "2:00"
+          ]
+        },
+        {
+          "role": "user",
+          "text": "A las 2 pm. Soy Camila Gómez",
+          "expected_tool_calls": [
+            "book"
+          ],
+          "key_facts": [
+            "2:00 p.m.",
+            "Camila Gómez"
+          ]
+        },
+        {
+          "role": "assistant",
+          "text": "Perfecto Camila, tu limpieza facial queda agendada el sábado a las 2:00 p.m. Te llegará la confirmación por WhatsApp.",
+          "expected_tool_calls": [],
+          "key_facts": [
+            "sábado 2:00 p.m."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "gc-007",
+      "niche": "taller",
+      "scenario": "Agendar revisión general con horario fuera de servicio",
+      "turns": [
+        {
+          "role": "user",
+          "text": "Necesito llevar mi carro a revisión general el domingo a las 7 am",
+          "expected_tool_calls": [
+            "get_business_info"
+          ],
+          "key_facts": [
+            "domingo",
+            "horario"
+          ]
+        },
+        {
+          "role": "assistant",
+          "text": "Los domingos no atendemos. Atendemos de lunes a sábado de 8:00 a.m. a 6:00 p.m. ¿Te sirve el lunes?",
+          "expected_tool_calls": [],
+          "key_facts": [
+            "domingo no atendemos",
+            "lunes a sábado 8am-6pm"
+          ]
+        },
+        {
+          "role": "user",
+          "text": "Ok el lunes a las 8 am",
+          "expected_tool_calls": [],
+          "key_facts": []
+        },
+        {
+          "role": "assistant",
+          "text": "Tengo disponible el lunes a las 8:00 a.m. ¿Me confirmas tu nombre y el modelo del vehículo?",
+          "expected_tool_calls": [
+            "check_availability"
+          ],
+          "key_facts": [
+            "8:00 a.m."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "gc-008",
+      "niche": "restaurante",
+      "scenario": "Reserva de mesa para 6 personas",
+      "turns": [
+        {
+          "role": "user",
+          "text": "Buenas, quiero reservar mesa para 6 personas el viernes a las 7:30 pm",
+          "expected_tool_calls": [
+            "check_availability"
+          ],
+          "key_facts": [
+            "mesa 6 personas",
+            "viernes 7:30 p.m."
+          ]
+        },
+        {
+          "role": "assistant",
+          "text": "Para el viernes a las 7:30 p.m. tenemos una mesa para 6 personas disponible. ¿A nombre de quién la reservo?",
+          "expected_tool_calls": [],
+          "key_facts": [
+            "mesa disponible"
+          ]
+        },
+        {
+          "role": "user",
+          "text": "A nombre de Andrés Mejía, tel +57 300 000 0102",
+          "expected_tool_calls": [
+            "book"
+          ],
+          "key_facts": [
+            "Andrés Mejía",
+            "6 personas"
+          ]
+        },
+        {
+          "role": "assistant",
+          "text": "Reserva confirmada para Andrés Mejía, viernes a las 7:30 p.m., 6 personas. ¡Te esperamos!",
+          "expected_tool_calls": [],
+          "key_facts": [
+            "reserva confirmada"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "gc-009",
+      "niche": "dentista",
+      "scenario": "Paciente pide cita con otro servicio y no hay cupo, ofrece alternativa",
+      "turns": [
+        {
+          "role": "user",
+          "text": "Quiero una ortodoncia de control esta semana",
+          "expected_tool_calls": [
+            "check_availability"
+          ],
+          "key_facts": [
+            "ortodoncia",
+            "esta semana"
+          ]
+        },
+        {
+          "role": "assistant",
+          "text": "Para esta semana no tengo cupos de ortodoncia. Tengo disponibilidad la próxima semana, martes a las 3:00 p.m. ¿Te sirve?",
+          "expected_tool_calls": [],
+          "key_facts": [
+            "sin cupo",
+            "alternativa próxima semana"
+          ]
+        },
+        {
+          "role": "user",
+          "text": "Sí, el martes 3pm. Soy Jorge Peña",
+          "expected_tool_calls": [],
+          "key_facts": []
+        },
+        {
+          "role": "assistant",
+          "text": "¿Me confirmas tu número de contacto para registrar la cita del martes 3:00 p.m.?",
+          "expected_tool_calls": [
+            "book"
+          ],
+          "key_facts": [
+            "confirmar datos antes de reservar"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "gc-010",
+      "niche": "clinica_estetica",
+      "scenario": "Solicitud fuera del alcance: diagnóstico médico, deriva a humano",
+      "turns": [
+        {
+          "role": "user",
+          "text": "Tengo una mancha roja que me pica después del láser, es grave?",
+          "expected_tool_calls": [
+            "handoff"
+          ],
+          "key_facts": [
+            "diagnóstico fuera de alcance",
+            "derivar"
+          ]
+        },
+        {
+          "role": "assistant",
+          "text": "No puedo darte un diagnóstico. Te comunico con una persona del equipo para que revise tu caso lo antes posible.",
+          "expected_tool_calls": [],
+          "key_facts": [
+            "derivación a humano",
+            "no diagnosticar"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "gc-011",
+      "niche": "dentista",
+      "scenario": "Reagendar cita para otro día",
+      "turns": [
+        {
+          "role": "user",
+          "text": "Hola, necesito cambiar mi cita del jueves para el viernes",
+          "expected_tool_calls": [
+            "reschedule"
+          ],
+          "key_facts": [
+            "cambio de cita",
+            "jueves a viernes"
+          ]
+        },
+        {
+          "role": "assistant",
+          "text": "Claro. ¿Me confirmas tu nombre para ubicar tu cita? Tengo el viernes a las 10:00 a.m. y 4:00 p.m.",
+          "expected_tool_calls": [],
+          "key_facts": [
+            "10:00 a.m.",
+            "4:00 p.m."
+          ]
+        },
+        {
+          "role": "user",
+          "text": "Soy Felipe Ruiz, las 4 pm",
+          "expected_tool_calls": [],
+          "key_facts": []
+        },
+        {
+          "role": "assistant",
+          "text": "Listo Felipe, tu cita quedó reagendada para el viernes a las 4:00 p.m. Te enviaremos la nueva confirmación.",
+          "expected_tool_calls": [
+            "reschedule"
+          ],
+          "key_facts": [
+            "reagendada",
+            "viernes 4:00 p.m."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "gc-012",
+      "niche": "clinica_estetica",
+      "scenario": "Reagendar tratamiento con menos de 24 horas de anticipación",
+      "turns": [
+        {
+          "role": "user",
+          "text": "Quiero correr mi cita de mañana para la semana siguiente",
+          "expected_tool_calls": [
+            "reschedule"
+          ],
+          "key_facts": [
+            "reagendar",
+            "menos de 24 horas"
+          ]
+        },
+        {
+          "role": "assistant",
+          "text": "Tu cita es mañana, y los cambios con menos de 24 horas requieren confirmación de una persona del equipo. ¿Quieres que te comunique con ellos?",
+          "expected_tool_calls": [
+            "handoff"
+          ],
+          "key_facts": [
+            "regla de 24 horas",
+            "handoff si aplica"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "gc-013",
+      "niche": "taller",
+      "scenario": "Reagendar revisión y consultar horarios disponibles",
+      "turns": [
+        {
+          "role": "user",
+          "text": "Puedo pasar la revisión que tengo el martes para el miércoles en la tarde?",
+          "expected_tool_calls": [
+            "reschedule"
+          ],
+          "key_facts": [
+            "reagendar",
+            "miércoles tarde"
+          ]
+        },
+        {
+          "role": "assistant",
+          "text": "Sí. El miércoles en la tarde tengo cupos a las 2:00 p.m. y 4:30 p.m. ¿Cuál prefieres?",
+          "expected_tool_calls": [
+            "check_availability"
+          ],
+          "key_facts": [
+            "2:00 p.m.",
+            "4:30 p.m."
+          ]
+        },
+        {
+          "role": "user",
+          "text": "Las 2 pm, placa ABC123",
+          "expected_tool_calls": [
+            "reschedule"
+          ],
+          "key_facts": [
+            "2:00 p.m.",
+            "miércoles"
+          ]
+        },
+        {
+          "role": "assistant",
+          "text": "Tu revisión quedó reagendada para el miércoles a las 2:00 p.m. Gracias por avisar.",
+          "expected_tool_calls": [],
+          "key_facts": [
+            "reagendada"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "gc-014",
+      "niche": "restaurante",
+      "scenario": "Cancelar reserva",
+      "turns": [
+        {
+          "role": "user",
+          "text": "Hola, quiero cancelar la reserva de mañana a nombre de Andrés Mejía",
+          "expected_tool_calls": [
+            "cancel"
+          ],
+          "key_facts": [
+            "cancelar reserva",
+            "Andrés Mejía"
+          ]
+        },
+        {
+          "role": "assistant",
+          "text": "¿Confirmas la cancelación de la reserva de mañana para 6 personas a las 7:30 p.m.?",
+          "expected_tool_calls": [],
+          "key_facts": [
+            "confirmar antes de cancelar"
+          ]
+        },
+        {
+          "role": "user",
+          "text": "Sí, cancélala por favor",
+          "expected_tool_calls": [
+            "cancel"
+          ],
+          "key_facts": [
+            "cancelación confirmada"
+          ]
+        },
+        {
+          "role": "assistant",
+          "text": "Tu reserva fue cancelada. Gracias por avisarnos, esperamos verte pronto.",
+          "expected_tool_calls": [],
+          "key_facts": [
+            "reserva cancelada"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "gc-015",
+      "niche": "dentista",
+      "scenario": "Cancelar cita y pedir motivo opcional",
+      "turns": [
+        {
+          "role": "user",
+          "text": "Cancelen mi cita del lunes por favor, ya no puedo ir",
+          "expected_tool_calls": [
+            "cancel"
+          ],
+          "key_facts": [
+            "cancelar cita",
+            "lunes"
+          ]
+        },
+        {
+          "role": "assistant",
+          "text": "Entendido. ¿Tu cita del lunes a las 9:30 a.m. es la que quieres cancelar? Me confirmas tu nombre, por favor.",
+          "expected_tool_calls": [],
+          "key_facts": [
+            "confirmar identidad"
+          ]
+        },
+        {
+          "role": "user",
+          "text": "Sí, soy Laura Restrepo",
+          "expected_tool_calls": [
+            "cancel"
+          ],
+          "key_facts": [
+            "Laura Restrepo",
+            "9:30 a.m."
+          ]
+        },
+        {
+          "role": "assistant",
+          "text": "Tu cita del lunes a las 9:30 a.m. fue cancelada. Si quieres, puedo ofrecerte otro horario más adelante.",
+          "expected_tool_calls": [],
+          "key_facts": [
+            "cita cancelada"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "gc-016",
+      "niche": "clinica_estetica",
+      "scenario": "Cancelación sin cita existente",
+      "turns": [
+        {
+          "role": "user",
+          "text": "Quiero cancelar mi cita de esta semana",
+          "expected_tool_calls": [
+            "cancel"
+          ],
+          "key_facts": [
+            "cancelar",
+            "sin cita localizada"
+          ]
+        },
+        {
+          "role": "assistant",
+          "text": "No encuentro una cita a tu nombre para esta semana. ¿Me confirmas el nombre con el que agendaste?",
+          "expected_tool_calls": [],
+          "key_facts": [
+            "no inventar cita"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "gc-017",
+      "niche": "dentista",
+      "scenario": "Horario de atención en fin de semana",
+      "turns": [
+        {
+          "role": "user",
+          "text": "Hasta qué hora atienden los sábados?",
+          "expected_tool_calls": [
+            "get_business_info"
+          ],
+          "key_facts": [
+            "horario sábado"
+          ]
+        },
+        {
+          "role": "assistant",
+          "text": "Los sábados atendemos de 8:00 a.m. a 1:00 p.m. De lunes a viernes, de 7:00 a.m. a 6:00 p.m.",
+          "expected_tool_calls": [],
+          "key_facts": [
+            "sábado 8am-1pm",
+            "L-V 7am-6pm"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "gc-018",
+      "niche": "restaurante",
+      "scenario": "Horario de cocina y festivos",
+      "turns": [
+        {
+          "role": "user",
+          "text": "A qué hora cierran la cocina el domingo?",
+          "expected_tool_calls": [
+            "get_business_info"
+          ],
+          "key_facts": [
+            "domingo",
+            "cierre cocina"
+          ]
+        },
+        {
+          "role": "assistant",
+          "text": "El domingo la cocina cierra a las 9:30 p.m. Abrimos desde el mediodía.",
+          "expected_tool_calls": [],
+          "key_facts": [
+            "9:30 p.m.",
+            "domingo"
+          ]
+        },
+        {
+          "role": "user",
+          "text": "Y el 7 de agosto que es festivo abren?",
+          "expected_tool_calls": [],
+          "key_facts": []
+        },
+        {
+          "role": "assistant",
+          "text": "El 7 de agosto (festivo) tenemos horario especial. Te confirmo el horario exacto antes de tu visita.",
+          "expected_tool_calls": [],
+          "key_facts": [
+            "festivo",
+            "horario especial"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "gc-019",
+      "niche": "taller",
+      "scenario": "Horario en día hábil y pregunta por urgencia",
+      "turns": [
+        {
+          "role": "user",
+          "text": "Están abiertos ahora? Tengo una urgencia con el carro",
+          "expected_tool_calls": [
+            "get_business_info"
+          ],
+          "key_facts": [
+            "horario",
+            "urgencia"
+          ]
+        },
+        {
+          "role": "assistant",
+          "text": "Atendemos de lunes a sábado de 8:00 a.m. a 6:00 p.m. Si es urgencia, puedo comunicarte con una persona del equipo.",
+          "expected_tool_calls": [
+            "handoff"
+          ],
+          "key_facts": [
+            "L-S 8am-6pm",
+            "handoff urgencia"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "gc-020",
+      "niche": "dentista",
+      "scenario": "Dirección del consultorio",
+      "turns": [
+        {
+          "role": "user",
+          "text": "Dónde queda el consultorio?",
+          "expected_tool_calls": [
+            "get_business_info"
+          ],
+          "key_facts": [
+            "dirección"
+          ]
+        },
+        {
+          "role": "assistant",
+          "text": "Estamos en Cra. 5 #12-34, barrio Granada, Cali. Hay parqueadero para visitantes.",
+          "expected_tool_calls": [],
+          "key_facts": [
+            "Cra. 5 #12-34",
+            "Granada",
+            "Cali"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "gc-021",
+      "niche": "taller",
+      "scenario": "Ubicación y cómo llegar",
+      "turns": [
+        {
+          "role": "user",
+          "text": "Me pasas la ubicación del taller? Estoy por el sur",
+          "expected_tool_calls": [
+            "get_business_info"
+          ],
+          "key_facts": [
+            "ubicación",
+            "sur de Cali"
+          ]
+        },
+        {
+          "role": "assistant",
+          "text": "Estamos en Calle 52 #28-10, Cali, cerca a la estación de MIO. Te puedo enviar el enlace de Google Maps.",
+          "expected_tool_calls": [],
+          "key_facts": [
+            "Calle 52 #28-10",
+            "MIO"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "gc-022",
+      "niche": "clinica_estetica",
+      "scenario": "Opt-out con STOP",
+      "turns": [
+        {
+          "role": "user",
+          "text": "Hola, quiero saber promociones de depilación",
+          "expected_tool_calls": [
+            "get_business_info"
+          ],
+          "key_facts": [
+            "promociones"
+          ]
+        },
+        {
+          "role": "assistant",
+          "text": "Hola. Tenemos promociones en depilación láser por zonas. ¿Te interesa alguna?",
+          "expected_tool_calls": [],
+          "key_facts": [
+            "promociones"
+          ]
+        },
+        {
+          "role": "user",
+          "text": "STOP",
+          "expected_tool_calls": [],
+          "key_facts": []
+        },
+        {
+          "role": "assistant",
+          "text": "Listo, no recibirás más mensajes de promociones de nuestra parte. Si necesitas algo de una cita, escríbenos.",
+          "expected_tool_calls": [],
+          "key_facts": [
+            "opt-out registrado",
+            "sin más mensajes de marketing"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "gc-023",
+      "niche": "restaurante",
+      "scenario": "Opt-out con BAJA y reingreso con ALTA",
+      "turns": [
+        {
+          "role": "user",
+          "text": "BAJA",
+          "expected_tool_calls": [],
+          "key_facts": [
+            "opt-out por BAJA"
+          ]
+        },
+        {
+          "role": "assistant",
+          "text": "Hecho, te dimos de baja y no recibirás más mensajes promocionales. Si cambias de opinión, responde ALTA.",
+          "expected_tool_calls": [],
+          "key_facts": [
+            "baja confirmada",
+            "reingreso con ALTA"
+          ]
+        },
+        {
+          "role": "user",
+          "text": "ALTA",
+          "expected_tool_calls": [],
+          "key_facts": []
+        },
+        {
+          "role": "assistant",
+          "text": "Bienvenido de nuevo. Ya puedes recibir nuestras novedades.",
+          "expected_tool_calls": [],
+          "key_facts": [
+            "opt-in confirmado"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "gc-024",
+      "niche": "dentista",
+      "scenario": "Consentimiento antes de guardar datos de salud",
+      "turns": [
+        {
+          "role": "user",
+          "text": "Quiero agendar pero me preocupa que guarden mis datos de salud",
+          "expected_tool_calls": [
+            "get_business_info"
+          ],
+          "key_facts": [
+            "privacidad",
+            "consentimiento"
+          ]
+        },
+        {
+          "role": "assistant",
+          "text": "Tus datos se usan solo para gestionar tu cita y puedes pedir su consulta o eliminación. ¿Aceptas el tratamiento de datos para agendar?",
+          "expected_tool_calls": [],
+          "key_facts": [
+            "consentimiento explícito",
+            "aviso de privacidad"
+          ]
+        },
+        {
+          "role": "user",
+          "text": "Sí acepto",
+          "expected_tool_calls": [],
+          "key_facts": []
+        },
+        {
+          "role": "assistant",
+          "text": "Gracias por aceptar. ¿Qué día te gustaría tu cita?",
+          "expected_tool_calls": [
+            "record_consent"
+          ],
+          "key_facts": [
+            "consentimiento registrado"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "gc-025",
+      "niche": "clinica_estetica",
+      "scenario": "Solicitud de eliminar datos personales",
+      "turns": [
+        {
+          "role": "user",
+          "text": "Quiero que borren todos mis datos del sistema",
+          "expected_tool_calls": [
+            "handoff"
+          ],
+          "key_facts": [
+            "derecho de supresión",
+            "derivar"
+          ]
+        },
+        {
+          "role": "assistant",
+          "text": "Recibimos tu solicitud de eliminación de datos. La registramos y la atenderá el equipo en el plazo de ley.",
+          "expected_tool_calls": [
+            "handoff"
+          ],
+          "key_facts": [
+            "solicitud DSAR registrada",
+            "plazo de ley"
+          ]
+        }
+      ]
+    }
+  ]
+}

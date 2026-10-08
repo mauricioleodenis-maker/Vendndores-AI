@@ -1,0 +1,47 @@
+{
+  "places": [
+    {
+      "id": "ChIJFAKE000006",
+      "displayName": {"text": "Clínica Estética Aurora", "languageCode": "es"},
+      "formattedAddress": "Cra. 83 #16-40, Ciudad Jardín, Cali, Valle del Cauca, Colombia",
+      "location": {"latitude": 3.3998, "longitude": -76.5452},
+      "rating": 4.7,
+      "userRatingCount": 98,
+      "nationalPhoneNumber": "300 000 1106",
+      "internationalPhoneNumber": "+57 300 000 1106",
+      "websiteUri": "https://www.auroraestetica-ejemplo.com",
+      "googleMapsUri": "https://maps.google.com/?cid=10000000000000006",
+      "businessStatus": "OPERATIONAL",
+      "primaryType": "medical_spa",
+      "types": ["medical_spa", "health", "point_of_interest", "establishment"]
+    },
+    {
+      "id": "ChIJFAKE000007",
+      "displayName": {"text": "Dental Chipichape", "languageCode": "es"},
+      "formattedAddress": "Cl. 38N #6N-75, Chipichape, Cali, Valle del Cauca, Colombia",
+      "location": {"latitude": 3.4707, "longitude": -76.5196},
+      "rating": 4.1,
+      "userRatingCount": 39,
+      "nationalPhoneNumber": "300 000 1107",
+      "internationalPhoneNumber": "+57 300 000 1107",
+      "googleMapsUri": "https://maps.google.com/?cid=10000000000000007",
+      "businessStatus": "OPERATIONAL",
+      "primaryType": "dentist",
+      "types": ["dentist", "health", "point_of_interest", "establishment"]
+    },
+    {
+      "id": "ChIJFAKE000008",
+      "displayName": {"text": "Mecánica Automotriz El Paso", "languageCode": "es"},
+      "formattedAddress": "Calle 9 #32-10, San Fernando, Cali, Valle del Cauca, Colombia",
+      "location": {"latitude": 3.4421, "longitude": -76.5289},
+      "rating": 3.7,
+      "userRatingCount": 22,
+      "nationalPhoneNumber": "300 000 1108",
+      "internationalPhoneNumber": "+57 300 000 1108",
+      "googleMapsUri": "https://maps.google.com/?cid=10000000000000008",
+      "businessStatus": "OPERATIONAL",
+      "primaryType": "car_repair",
+      "types": ["car_repair", "point_of_interest", "establishment"]
+    }
+  ]
+}

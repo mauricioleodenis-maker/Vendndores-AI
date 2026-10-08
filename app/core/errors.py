@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import HTMLResponse, JSONResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.core.logging import get_logger
@@ -47,6 +47,13 @@ def _wants_html(request: Request) -> bool:
 
 
 def _render(request: Request, status: int, code: str, message: str) -> Response:
+    if code == "not_authenticated" and _wants_html(request):
+        from urllib.parse import quote
+
+        target = "/login?next=" + quote(request.url.path)
+        if request.headers.get("hx-request"):
+            return HTMLResponse("", status_code=401, headers={"HX-Redirect": "/login"})
+        return RedirectResponse(target, status_code=303)
     if _wants_html(request):
         from html import escape
 

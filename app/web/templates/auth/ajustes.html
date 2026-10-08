@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% from "partials/macros.html" import field, csrf, badge %}
+{% block title %}Ajustes{% endblock %}
+{% block content %}
+<h1>Ajustes</h1>
+<section class="card">
+  <h2>Mi cuenta</h2>
+  <p class="muted">{{ user.email }} · rol: {{ user.role }}</p>
+  <form method="post" action="/admin/ajustes/password">
+    {{ csrf() }}
+    {{ field('current_password', 'Contraseña actual', type='password', required=True, autocomplete='current-password') }}
+    {{ field('new_password', 'Contraseña nueva', type='password', required=True, autocomplete='new-password', help='Mínimo 12 caracteres, con letras y números.') }}
+    <button class="btn btn-primary" type="submit">Cambiar contraseña</button>
+  </form>
+</section>
+{% if user.role == 'owner' %}
+<section class="card">
+  <h2>Usuarios</h2>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>Correo</th><th>Nombre</th><th>Rol</th><th>Estado</th><th></th></tr></thead>
+    <tbody>
+    {% for u in users %}
+      <tr>
+        <td>{{ u.email }}</td><td>{{ u.full_name }}</td><td>{{ u.role }}</td>
+        <td>{{ badge('active' if u.is_active else 'paused') }}</td>
+        <td>
+          {% if u.id != user.id %}
+          <form method="post" action="/admin/ajustes/usuarios/{{ u.id }}/{{ 'desactivar' if u.is_active else 'activar' }}" data-confirm="¿Confirmas el cambio?">
+            {{ csrf() }}
+            <button class="btn btn-ghost" type="submit">{{ 'Desactivar' if u.is_active else 'Activar' }}</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <h3>Nuevo usuario</h3>
+  <form method="post" action="/admin/ajustes/usuarios">
+    {{ csrf() }}
+    {{ field('email', 'Correo', type='email', required=True) }}
+    {{ field('full_name', 'Nombre') }}
+    {{ field('password', 'Contraseña inicial', type='password', required=True, autocomplete='new-password') }}
+    <div class="field"><label for="f-role">Rol</label>
+      <select id="f-role" name="role"><option value="operator">Operador</option><option value="admin">Administrador</option><option value="owner">Dueño</option></select>
+    </div>
+    <button class="btn btn-primary" type="submit">Crear usuario</button>
+  </form>
+</section>
+{% endif %}
+{% endblock %}

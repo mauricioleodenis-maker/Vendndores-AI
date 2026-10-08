@@ -1,0 +1,54 @@
+{
+  "id": "ChIJFAKE000001",
+  "displayName": {"text": "Clínica Dental Sonrisa Caleña", "languageCode": "es"},
+  "formattedAddress": "Cra. 100 #14-20, Ciudad Jardín, Cali, Valle del Cauca, Colombia",
+  "nationalPhoneNumber": "300 000 1101",
+  "internationalPhoneNumber": "+57 300 000 1101",
+  "websiteUri": "https://www.sonrisacalena-ejemplo.com",
+  "googleMapsUri": "https://maps.google.com/?cid=10000000000000001",
+  "rating": 4.6,
+  "userRatingCount": 128,
+  "businessStatus": "OPERATIONAL",
+  "primaryType": "dentist",
+  "regularOpeningHours": {
+    "openNow": true,
+    "weekdayDescriptions": [
+      "lunes: 8:00 a.m.–6:00 p.m.",
+      "martes: 8:00 a.m.–6:00 p.m.",
+      "miércoles: 8:00 a.m.–6:00 p.m.",
+      "jueves: 8:00 a.m.–6:00 p.m.",
+      "viernes: 8:00 a.m.–5:00 p.m.",
+      "sábado: 8:00 a.m.–12:00 m.",
+      "domingo: cerrado"
+    ]
+  },
+  "reviews": [
+    {
+      "name": "places/ChIJFAKE000001/reviews/rev001",
+      "relativePublishTime": "hace 2 semanas",
+      "publishTime": "2026-09-24T15:12:00Z",
+      "rating": 5,
+      "text": {"text": "Excelente atención, la doctora Paula fue muy paciente con mi hijo. Los precios son justos.", "languageCode": "es"},
+      "originalText": {"text": "Excelente atención, la doctora Paula fue muy paciente con mi hijo. Los precios son justos.", "languageCode": "es"},
+      "authorAttribution": {"displayName": "Valentina R.", "uri": "https://www.google.com/maps/contrib/0000000000001", "photoUri": "https://lh3.googleusercontent.com/fake/photo001"}
+    },
+    {
+      "name": "places/ChIJFAKE000001/reviews/rev002",
+      "relativePublishTime": "hace 1 mes",
+      "publishTime": "2026-09-08T10:40:00Z",
+      "rating": 2,
+      "text": {"text": "Llamé varias veces y el WhatsApp no contestan nunca. Tuve que ir en persona para sacar cita.", "languageCode": "es"},
+      "originalText": {"text": "Llamé varias veces y el WhatsApp no contestan nunca. Tuve que ir en persona para sacar cita.", "languageCode": "es"},
+      "authorAttribution": {"displayName": "Andrés M.", "uri": "https://www.google.com/maps/contrib/0000000000002", "photoUri": "https://lh3.googleusercontent.com/fake/photo002"}
+    },
+    {
+      "name": "places/ChIJFAKE000001/reviews/rev003",
+      "relativePublishTime": "hace 3 meses",
+      "publishTime": "2026-07-10T20:05:00Z",
+      "rating": 4,
+      "text": {"text": "Buen servicio y limpieza impecable. La recepción tarda un poco en responder por teléfono.", "languageCode": "es"},
+      "originalText": {"text": "Buen servicio y limpieza impecable. La recepción tarda un poco en responder por teléfono.", "languageCode": "es"},
+      "authorAttribution": {"displayName": "Carolina G.", "uri": "https://www.google.com/maps/contrib/0000000000003", "photoUri": "https://lh3.googleusercontent.com/fake/photo003"}
+    }
+  ]
+}

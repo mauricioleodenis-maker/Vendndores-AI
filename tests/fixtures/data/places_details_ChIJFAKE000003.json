@@ -1,0 +1,45 @@
+{
+  "id": "ChIJFAKE000003",
+  "displayName": {"text": "Centro Estético Piel Morena", "languageCode": "es"},
+  "formattedAddress": "Calle 5 #66-30, Versalles, Cali, Valle del Cauca, Colombia",
+  "nationalPhoneNumber": "300 000 1103",
+  "internationalPhoneNumber": "+57 300 000 1103",
+  "websiteUri": "https://www.pielmorena-ejemplo.co",
+  "googleMapsUri": "https://maps.google.com/?cid=10000000000000003",
+  "rating": 4.8,
+  "userRatingCount": 214,
+  "businessStatus": "OPERATIONAL",
+  "primaryType": "beauty_salon",
+  "regularOpeningHours": {
+    "openNow": false,
+    "weekdayDescriptions": [
+      "lunes: 9:00 a.m.–7:00 p.m.",
+      "martes: 9:00 a.m.–7:00 p.m.",
+      "miércoles: 9:00 a.m.–7:00 p.m.",
+      "jueves: 9:00 a.m.–7:00 p.m.",
+      "viernes: 9:00 a.m.–7:00 p.m.",
+      "sábado: 9:00 a.m.–4:00 p.m.",
+      "domingo: cerrado"
+    ]
+  },
+  "reviews": [
+    {
+      "name": "places/ChIJFAKE000003/reviews/rev101",
+      "relativePublishTime": "hace 1 semana",
+      "publishTime": "2026-10-01T13:30:00Z",
+      "rating": 5,
+      "text": {"text": "Me hicieron una limpieza facial increíble. Agendé por WhatsApp y me confirmaron al instante.", "languageCode": "es"},
+      "originalText": {"text": "Me hicieron una limpieza facial increíble. Agendé por WhatsApp y me confirmaron al instante.", "languageCode": "es"},
+      "authorAttribution": {"displayName": "Daniela P.", "uri": "https://www.google.com/maps/contrib/0000000000101", "photoUri": "https://lh3.googleusercontent.com/fake/photo101"}
+    },
+    {
+      "name": "places/ChIJFAKE000003/reviews/rev102",
+      "relativePublishTime": "hace 2 meses",
+      "publishTime": "2026-08-05T16:22:00Z",
+      "rating": 3,
+      "text": {"text": "El servicio está bien pero me tocó esperar 40 minutos sin que nadie me avisara.", "languageCode": "es"},
+      "originalText": {"text": "El servicio está bien pero me tocó esperar 40 minutos sin que nadie me avisara.", "languageCode": "es"},
+      "authorAttribution": {"displayName": "Julián H.", "uri": "https://www.google.com/maps/contrib/0000000000102", "photoUri": "https://lh3.googleusercontent.com/fake/photo102"}
+    }
+  ]
+}

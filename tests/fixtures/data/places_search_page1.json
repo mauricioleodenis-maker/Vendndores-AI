@@ -1,0 +1,78 @@
+{
+  "places": [
+    {
+      "id": "ChIJFAKE000001",
+      "displayName": {"text": "Clínica Dental Sonrisa Caleña", "languageCode": "es"},
+      "formattedAddress": "Cra. 100 #14-20, Ciudad Jardín, Cali, Valle del Cauca, Colombia",
+      "location": {"latitude": 3.4016, "longitude": -76.5335},
+      "rating": 4.6,
+      "userRatingCount": 128,
+      "nationalPhoneNumber": "300 000 1101",
+      "internationalPhoneNumber": "+57 300 000 1101",
+      "websiteUri": "https://www.sonrisacalena-ejemplo.com",
+      "googleMapsUri": "https://maps.google.com/?cid=10000000000000001",
+      "businessStatus": "OPERATIONAL",
+      "primaryType": "dentist",
+      "types": ["dentist", "health", "point_of_interest", "establishment"]
+    },
+    {
+      "id": "ChIJFAKE000002",
+      "displayName": {"text": "Odontología Integral Valle", "languageCode": "es"},
+      "formattedAddress": "Av. 6N #28-45, Granada, Cali, Valle del Cauca, Colombia",
+      "location": {"latitude": 3.4577, "longitude": -76.5271},
+      "rating": 3.9,
+      "userRatingCount": 57,
+      "nationalPhoneNumber": "300 000 1102",
+      "internationalPhoneNumber": "+57 300 000 1102",
+      "googleMapsUri": "https://maps.google.com/?cid=10000000000000002",
+      "businessStatus": "OPERATIONAL",
+      "primaryType": "dental_clinic",
+      "types": ["dental_clinic", "health", "point_of_interest", "establishment"]
+    },
+    {
+      "id": "ChIJFAKE000003",
+      "displayName": {"text": "Centro Estético Piel Morena", "languageCode": "es"},
+      "formattedAddress": "Calle 5 #66-30, Versalles, Cali, Valle del Cauca, Colombia",
+      "location": {"latitude": 3.4353, "longitude": -76.5389},
+      "rating": 4.8,
+      "userRatingCount": 214,
+      "nationalPhoneNumber": "300 000 1103",
+      "internationalPhoneNumber": "+57 300 000 1103",
+      "websiteUri": "https://www.pielmorena-ejemplo.co",
+      "googleMapsUri": "https://maps.google.com/?cid=10000000000000003",
+      "businessStatus": "OPERATIONAL",
+      "primaryType": "beauty_salon",
+      "types": ["beauty_salon", "spa", "point_of_interest", "establishment"]
+    },
+    {
+      "id": "ChIJFAKE000004",
+      "displayName": {"text": "Taller Mecánico Don Chucho", "languageCode": "es"},
+      "formattedAddress": "Calle 44N #5BN-12, Barrio Santa Mónica, Cali, Valle del Cauca, Colombia",
+      "location": {"latitude": 3.4689, "longitude": -76.5102},
+      "rating": 4.4,
+      "userRatingCount": 86,
+      "nationalPhoneNumber": "300 000 1104",
+      "internationalPhoneNumber": "+57 300 000 1104",
+      "googleMapsUri": "https://maps.google.com/?cid=10000000000000004",
+      "businessStatus": "OPERATIONAL",
+      "primaryType": "car_repair",
+      "types": ["car_repair", "point_of_interest", "establishment"]
+    },
+    {
+      "id": "ChIJFAKE000005",
+      "displayName": {"text": "Restaurante El Sancocho del Valle", "languageCode": "es"},
+      "formattedAddress": "Av. Sexta #22N-18, El Peñón, Cali, Valle del Cauca, Colombia",
+      "location": {"latitude": 3.4449, "longitude": -76.5378},
+      "rating": 4.3,
+      "userRatingCount": 342,
+      "nationalPhoneNumber": "300 000 1105",
+      "internationalPhoneNumber": "+57 300 000 1105",
+      "websiteUri": "https://www.sancochodelvalle-ejemplo.com",
+      "googleMapsUri": "https://maps.google.com/?cid=10000000000000005",
+      "businessStatus": "OPERATIONAL",
+      "primaryType": "restaurant",
+      "types": ["restaurant", "food", "point_of_interest", "establishment"]
+    }
+  ],
+  "nextPageToken": "AdCG2DH7fakeTokenPage2Cali_xYz0123456789ABCDEF"
+}

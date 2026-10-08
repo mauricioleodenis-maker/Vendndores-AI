@@ -1,0 +1,44 @@
+{
+  "id": "ChIJFAKE000004",
+  "displayName": {"text": "Taller Mecánico Don Chucho", "languageCode": "es"},
+  "formattedAddress": "Calle 44N #5BN-12, Barrio Santa Mónica, Cali, Valle del Cauca, Colombia",
+  "nationalPhoneNumber": "300 000 1104",
+  "internationalPhoneNumber": "+57 300 000 1104",
+  "googleMapsUri": "https://maps.google.com/?cid=10000000000000004",
+  "rating": 4.4,
+  "userRatingCount": 86,
+  "businessStatus": "OPERATIONAL",
+  "primaryType": "car_repair",
+  "regularOpeningHours": {
+    "openNow": true,
+    "weekdayDescriptions": [
+      "lunes: 7:30 a.m.–6:00 p.m.",
+      "martes: 7:30 a.m.–6:00 p.m.",
+      "miércoles: 7:30 a.m.–6:00 p.m.",
+      "jueves: 7:30 a.m.–6:00 p.m.",
+      "viernes: 7:30 a.m.–6:00 p.m.",
+      "sábado: 8:00 a.m.–1:00 p.m.",
+      "domingo: cerrado"
+    ]
+  },
+  "reviews": [
+    {
+      "name": "places/ChIJFAKE000004/reviews/rev201",
+      "relativePublishTime": "hace 4 días",
+      "publishTime": "2026-10-04T09:15:00Z",
+      "rating": 5,
+      "text": {"text": "Me cambiaron los frenos el mismo día y el precio fue claro desde el principio.", "languageCode": "es"},
+      "originalText": {"text": "Me cambiaron los frenos el mismo día y el precio fue claro desde el principio.", "languageCode": "es"},
+      "authorAttribution": {"displayName": "Oscar V.", "uri": "https://www.google.com/maps/contrib/0000000000201", "photoUri": "https://lh3.googleusercontent.com/fake/photo201"}
+    },
+    {
+      "name": "places/ChIJFAKE000004/reviews/rev202",
+      "relativePublishTime": "hace 3 semanas",
+      "publishTime": "2026-09-17T11:50:00Z",
+      "rating": 1,
+      "text": {"text": "Pedí cita por el WhatsApp y no contestan. Al final llegué sin cita y me atendieron de malas.", "languageCode": "es"},
+      "originalText": {"text": "Pedí cita por el WhatsApp y no contestan. Al final llegué sin cita y me atendieron de malas.", "languageCode": "es"},
+      "authorAttribution": {"displayName": "Mauricio S.", "uri": "https://www.google.com/maps/contrib/0000000000202", "photoUri": "https://lh3.googleusercontent.com/fake/photo202"}
+    }
+  ]
+}

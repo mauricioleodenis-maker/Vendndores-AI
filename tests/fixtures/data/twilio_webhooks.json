@@ -1,0 +1,281 @@
+{
+  "_meta": {
+    "descripcion": "Payloads de ejemplo de Twilio WhatsApp (form-urlencoded) para tests. Datos ficticios: SIDs, teléfonos +57 300 000 xxxx y nombres inventados.",
+    "account_sid": "AC00000000000000000000000000000001",
+    "auth_token_de_prueba": "test_auth_token_no_real",
+    "webhook_base_url": "https://test.vendedores.local/webhooks/twilio/whatsapp",
+    "status_callback_url": "https://test.vendedores.local/webhooks/twilio/whatsapp/status",
+    "numero_agencia": "whatsapp:+573000000000",
+    "nota_firma": "X-Twilio-Signature = base64(HMAC-SHA1(auth_token, url + concat(key + value for key in sorted(params)))). Para POST form, la URL debe ser la pública exacta (esquema, host, path y query). Los params se ordenan por nombre y se concatenan sin separadores; los valores de POST se usan tal cual (ya decodificados). Para tests: calcular con validate_twilio_signature(url, params, firma, token) o con el helper de tests/fixtures/twilio_sign.py si existe.",
+    "formato_body": "application/x-www-form-urlencoded; los campos vacíos (p. ej. MediaUrl0 en texto puro) pueden omitirse o venir como cadena vacía, según el caso."
+  },
+  "inbound": [
+    {
+      "id": "in_texto_simple_agendar",
+      "descripcion": "Paciente escribe para agendar cita; mensaje de texto sin media.",
+      "url": "https://test.vendedores.local/webhooks/twilio/whatsapp",
+      "headers": {"X-Twilio-Signature": "REEMPLAZAR_CON_FIRMA_CALCULADA"},
+      "form": {
+        "MessageSid": "SM00000000000000000000000000000101",
+        "SmsSid": "SM00000000000000000000000000000101",
+        "SmsMessageSid": "SM00000000000000000000000000000101",
+        "AccountSid": "AC00000000000000000000000000000001",
+        "MessagingServiceSid": "",
+        "From": "whatsapp:+573000000001",
+        "To": "whatsapp:+573000000000",
+        "Body": "Hola, quisiera agendar una limpieza dental para el viernes en la tarde",
+        "NumMedia": "0",
+        "NumSegments": "1",
+        "SmsStatus": "received",
+        "SmsStatusCode": "",
+        "ApiVersion": "2010-04-01",
+        "ProfileName": "Laura Gómez Prueba",
+        "WaId": "573000000001"
+      }
+    },
+    {
+      "id": "in_optout_stop",
+      "descripcion": "Usuario pide no recibir más mensajes (opt-out).",
+      "url": "https://test.vendedores.local/webhooks/twilio/whatsapp",
+      "form": {
+        "MessageSid": "SM00000000000000000000000000000102",
+        "AccountSid": "AC00000000000000000000000000000001",
+        "From": "whatsapp:+573000000002",
+        "To": "whatsapp:+573000000000",
+        "Body": "STOP",
+        "NumMedia": "0",
+        "NumSegments": "1",
+        "SmsStatus": "received",
+        "ProfileName": "Carlos Ruiz Prueba",
+        "WaId": "573000000002"
+      }
+    },
+    {
+      "id": "in_optin_start_con_tildes",
+      "descripcion": "Usuario reactiva con START/ALTA; texto con tildes y ñ.",
+      "url": "https://test.vendedores.local/webhooks/twilio/whatsapp",
+      "form": {
+        "MessageSid": "SM00000000000000000000000000000103",
+        "AccountSid": "AC00000000000000000000000000000001",
+        "From": "whatsapp:+573000000002",
+        "To": "whatsapp:+573000000000",
+        "Body": "ALTA, gracias. ¿Me pueden confirmar el precio del tratamiento de ñandú? ",
+        "NumMedia": "0",
+        "NumSegments": "2",
+        "SmsStatus": "received",
+        "ProfileName": "Carlos Ruiz Prueba",
+        "WaId": "573000000002"
+      }
+    },
+    {
+      "id": "in_media_imagen_comprobante",
+      "descripcion": "Cliente envía foto de comprobante de pago (imagen JPEG).",
+      "url": "https://test.vendedores.local/webhooks/twilio/whatsapp",
+      "form": {
+        "MessageSid": "SM00000000000000000000000000000104",
+        "AccountSid": "AC00000000000000000000000000000001",
+        "From": "whatsapp:+573000000003",
+        "To": "whatsapp:+573000000000",
+        "Body": "Ya hice el pago, aquí el comprobante",
+        "NumMedia": "1",
+        "MediaContentType0": "image/jpeg",
+        "MediaUrl0": "https://api.twilio.com/2010-04-01/Accounts/AC00000000000000000000000000000001/Messages/SM00000000000000000000000000000104/Media/ME00000000000000000000000000000201",
+        "NumSegments": "1",
+        "SmsStatus": "received",
+        "ProfileName": "Andrea Torres Prueba",
+        "WaId": "573000000003"
+      }
+    },
+    {
+      "id": "in_media_audio_nota_de_voz",
+      "descripcion": "Nota de voz OGG/Opus; Body vacío.",
+      "url": "https://test.vendedores.local/webhooks/twilio/whatsapp",
+      "form": {
+        "MessageSid": "SM00000000000000000000000000000105",
+        "AccountSid": "AC00000000000000000000000000000001",
+        "From": "whatsapp:+573000000004",
+        "To": "whatsapp:+573000000000",
+        "Body": "",
+        "NumMedia": "1",
+        "MediaContentType0": "audio/ogg; codecs=opus",
+        "MediaUrl0": "https://api.twilio.com/2010-04-01/Accounts/AC00000000000000000000000000000001/Messages/SM00000000000000000000000000000105/Media/ME00000000000000000000000000000202",
+        "NumSegments": "1",
+        "SmsStatus": "received",
+        "ProfileName": "Jorge Martínez Prueba",
+        "WaId": "573000000004"
+      }
+    },
+    {
+      "id": "in_multimedia_dos_adjuntos",
+      "descripcion": "Dos adjuntos (imagen y PDF) en un mismo mensaje.",
+      "url": "https://test.vendedores.local/webhooks/twilio/whatsapp",
+      "form": {
+        "MessageSid": "SM00000000000000000000000000000106",
+        "AccountSid": "AC00000000000000000000000000000001",
+        "From": "whatsapp:+573000000005",
+        "To": "whatsapp:+573000000000",
+        "Body": "Le envío la radiografía y la orden médica",
+        "NumMedia": "2",
+        "MediaContentType0": "image/png",
+        "MediaUrl0": "https://api.twilio.com/2010-04-01/Accounts/AC00000000000000000000000000000001/Messages/SM00000000000000000000000000000106/Media/ME00000000000000000000000000000203",
+        "MediaContentType1": "application/pdf",
+        "MediaUrl1": "https://api.twilio.com/2010-04-01/Accounts/AC00000000000000000000000000000001/Messages/SM00000000000000000000000000000106/Media/ME00000000000000000000000000000204",
+        "NumSegments": "1",
+        "SmsStatus": "received",
+        "ProfileName": "Sofía Herrera Prueba",
+        "WaId": "573000000005"
+      }
+    },
+    {
+      "id": "in_duplicado_mismo_messagesid",
+      "descripcion": "Reentrega de Twilio con el MISMO MessageSid que in_texto_simple_agendar. El sistema debe ignorarla (idempotencia).",
+      "url": "https://test.vendedores.local/webhooks/twilio/whatsapp",
+      "form": {
+        "MessageSid": "SM00000000000000000000000000000101",
+        "AccountSid": "AC00000000000000000000000000000001",
+        "From": "whatsapp:+573000000001",
+        "To": "whatsapp:+573000000000",
+        "Body": "Hola, quisiera agendar una limpieza dental para el viernes en la tarde",
+        "NumMedia": "0",
+        "NumSegments": "1",
+        "SmsStatus": "received",
+        "ProfileName": "Laura Gómez Prueba",
+        "WaId": "573000000001"
+      }
+    },
+    {
+      "id": "in_firma_invalida",
+      "descripcion": "Misma carga que in_texto_simple_agendar pero con firma incorrecta; debe responder 403.",
+      "url": "https://test.vendedores.local/webhooks/twilio/whatsapp",
+      "headers": {"X-Twilio-Signature": "firma_incorrecta_de_prueba="},
+      "form": {
+        "MessageSid": "SM00000000000000000000000000000107",
+        "AccountSid": "AC00000000000000000000000000000001",
+        "From": "whatsapp:+573000000006",
+        "To": "whatsapp:+573000000000",
+        "Body": "Buenas tardes",
+        "NumMedia": "0",
+        "SmsStatus": "received",
+        "WaId": "573000000006"
+      }
+    }
+  ],
+  "status_callbacks": [
+    {
+      "id": "st_queued",
+      "descripcion": "Mensaje encolado en Twilio.",
+      "url": "https://test.vendedores.local/webhooks/twilio/whatsapp/status",
+      "form": {
+        "MessageSid": "SM00000000000000000000000000000201",
+        "MessageStatus": "queued",
+        "SmsStatus": "queued",
+        "AccountSid": "AC00000000000000000000000000000001",
+        "From": "whatsapp:+573000000000",
+        "To": "whatsapp:+573000000001",
+        "ApiVersion": "2010-04-01"
+      }
+    },
+    {
+      "id": "st_sent",
+      "descripcion": "Enviado al proveedor de WhatsApp.",
+      "url": "https://test.vendedores.local/webhooks/twilio/whatsapp/status",
+      "form": {
+        "MessageSid": "SM00000000000000000000000000000201",
+        "MessageStatus": "sent",
+        "SmsStatus": "sent",
+        "AccountSid": "AC00000000000000000000000000000001",
+        "From": "whatsapp:+573000000000",
+        "To": "whatsapp:+573000000001",
+        "ApiVersion": "2010-04-01"
+      }
+    },
+    {
+      "id": "st_delivered",
+      "descripcion": "Entregado al dispositivo.",
+      "url": "https://test.vendedores.local/webhooks/twilio/whatsapp/status",
+      "form": {
+        "MessageSid": "SM00000000000000000000000000000201",
+        "MessageStatus": "delivered",
+        "SmsStatus": "delivered",
+        "AccountSid": "AC00000000000000000000000000000001",
+        "From": "whatsapp:+573000000000",
+        "To": "whatsapp:+573000000001",
+        "ApiVersion": "2010-04-01"
+      }
+    },
+    {
+      "id": "st_read",
+      "descripcion": "Leído por el usuario.",
+      "url": "https://test.vendedores.local/webhooks/twilio/whatsapp/status",
+      "form": {
+        "MessageSid": "SM00000000000000000000000000000201",
+        "MessageStatus": "read",
+        "SmsStatus": "read",
+        "AccountSid": "AC00000000000000000000000000000001",
+        "From": "whatsapp:+573000000000",
+        "To": "whatsapp:+573000000001",
+        "ApiVersion": "2010-04-01"
+      }
+    },
+    {
+      "id": "st_failed_fuera_ventana_63016",
+      "descripcion": "Mensaje libre fuera de la ventana de 24 h: Twilio devuelve ErrorCode 63016 (requiere plantilla aprobada).",
+      "url": "https://test.vendedores.local/webhooks/twilio/whatsapp/status",
+      "form": {
+        "MessageSid": "SM00000000000000000000000000000202",
+        "MessageStatus": "failed",
+        "SmsStatus": "failed",
+        "ErrorCode": "63016",
+        "ErrorMessage": "Failed to send freeform message because you are outside the allowed window. If you are using WhatsApp, please use a Message Template.",
+        "AccountSid": "AC00000000000000000000000000000001",
+        "From": "whatsapp:+573000000000",
+        "To": "whatsapp:+573000000003",
+        "ApiVersion": "2010-04-01"
+      }
+    },
+    {
+      "id": "st_undelivered_numero_invalido",
+      "descripcion": "No entregado: número sin WhatsApp (ErrorCode 63003 como ejemplo de otro error).",
+      "url": "https://test.vendedores.local/webhooks/twilio/whatsapp/status",
+      "form": {
+        "MessageSid": "SM00000000000000000000000000000203",
+        "MessageStatus": "undelivered",
+        "SmsStatus": "undelivered",
+        "ErrorCode": "63003",
+        "ErrorMessage": "Channel could not find To address",
+        "AccountSid": "AC00000000000000000000000000000001",
+        "From": "whatsapp:+573000000000",
+        "To": "whatsapp:+573000000007",
+        "ApiVersion": "2010-04-01"
+      }
+    },
+    {
+      "id": "st_duplicado_delivered",
+      "descripcion": "Reentrega del callback 'delivered' con el mismo MessageSid y status (debe ser idempotente).",
+      "url": "https://test.vendedores.local/webhooks/twilio/whatsapp/status",
+      "form": {
+        "MessageSid": "SM00000000000000000000000000000201",
+        "MessageStatus": "delivered",
+        "SmsStatus": "delivered",
+        "AccountSid": "AC00000000000000000000000000000001",
+        "From": "whatsapp:+573000000000",
+        "To": "whatsapp:+573000000001",
+        "ApiVersion": "2010-04-01"
+      }
+    },
+    {
+      "id": "st_fuera_de_orden_read_antes_que_sent",
+      "descripcion": "Callback 'read' que llega antes que 'sent' por reordenamiento de red; el sistema no debe retroceder el estado.",
+      "url": "https://test.vendedores.local/webhooks/twilio/whatsapp/status",
+      "form": {
+        "MessageSid": "SM00000000000000000000000000000204",
+        "MessageStatus": "read",
+        "SmsStatus": "read",
+        "AccountSid": "AC00000000000000000000000000000001",
+        "From": "whatsapp:+573000000000",
+        "To": "whatsapp:+573000000004",
+        "ApiVersion": "2010-04-01"
+      }
+    }
+  ]
+}

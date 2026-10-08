@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% from "partials/macros.html" import field %}
+{% block title %}Iniciar sesión{% endblock %}
+{% block public %}
+<section class="login-card">
+  <h1>{{ app_name }}</h1>
+  <p class="muted">Ingresa con tu cuenta de la agencia.</p>
+  {% if error %}<div class="alert alert-error" role="alert">{{ error }}</div>{% endif %}
+  <form method="post" action="/login" autocomplete="on">
+    <input type="hidden" name="login_csrf" value="{{ login_csrf }}">
+    <input type="hidden" name="next" value="{{ next }}">
+    {{ field('email', 'Correo', value=email, type='email', required=True, autocomplete='username') }}
+    {{ field('password', 'Contraseña', type='password', required=True, autocomplete='current-password') }}
+    <button class="btn btn-primary btn-block" type="submit">Entrar</button>
+  </form>
+</section>
+{% endblock %}

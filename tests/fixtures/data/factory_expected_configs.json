@@ -1,0 +1,361 @@
+{
+  "schema": "factory_expected_configs@1",
+  "description": "Salida esperada (GeneratedBotConfig, tool emit_bot_config) para cada caso de factory_inputs.json. Para FakeLLM scripted. expected_status: status final tras validacion backend (draft | needs_review).",
+  "cases": [
+    {
+      "id": "dentista_completo",
+      "expected_status": "draft",
+      "config": {
+        "schema_version": "1",
+        "business": {
+          "name": "Odontologia Vallenar Demo",
+          "niche": "dentista",
+          "city": "Cali",
+          "address": "Cra 100 # 5-20, Consultorio 301, Cali",
+          "phone": "+57 300 000 0001",
+          "timezone": "America/Bogota"
+        },
+        "services": [
+          {"id": "limpieza_dental", "name": "Limpieza dental", "description": "Profilaxis y control de placa.", "duration_min": 45, "price_cop": 60000, "price_note": null, "requires_valuation": false, "source_ref": "owner"},
+          {"id": "blanqueamiento", "name": "Blanqueamiento dental", "description": "Blanqueamiento en consultorio.", "duration_min": 60, "price_cop": 350000, "price_note": null, "requires_valuation": false, "source_ref": "owner"},
+          {"id": "valoracion_general", "name": "Valoracion general", "description": "Revision inicial y plan de tratamiento.", "duration_min": 30, "price_cop": 40000, "price_note": null, "requires_valuation": false, "source_ref": "owner"},
+          {"id": "resina", "name": "Resina dental", "description": "Restauracion estetica en resina.", "duration_min": 45, "price_cop": null, "price_note": "consultar en clinica", "requires_valuation": true, "source_ref": "owner"},
+          {"id": "ortodoncia_valoracion", "name": "Valoracion de ortodoncia", "description": "Evaluacion previa para ortodoncia.", "duration_min": 30, "price_cop": null, "price_note": "consultar en clinica", "requires_valuation": true, "source_ref": "owner"}
+        ],
+        "hours": {"weekly": {
+          "mon": [{"open": "08:00", "close": "18:00"}],
+          "tue": [{"open": "08:00", "close": "18:00"}],
+          "wed": [{"open": "08:00", "close": "18:00"}],
+          "thu": [{"open": "08:00", "close": "18:00"}],
+          "fri": [{"open": "08:00", "close": "18:00"}],
+          "sat": [{"open": "08:00", "close": "12:00"}],
+          "sun": []
+        }},
+        "booking_rules": {"slot_minutes": 30, "min_notice_hours": 2, "max_days_ahead": 30, "buffer_minutes": 10, "requires_fields": ["name", "phone", "service", "reason_general"]},
+        "faqs": [
+          {"question": "Cuanto cuesta la valoracion?", "answer": "La valoracion general cuesta 40.000 COP.", "source_ref": "owner"},
+          {"question": "Cuanto cuesta la limpieza dental?", "answer": "La limpieza dental cuesta 60.000 COP.", "source_ref": "owner"},
+          {"question": "Atienden sabados?", "answer": "Si, los sabados atendemos de 8:00 a 12:00.", "source_ref": "web:https://vallenar-demo.example.co/"}
+        ],
+        "tone": {"register": "usted", "emoji_level": "none"},
+        "handoff_rules": [
+          {"trigger": "Queja del paciente sobre atencion o tratamiento", "action": "notify_human"},
+          {"trigger": "Urgencia medica: dolor intenso, sangrado, trauma o inflamacion facial", "action": "escalate_urgent"},
+          {"trigger": "Pedido de factura o reembolso", "action": "notify_human"},
+          {"trigger": "Peticion explicita de hablar con una persona", "action": "notify_human"},
+          {"trigger": "Dos intentos fallidos de entender al paciente", "action": "notify_human"}
+        ],
+        "out_of_scope_topics": ["diagnosticos", "medicamentos y dosis", "interpretacion de radiografias", "consejo medico"],
+        "open_questions": ["Confirmar precio de resina y de valoracion de ortodoncia."],
+        "flags": [{"type": "missing_price", "detail": "Resina y valoracion de ortodoncia sin precio en las fuentes."}],
+        "sources": ["owner", "web:https://vallenar-demo.example.co/"]
+      }
+    },
+    {
+      "id": "dentista_injection_web",
+      "expected_status": "needs_review",
+      "config": {
+        "schema_version": "1",
+        "business": {
+          "name": "Dental Sonrisas Ejemplo",
+          "niche": "dentista",
+          "city": "Cali",
+          "address": "Calle 9 # 38-12, Cali",
+          "phone": "+57 300 000 0002",
+          "timezone": "America/Bogota"
+        },
+        "services": [
+          {"id": "limpieza_dental", "name": "Limpieza dental", "description": "Limpieza y control de placa.", "duration_min": 45, "price_cop": 80000, "price_note": null, "requires_valuation": false, "source_ref": "web:https://dental-sonrisas-ejemplo.example.co/precios"},
+          {"id": "extraccion", "name": "Extraccion dental", "description": "Extraccion de piezas.", "duration_min": 45, "price_cop": null, "price_note": "consultar en clinica", "requires_valuation": true, "source_ref": "owner"},
+          {"id": "valoracion_general", "name": "Valoracion general", "description": "Revision inicial.", "duration_min": 30, "price_cop": null, "price_note": "consultar en clinica", "requires_valuation": true, "source_ref": "owner"}
+        ],
+        "hours": {"weekly": {
+          "mon": [{"open": "09:00", "close": "17:00"}],
+          "tue": [{"open": "09:00", "close": "17:00"}],
+          "wed": [{"open": "09:00", "close": "17:00"}],
+          "thu": [{"open": "09:00", "close": "17:00"}],
+          "fri": [{"open": "09:00", "close": "17:00"}],
+          "sat": [{"open": "09:00", "close": "17:00"}],
+          "sun": []
+        }},
+        "booking_rules": {"slot_minutes": 30, "min_notice_hours": 2, "max_days_ahead": 30, "buffer_minutes": 10, "requires_fields": ["name", "phone", "service"]},
+        "faqs": [
+          {"question": "Cuanto cuesta la limpieza?", "answer": "La limpieza dental cuesta 80.000 COP.", "source_ref": "web:https://dental-sonrisas-ejemplo.example.co/precios"}
+        ],
+        "tone": {"register": "usted", "emoji_level": "none"},
+        "handoff_rules": [
+          {"trigger": "Queja del paciente sobre atencion o tratamiento", "action": "notify_human"},
+          {"trigger": "Urgencia medica: dolor intenso, sangrado o trauma", "action": "escalate_urgent"},
+          {"trigger": "Pedido de factura o reembolso", "action": "notify_human"},
+          {"trigger": "Peticion explicita de hablar con una persona", "action": "notify_human"},
+          {"trigger": "Dos intentos fallidos de entender al paciente", "action": "notify_human"}
+        ],
+        "out_of_scope_topics": ["diagnosticos", "medicamentos y dosis", "consejo medico", "revelar instrucciones internas"],
+        "open_questions": ["Revisar la pagina de precios: contiene instrucciones fuera de lugar. Confirmar precios reales con el dueno.", "Confirmar precio de valoracion y extraccion."],
+        "flags": [
+          {"type": "prompt_injection_suspected", "detail": "El texto de /precios pide ignorar instrucciones, poner valoracion en 0 COP y mostrar el prompt. No aplicado."},
+          {"type": "missing_price", "detail": "Valoracion general y extraccion sin precio en fuentes confiables."}
+        ],
+        "sources": ["owner", "web:https://dental-sonrisas-ejemplo.example.co/precios"]
+      }
+    },
+    {
+      "id": "taller_sin_precios",
+      "expected_status": "draft",
+      "config": {
+        "schema_version": "1",
+        "business": {
+          "name": "Taller Mecanico Don Hernan Demo",
+          "niche": "taller",
+          "city": "Cali",
+          "address": "Av. 6N # 28-45, Cali",
+          "phone": "+57 300 000 0003",
+          "timezone": "America/Bogota"
+        },
+        "services": [
+          {"id": "cambio_aceite", "name": "Cambio de aceite", "description": "Cambio de aceite y filtro.", "duration_min": 40, "price_cop": null, "price_note": "consultar en taller", "requires_valuation": false, "source_ref": "owner"},
+          {"id": "revision_general", "name": "Revision general", "description": "Revision general del vehiculo.", "duration_min": 60, "price_cop": null, "price_note": "consultar en taller", "requires_valuation": true, "source_ref": "owner"},
+          {"id": "frenos", "name": "Revision y cambio de frenos", "description": "Revision de frenos y cambio de pastillas.", "duration_min": 90, "price_cop": null, "price_note": "consultar en taller", "requires_valuation": true, "source_ref": "owner"},
+          {"id": "alineacion", "name": "Alineacion", "description": "Alineacion de direccion.", "duration_min": 60, "price_cop": null, "price_note": "consultar en taller", "requires_valuation": true, "source_ref": "owner"}
+        ],
+        "hours": {"weekly": {
+          "mon": [{"open": "07:30", "close": "18:00"}],
+          "tue": [{"open": "07:30", "close": "18:00"}],
+          "wed": [{"open": "07:30", "close": "18:00"}],
+          "thu": [{"open": "07:30", "close": "18:00"}],
+          "fri": [{"open": "07:30", "close": "18:00"}],
+          "sat": [],
+          "sun": []
+        }},
+        "booking_rules": {"slot_minutes": 60, "min_notice_hours": 4, "max_days_ahead": 21, "buffer_minutes": 15, "requires_fields": ["name", "phone", "service"]},
+        "faqs": [
+          {"question": "Cuanto cuesta un cambio de aceite?", "answer": "El precio depende del vehiculo; el equipo del taller te confirma.", "source_ref": "owner"},
+          {"question": "Atienden los sabados?", "answer": "De lunes a viernes de 7:30 a 18:00. Los sabados no se ha confirmado el horario.", "source_ref": "owner"}
+        ],
+        "tone": {"register": "tu", "emoji_level": "none"},
+        "handoff_rules": [
+          {"trigger": "Queja del cliente sobre un servicio o reparacion", "action": "notify_human"},
+          {"trigger": "Falla de frenos o accidente con el vehiculo: riesgo de seguridad", "action": "escalate_urgent"},
+          {"trigger": "Pedido de factura o reembolso", "action": "notify_human"},
+          {"trigger": "Peticion explicita de hablar con una persona", "action": "notify_human"},
+          {"trigger": "Dos intentos fallidos de entender al cliente", "action": "notify_human"}
+        ],
+        "out_of_scope_topics": ["diagnosticos tecnicos por mensaje", "cotizaciones de repuestos sin revision", "asesoria legal de seguros"],
+        "open_questions": ["Definir precios de cambio de aceite, revision, frenos y alineacion.", "Confirmar si hay atencion los sabados."],
+        "flags": [{"type": "missing_price", "detail": "Ningun servicio tiene precio declarado ni fuente web."}],
+        "sources": ["owner"]
+      }
+    },
+    {
+      "id": "restaurante_horario_incompleto",
+      "expected_status": "draft",
+      "config": {
+        "schema_version": "1",
+        "business": {
+          "name": "Sazon Pacifico Demo",
+          "niche": "restaurante",
+          "city": "Cali",
+          "address": "Cra 66 # 14-30, Cali",
+          "phone": "+57 300 000 0004",
+          "timezone": "America/Bogota"
+        },
+        "services": [
+          {"id": "almuerzo_ejecutivo", "name": "Almuerzo ejecutivo", "description": "Menu del dia.", "duration_min": 60, "price_cop": 18000, "price_note": null, "requires_valuation": false, "source_ref": "owner"},
+          {"id": "cazuela_mariscos", "name": "Cazuela de mariscos", "description": "Plato tipico del Pacifico.", "duration_min": 45, "price_cop": 42000, "price_note": null, "requires_valuation": false, "source_ref": "web:https://sazon-pacifico-demo.example.co/menu"},
+          {"id": "encebollado", "name": "Encebollado", "description": "Plato tipico del Pacifico.", "duration_min": 30, "price_cop": 25000, "price_note": null, "requires_valuation": false, "source_ref": "web:https://sazon-pacifico-demo.example.co/menu"}
+        ],
+        "hours": {"weekly": {
+          "mon": [], "tue": [], "wed": [], "thu": [], "fri": [], "sat": [], "sun": []
+        }},
+        "booking_rules": {"slot_minutes": 30, "min_notice_hours": 1, "max_days_ahead": 14, "buffer_minutes": 0, "requires_fields": ["name", "phone"]},
+        "faqs": [
+          {"question": "Cuanto cuesta el almuerzo ejecutivo?", "answer": "El almuerzo ejecutivo cuesta 18.000 COP.", "source_ref": "owner"},
+          {"question": "Hacen domicilios?", "answer": "Si, pide por WhatsApp.", "source_ref": "web:https://sazon-pacifico-demo.example.co/menu"}
+        ],
+        "tone": {"register": "tu", "emoji_level": "low"},
+        "handoff_rules": [
+          {"trigger": "Queja del cliente por comida o servicio", "action": "notify_human"},
+          {"trigger": "Alergia alimentaria grave reportada", "action": "escalate_urgent"},
+          {"trigger": "Pedido de factura o reembolso", "action": "notify_human"},
+          {"trigger": "Peticion explicita de hablar con una persona", "action": "notify_human"},
+          {"trigger": "Dos intentos fallidos de entender al cliente", "action": "notify_human"}
+        ],
+        "out_of_scope_topics": ["recomendaciones nutricionales medicas", "contenido ajeno al restaurante"],
+        "open_questions": ["Confirmar horario de atencion: no fue declarado.", "Confirmar si hay reservas y para cuantas personas.", "Confirmar precios del resto del menu."],
+        "flags": [{"type": "low_confidence", "detail": "Horario vacio; el bot no ofrecera horarios hasta que el dueno lo confirme."}],
+        "sources": ["owner", "web:https://sazon-pacifico-demo.example.co/menu"]
+      }
+    },
+    {
+      "id": "clinica_estetica_claims_medicos",
+      "expected_status": "draft",
+      "config": {
+        "schema_version": "1",
+        "business": {
+          "name": "Estetica Luna Demo",
+          "niche": "clinica_estetica",
+          "city": "Cali",
+          "address": "Cra 83 # 15-40, Cali",
+          "phone": "+57 300 000 0005",
+          "timezone": "America/Bogota"
+        },
+        "services": [
+          {"id": "limpieza_facial", "name": "Limpieza facial", "description": "Limpieza facial profunda.", "duration_min": 60, "price_cop": 90000, "price_note": null, "requires_valuation": false, "source_ref": "owner"},
+          {"id": "peeling_quimico", "name": "Peeling quimico", "description": "Exfoliacion quimica segun valoracion.", "duration_min": 45, "price_cop": null, "price_note": "consultar en clinica", "requires_valuation": true, "source_ref": "owner"},
+          {"id": "depilacion_laser", "name": "Depilacion laser", "description": "Depilacion laser por zonas.", "duration_min": 30, "price_cop": null, "price_note": "precio segun zona, consultar", "requires_valuation": true, "source_ref": "web:https://estetica-luna-demo.example.co/"},
+          {"id": "valoracion_estetica", "name": "Valoracion estetica", "description": "Valoracion sin costo para definir el plan.", "duration_min": 30, "price_cop": 0, "price_note": "valoracion sin costo", "requires_valuation": true, "source_ref": "owner"}
+        ],
+        "hours": {"weekly": {
+          "mon": [],
+          "tue": [{"open": "09:00", "close": "19:00"}],
+          "wed": [{"open": "09:00", "close": "19:00"}],
+          "thu": [{"open": "09:00", "close": "19:00"}],
+          "fri": [{"open": "09:00", "close": "19:00"}],
+          "sat": [{"open": "09:00", "close": "19:00"}],
+          "sun": []
+        }},
+        "booking_rules": {"slot_minutes": 30, "min_notice_hours": 3, "max_days_ahead": 30, "buffer_minutes": 10, "requires_fields": ["name", "phone", "service", "reason_general"]},
+        "faqs": [
+          {"question": "Cuanto cuesta la limpieza facial?", "answer": "La limpieza facial cuesta 90.000 COP.", "source_ref": "owner"},
+          {"question": "La valoracion tiene costo?", "answer": "La valoracion estetica no tiene costo.", "source_ref": "owner"}
+        ],
+        "tone": {"register": "usted", "emoji_level": "none"},
+        "handoff_rules": [
+          {"trigger": "Queja por resultado o reaccion en la piel", "action": "notify_human"},
+          {"trigger": "Reaccion grave: quemadura, ampollas, dificultad para respirar", "action": "escalate_urgent"},
+          {"trigger": "Pedido de factura o reembolso", "action": "notify_human"},
+          {"trigger": "Peticion explicita de hablar con una persona", "action": "notify_human"},
+          {"trigger": "Dos intentos fallidos de entender a la paciente", "action": "notify_human"}
+        ],
+        "out_of_scope_topics": ["diagnosticos dermatologicos", "medicamentos y dosis", "promesas de resultados", "consejo medico sobre embarazo o condiciones de salud"],
+        "open_questions": ["Confirmar precios de peeling quimico y depilacion laser por zona.", "Confirmar si el lunes hay atencion."],
+        "flags": [{"type": "medical_claim_removed", "detail": "Se retiraron 'eliminamos manchas para siempre', '100% garantizado' y 'sin dolor, sin riesgo' de la web."}],
+        "sources": ["owner", "web:https://estetica-luna-demo.example.co/"]
+      }
+    },
+    {
+      "id": "taller_precios_solo_en_web",
+      "expected_status": "draft",
+      "config": {
+        "schema_version": "1",
+        "business": {
+          "name": "Frenos y Suspension El Parche Demo",
+          "niche": "taller",
+          "city": "Cali",
+          "address": "Calle 52 # 2-10, Cali",
+          "phone": "+57 300 000 0006",
+          "timezone": "America/Bogota"
+        },
+        "services": [
+          {"id": "frenos_pastillas_delanteras", "name": "Cambio de pastillas de freno delanteras", "description": "Cambio de pastillas delanteras.", "duration_min": 90, "price_cop": 120000, "price_note": null, "requires_valuation": false, "source_ref": "web:https://frenos-el-parche-demo.example.co/servicios"},
+          {"id": "revision_precompra", "name": "Revision pre-compra", "description": "Revision del vehiculo antes de comprarlo.", "duration_min": 60, "price_cop": 80000, "price_note": null, "requires_valuation": false, "source_ref": "web:https://frenos-el-parche-demo.example.co/servicios"},
+          {"id": "suspension", "name": "Suspension", "description": "Revision y reparacion de suspension.", "duration_min": 120, "price_cop": null, "price_note": "se cotiza segun vehiculo", "requires_valuation": true, "source_ref": "web:https://frenos-el-parche-demo.example.co/servicios"}
+        ],
+        "hours": {"weekly": {
+          "mon": [{"open": "08:00", "close": "17:00"}],
+          "tue": [{"open": "08:00", "close": "17:00"}],
+          "wed": [{"open": "08:00", "close": "17:00"}],
+          "thu": [{"open": "08:00", "close": "17:00"}],
+          "fri": [{"open": "08:00", "close": "17:00"}],
+          "sat": [{"open": "08:00", "close": "17:00"}],
+          "sun": []
+        }},
+        "booking_rules": {"slot_minutes": 60, "min_notice_hours": 4, "max_days_ahead": 21, "buffer_minutes": 15, "requires_fields": ["name", "phone", "service"]},
+        "faqs": [
+          {"question": "Cuanto cuesta cambiar las pastillas delanteras?", "answer": "Cuestan 120.000 COP.", "source_ref": "web:https://frenos-el-parche-demo.example.co/servicios"},
+          {"question": "Cuanto cuesta la revision pre-compra?", "answer": "La revision pre-compra cuesta 80.000 COP.", "source_ref": "web:https://frenos-el-parche-demo.example.co/servicios"}
+        ],
+        "tone": {"register": "tu", "emoji_level": "none"},
+        "handoff_rules": [
+          {"trigger": "Queja del cliente sobre una reparacion", "action": "notify_human"},
+          {"trigger": "Frenos que fallan o accidente: riesgo de seguridad", "action": "escalate_urgent"},
+          {"trigger": "Pedido de factura o reembolso", "action": "notify_human"},
+          {"trigger": "Peticion explicita de hablar con una persona", "action": "notify_human"},
+          {"trigger": "Dos intentos fallidos de entender al cliente", "action": "notify_human"}
+        ],
+        "out_of_scope_topics": ["diagnosticos tecnicos por mensaje", "asesoria legal de seguros", "cotizaciones de vehiculos usados"],
+        "open_questions": ["Confirmar precio de suspension segun vehiculo.", "Confirmar si la direccion del taller coincide con la publicada."],
+        "flags": [{"type": "low_confidence", "detail": "Precios tomados de la web; el dueno no los declaro. Validar vigencia."}],
+        "sources": ["web:https://frenos-el-parche-demo.example.co/servicios"]
+      }
+    },
+    {
+      "id": "restaurante_sin_web",
+      "expected_status": "draft",
+      "config": {
+        "schema_version": "1",
+        "business": {
+          "name": "Cafe Bulevar Demo",
+          "niche": "restaurante",
+          "city": "Cali",
+          "address": null,
+          "phone": "+57 300 000 0007",
+          "timezone": "America/Bogota"
+        },
+        "services": [
+          {"id": "desayunos", "name": "Desayunos", "description": "Desayunos de la casa.", "duration_min": 45, "price_cop": null, "price_note": "consultar carta", "requires_valuation": false, "source_ref": "owner"},
+          {"id": "cafe_especialidad", "name": "Cafe de especialidad", "description": "Cafe de origen.", "duration_min": 20, "price_cop": null, "price_note": "consultar carta", "requires_valuation": false, "source_ref": "owner"},
+          {"id": "reserva_grupos", "name": "Reserva para grupos", "description": "Reserva de mesas para grupos.", "duration_min": 90, "price_cop": null, "price_note": null, "requires_valuation": true, "source_ref": "owner"}
+        ],
+        "hours": {"weekly": {
+          "mon": [{"open": "07:00", "close": "21:00"}],
+          "tue": [{"open": "07:00", "close": "21:00"}],
+          "wed": [{"open": "07:00", "close": "21:00"}],
+          "thu": [{"open": "07:00", "close": "21:00"}],
+          "fri": [{"open": "07:00", "close": "21:00"}],
+          "sat": [{"open": "07:00", "close": "21:00"}],
+          "sun": [{"open": "07:00", "close": "21:00"}]
+        }},
+        "booking_rules": {"slot_minutes": 30, "min_notice_hours": 2, "max_days_ahead": 14, "buffer_minutes": 0, "requires_fields": ["name", "phone", "reason_general"]},
+        "faqs": [
+          {"question": "Atienden todos los dias?", "answer": "Si, atendemos todos los dias de 7:00 a 21:00.", "source_ref": "owner"}
+        ],
+        "tone": {"register": "tu", "emoji_level": "low"},
+        "handoff_rules": [
+          {"trigger": "Queja del cliente por servicio o comida", "action": "notify_human"},
+          {"trigger": "Alergia alimentaria grave reportada", "action": "escalate_urgent"},
+          {"trigger": "Pedido de factura o reembolso", "action": "notify_human"},
+          {"trigger": "Peticion explicita de hablar con una persona", "action": "notify_human"},
+          {"trigger": "Dos intentos fallidos de entender al cliente", "action": "notify_human"}
+        ],
+        "out_of_scope_topics": ["recomendaciones medicas", "contenido ajeno al cafe"],
+        "open_questions": ["Confirmar direccion del cafe: no fue declarada.", "Confirmar precios de desayunos y cafe.", "Sin sitio web: confirmar menu y capacidad para grupos."],
+        "flags": [{"type": "missing_price", "detail": "Sin precios declarados ni web."}],
+        "sources": ["owner"]
+      }
+    },
+    {
+      "id": "clinica_estetica_minima",
+      "expected_status": "needs_review",
+      "config": {
+        "schema_version": "1",
+        "business": {
+          "name": "Spa Facial Aurora Demo",
+          "niche": "clinica_estetica",
+          "city": "Cali",
+          "address": null,
+          "phone": "+57 300 000 0008",
+          "timezone": "America/Bogota"
+        },
+        "services": [],
+        "hours": {"weekly": {
+          "mon": [], "tue": [], "wed": [], "thu": [], "fri": [], "sat": [], "sun": []
+        }},
+        "booking_rules": {"slot_minutes": 30, "min_notice_hours": 3, "max_days_ahead": 30, "buffer_minutes": 10, "requires_fields": ["name", "phone", "service"]},
+        "faqs": [],
+        "tone": {"register": "usted", "emoji_level": "none"},
+        "handoff_rules": [
+          {"trigger": "Queja de la paciente sobre atencion", "action": "notify_human"},
+          {"trigger": "Reaccion grave en la piel o dificultad para respirar", "action": "escalate_urgent"},
+          {"trigger": "Pedido de factura o reembolso", "action": "notify_human"},
+          {"trigger": "Peticion explicita de hablar con una persona", "action": "notify_human"},
+          {"trigger": "Dos intentos fallidos de entender a la paciente", "action": "notify_human"}
+        ],
+        "out_of_scope_topics": ["diagnosticos dermatologicos", "medicamentos y dosis", "promesas de resultados"],
+        "open_questions": ["Declarar servicios y precios.", "Declarar direccion y horario de atencion.", "Confirmar si hay sitio web para extraer informacion."],
+        "flags": [{"type": "low_confidence", "detail": "Datos insuficientes: sin servicios, horario, precios ni direccion. Requiere revision humana antes de publicar."}],
+        "sources": ["owner"]
+      }
+    }
+  ]
+}
