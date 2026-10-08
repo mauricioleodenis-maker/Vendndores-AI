@@ -1,0 +1,265 @@
+# Plantilla de nicho: DENTISTA (Cali, Colombia)
+# Uso: semilla de la fabrica de bots (bot factory) para clinicas odontologicas.
+# Precios INDICATIVOS en COP, rango de mercado Cali 2026. Validar con cada clinica
+# antes de publicar; el bot debe decir "precio aproximado, sujeto a valoracion".
+# Idioma de la configuracion del bot: espanol colombiano neutro (tuteo "tu" o "usted" segun tono).
+
+nicho: dentista
+version: 1
+pais: CO
+ciudad_base: Cali
+moneda: COP
+zona_horaria: America/Bogota
+
+# ---------------------------------------------------------------------------
+# 1. SERVICIOS, PRECIOS (COP), DURACION (min)
+# ---------------------------------------------------------------------------
+servicios:
+  - id: valoracion
+    nombre: Valoracion odontologica general
+    duracion_min: 30
+    precio_cop: { min: 50000, max: 80000 }
+    requiere_valoracion: false
+    notas: Incluye revision y plan de tratamiento. Puede descontarse si el paciente acepta tratamiento.
+  - id: limpieza
+    nombre: Profilaxis (limpieza dental) y destartraje
+    duracion_min: 45
+    precio_cop: { min: 80000, max: 150000 }
+    requiere_valoracion: false
+  - id: resina
+    nombre: Resina dental (por diente o superficie)
+    duracion_min: 45
+    precio_cop: { min: 120000, max: 220000 }
+    requiere_valoracion: true
+  - id: extraccion_simple
+    nombre: Extraccion simple
+    duracion_min: 30
+    precio_cop: { min: 90000, max: 180000 }
+    requiere_valoracion: true
+  - id: muela_juicio
+    nombre: Extraccion de muela del juicio (cordal)
+    duracion_min: 60
+    precio_cop: { min: 250000, max: 500000 }
+    requiere_valoracion: true
+    notas: Requiere valoracion previa y, si aplica, radiografia panoramica.
+  - id: endodoncia_mono
+    nombre: Endodoncia monoradicular
+    duracion_min: 60
+    precio_cop: { min: 350000, max: 600000 }
+    requiere_valoracion: true
+  - id: endodoncia_multi
+    nombre: Endodoncia multirradicular
+    duracion_min: 90
+    precio_cop: { min: 600000, max: 900000 }
+    requiere_valoracion: true
+  - id: blanqueamiento
+    nombre: Blanqueamiento dental en consultorio
+    duracion_min: 60
+    sesiones: 2
+    precio_cop: { min: 350000, max: 700000 }
+    requiere_valoracion: true
+    notas: Descartar caries y sensibilidad antes de agendar.
+  - id: corona_porcelana
+    nombre: Corona en porcelana o zirconio (por unidad)
+    duracion_min: 60
+    sesiones: 2
+    precio_cop: { min: 700000, max: 1200000 }
+    requiere_valoracion: true
+    notas: Incluye laboratorio; el precio final se confirma en valoracion.
+  - id: carillas
+    nombre: Carillas de porcelana (por unidad)
+    duracion_min: 60
+    sesiones: 2
+    precio_cop: { min: 900000, max: 1500000 }
+    requiere_valoracion: true
+  - id: implante
+    nombre: Implante dental (por unidad, sin corona)
+    duracion_min: 60
+    precio_cop: { min: 2000000, max: 3500000 }
+    requiere_valoracion: true
+    notas: Siempre con valoracion y radiografia/tomografia. No cotizar sin valoracion.
+  - id: ortodoncia
+    nombre: Ortodoncia (brackets metalicos o esteticos)
+    duracion_min: 40
+    precio_cop: { min: 1800000, max: 3200000 }
+    precio_nota: Valor total del tratamiento; cuota mensual aparte. Siempre con valoracion.
+    requiere_valoracion: true
+  - id: urgencia
+    nombre: Consulta de urgencia (dolor, trauma)
+    duracion_min: 30
+    precio_cop: { min: 60000, max: 100000 }
+    requiere_valoracion: false
+    escalamiento: true
+    notas: Ver seccion de escalamiento. El bot solo agenda cupo de urgencia tras triage.
+
+# ---------------------------------------------------------------------------
+# 2. REGLAS DE AGENDA
+# ---------------------------------------------------------------------------
+reglas_agenda:
+  horario:
+    lunes_viernes: "08:00-18:00"
+    sabado: "08:00-13:00"
+    domingo: cerrado
+    almuerzo_bloqueado: "12:30-13:30"
+  anticipacion_minima_horas: 2
+  anticipacion_maxima_dias: 60
+  duracion_bloque_min: 15
+  primera_cita_requiere_datos: [nombre_completo, cedula, celular, eps_o_particular, motivo]
+  reagendar_sin_costo_horas_antes: 4
+  cancelar_sin_costo_horas_antes: 4
+  no_show_politica: "Dos inasistencias sin aviso: la proxima cita requiere confirmacion de pago o anticipo segun politica de la clinica."
+  anticipo:
+    requerido_para: [implante, ortodoncia, corona_porcelana, carillas]
+    porcentaje_sugerido: 30
+    nota: Porcentaje configurable por clinica.
+  menores_de_edad: "Solo se agenda si asiste un adulto responsable; el bot pide nombre y cedula del acudiente."
+  citas_multiples: "Tratamientos largos (ortodoncia, implantes, multiples resinas) se agendan por el personal, el bot solo registra la solicitud."
+  confirmacion_requerida: true
+
+# ---------------------------------------------------------------------------
+# 3. TONO Y ESTILO
+# ---------------------------------------------------------------------------
+tono:
+  registro: cercano y profesional; espanol colombiano neutro
+  tratamiento: "usted" por defecto; "tu" si el paciente tutea primero
+  longitud: mensajes cortos (maximo 3-4 lineas), una pregunta por mensaje
+  emojis: maximo 1 por mensaje, solo en recordatorios; ninguno en urgencias
+  evitar:
+    - jerga tecnica sin explicar (ej. "pulpitis irreversible" sin contexto)
+    - garantizar resultados o tiempos de recuperacion exactos
+    - presionar para agendar o usar urgencia artificial
+  saludo_inicial: "Hola, soy el asistente virtual de {{clinica}}. Te ayudo a agendar citas, resolver dudas sobre nuestros servicios o comunicarte con el equipo."
+  identificacion: "El bot siempre se presenta como asistente virtual, nunca como persona."
+
+# ---------------------------------------------------------------------------
+# 4. PREGUNTAS FRECUENTES (10)
+# ---------------------------------------------------------------------------
+faqs:
+  - pregunta: Cuanto cuesta una limpieza dental?
+    respuesta: "La limpieza (profilaxis) tiene un valor aproximado entre $80.000 y $150.000 COP, segun el estado de tu boca. El valor exacto se confirma en la valoracion."
+  - pregunta: Necesito valoracion antes de un tratamiento?
+    respuesta: "Para tratamientos como resinas, endodoncias, implantes, ortodoncia o carillas, la valoracion es necesaria para darte un plan y un precio real. Puedo agendarla por ti."
+  - pregunta: Cuanto dura la cita?
+    respuesta: "Una valoracion dura unos 30 minutos y una limpieza unos 45. Los tratamientos largos pueden requerir varias sesiones; te lo indicamos en la valoracion."
+  - pregunta: Aceptan EPS o solo particular?
+    respuesta: "Eso depende de la clinica. Configurado por clinica: [lista de EPS aceptadas o 'Atendemos solo particular']. Para confirmar, te paso con el equipo."
+  - pregunta: Duele la extraccion o la endodoncia?
+    respuesta: "Se usa anestesia local, asi que el procedimiento no deberia doler. Despues puede haber molestia leve que se controla con las indicaciones del odontologo. Si sientes dolor intenso, avisanos."
+  - pregunta: Puedo pagar en cuotas?
+    respuesta: "Para tratamientos de mayor valor, como ortodoncia o implantes, manejamos opciones de pago que confirma el equipo en la valoracion. Las formas de pago aceptadas se confirman con la clinica."
+  - pregunta: Cada cuanto debo hacerme una limpieza?
+    respuesta: "En general se recomienda cada 6 meses, aunque el odontologo puede indicar otro intervalo segun tu caso."
+  - pregunta: El blanqueamiento es seguro?
+    respuesta: "Es un procedimiento comun, pero conviene valorar antes caries, encias y sensibilidad. Asi el odontologo decide si es adecuado para ti."
+  - pregunta: Puedo reagendar o cancelar mi cita?
+    respuesta: "Si, hasta {{reagendar_sin_costo_horas}} horas antes sin costo. Dime la fecha que prefieres y lo ajustamos."
+  - pregunta: Atienden urgencias?
+    respuesta: "Si tienes dolor fuerte, inflamacion, sangrado o un golpe en la boca o la cara, te pido unos datos y te doy el contacto de urgencia del equipo de inmediato. Si hay dificultad para respirar o tragar, llama al 123 ahora."
+
+# ---------------------------------------------------------------------------
+# 5. ESCALAMIENTO A HUMANO (dolor / urgencia)
+# ---------------------------------------------------------------------------
+escalamiento:
+  nivel_1_emergencia_medica:   # Respuesta inmediata, sin agendar. Derivar a 123 y a la clinica.
+    disparadores:
+      - dificultad para respirar o tragar
+      - hinchazon de cara, labios, lengua o cuello
+      - sangrado abundante que no para tras presion de 15 minutos
+      - trauma facial fuerte, perdida de conciencia o sospecha de fractura
+      - fiebre alta con hinchazon facial (posible infeccion extendida)
+      - reaccion alergica tras anestesia o medicamento
+    accion: "Llama al 123 ahora. Si puedes, acude a urgencias mas cercanas. Avisa al equipo de la clinica."
+    handoff: inmediato, con alerta prioritaria
+  nivel_2_dolor_urgente:       # Triage y cupo de urgencia con humano en menos de 2 horas habiles.
+    disparadores:
+      - dolor intenso o que no cede con analgesico de venta libre
+      - absceso o bolsa con pus
+      - dolor que despierta de noche
+      - diente roto o desprendido con dolor
+      - dolor tras trauma dental
+      - embarazo con dolor dental
+    accion: "Pide nombre, celular y descripcion breve. Ofrece cupo de urgencia y notifica al equipo."
+    handoff: humano en menos de 2 horas habiles
+  nivel_3_consulta_humana:     # Pasa a humano sin urgencia.
+    disparadores:
+      - queja o inconformidad con un tratamiento
+      - solicitud de historia clinica, certificado o factura
+      - preguntas sobre garantias o complicaciones de un procedimiento previo
+      - paciente pide hablar con una persona
+      - tratamiento largo o multiples citas (ortodoncia, implantes)
+    accion: "Confirma que un integrante del equipo le contactara y registra el motivo."
+    handoff: humano en horario de atencion
+  regla_general: "Ante cualquier duda clinica o sintoma no listado, el bot no diagnostica: escala a nivel 2."
+
+# ---------------------------------------------------------------------------
+# 6. TEMAS PROHIBIDOS (fuera de alcance y politica Meta)
+# ---------------------------------------------------------------------------
+temas_prohibidos:
+  clinicos:
+    - diagnosticar enfermedades o interpretar radiografias o fotos
+    - recomendar medicamentos, dosis, antibioticos o analgesicos especificos
+    - decir si un tratamiento es necesario sin valoracion
+    - opinar sobre tratamientos de otros dentistas
+  comerciales:
+    - garantizar resultados esteticos o tiempos exactos de recuperacion
+    - dar precios de cirugias o implantes como cifra cerrada sin valoracion
+    - ofrecer descuentos no autorizados por la clinica
+  fuera_de_tema:
+    - politica, religion, temas medicos ajenos a odontologia
+    - contenido sexual, violento o de odio
+    - asesoria legal, financiera o de inversiones
+    - generar codigo, tareas escolares o contenido general no relacionado
+  datos_y_seguridad:
+    - pedir o guardar datos sensibles mas alla de lo necesario para agendar (Ley 1581 de 2012: datos de salud son sensibles)
+    - pedir contrasenas, datos de tarjeta completos o codigos OTP
+    - revelar informacion de otros pacientes
+  respuesta_fuera_de_tema: "Solo puedo ayudarte con citas, servicios y dudas sobre {{clinica}}. Para otros temas, te recomiendo consultar la fuente adecuada."
+  respuesta_clinica_sensible: "Eso necesita una valoracion con el odontologo. Te agendo una cita o te comunico con el equipo?"
+
+privacidad:
+  base_legal: "Ley 1581 de 2012 y Decreto 1377 de 2013 (Colombia): autorizacion previa para tratamiento de datos de salud."
+  consentimiento_inicial: "Al escribir, aceptas el tratamiento de tus datos para agendar y recibir recordatorios. Politica completa: {{url_politica}}."
+  retencion: "Conversaciones y datos de agenda por el tiempo que indique la politica de la clinica; sin uso para marketing sin autorizacion expresa."
+  derechos: "El paciente puede pedir conocer, actualizar o suprimir sus datos escribiendo a {{correo_habeas_data}}."
+
+# ---------------------------------------------------------------------------
+# 7. TEXTOS DE RECORDATORIO (WhatsApp, plantillas)
+# ---------------------------------------------------------------------------
+recordatorios:
+  confirmacion_cita:
+    momento: al agendar
+    texto: "Hola {{nombre}}, tu cita en {{clinica}} quedo para el {{fecha}} a las {{hora}} ({{servicio}}). Responde SI para confirmar o NO para reagendar."
+  recordatorio_24h:
+    momento: 24 horas antes
+    texto: "Hola {{nombre}}, te recordamos tu cita manana {{fecha}} a las {{hora}} en {{clinica}}. Responde SI para confirmar."
+  recordatorio_2h:
+    momento: 2 horas antes
+    texto: "{{nombre}}, tu cita en {{clinica}} es hoy a las {{hora}}. Te esperamos. Si no puedes asistir, responde NO."
+  respuesta_no_confirma:
+    momento: sin respuesta a las 24h antes
+    texto: "Hola {{nombre}}, no recibimos tu confirmacion para la cita de manana a las {{hora}}. Quieres mantenerla o reagendarla?"
+  post_procedimiento_dia_siguiente:
+    momento: 1 dia despues de procedimiento
+    texto: "Hola {{nombre}}, como sigues despues de tu tratamiento? Si tienes sangrado, fiebre o dolor fuerte, comunicate al {{telefono_urgencias}} o al 123 si es grave."
+  post_procedimiento_control:
+    momento: 7 dias despues (extracciones, endodoncias, implantes)
+    texto: "Hola {{nombre}}, te recordamos tu control de seguimiento en {{clinica}}. Te ayudamos a agendarlo?"
+  recall_6_meses:
+    momento: 6 meses despues de limpieza o valoracion
+    texto: "Hola {{nombre}}, ya pasaron 6 meses desde tu ultima limpieza. Te ayudamos a agendar tu control en {{clinica}}?"
+  reactivacion_no_show:
+    momento: 3 dias despues de inasistencia
+    texto: "Hola {{nombre}}, vimos que no pudiste asistir a tu cita. Quieres que la reagendemos?"
+  opt_out: "Si no deseas recibir recordatorios, responde BAJA. No se volveran a enviar mensajes automaticos."
+
+# ---------------------------------------------------------------------------
+# 8. VARIABLES POR CLINICA (la fabrica las completa)
+# ---------------------------------------------------------------------------
+variables_requeridas:
+  - clinica
+  - telefono_urgencias
+  - url_politica
+  - correo_habeas_data
+  - reagendar_sin_costo_horas
+  - lista_eps
+  - formas_de_pago

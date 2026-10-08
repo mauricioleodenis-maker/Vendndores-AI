@@ -1,0 +1,119 @@
+# Niche template: taller_mecanico
+# Maps to table niche_templates (niche=taller_mecanico, payload jsonb) and seeds bot_configs drafts.
+# Prices are COP placeholders to validate with each taller; never shown as guarantees.
+# Scope: the bot books and informs. It never diagnoses a vehicle remotely or promises a repair price before inspection.
+# Personal data: placa and vehicle owner data are stored under consent (Ley 1581); no full ID numbers collected.
+
+niche: taller_mecanico
+template_key: taller_mecanico_v1
+version: 1
+name: "Taller mecanico"
+is_active: true
+timezone_default: America/Bogota
+currency: COP
+
+inputs_factory:            # what the bot factory asks the owner (few fields, AI fills the rest)
+  required:
+    - name: nombre_taller
+    - name: ciudad
+    - name: direccion
+    - name: horario            # -> tenant_profiles.hours (Sabado medio dia si aplica)
+    - name: servicios_top      # up to 8 services the owner cares about
+    - name: telefono_contacto  # handoff_phone
+    - name: nombre_responsable # owner_name / handoff person (asesor de servicio)
+  optional:
+    - name: website_url        # triggers kb scraping (SSRF-safe fetch)
+    - name: instagram_url
+    - name: tono               # cercano | profesional | directo (default: profesional-cercano)
+    - name: marcas_atendidas   # e.g. Chevrolet, Mazda, motos; names only
+    - name: recogida_domicilio # bool; pickup/delivery offered
+    - name: garantia_dias      # warranty days on labor, if the taller states one
+    - name: deposito_requerido # bool
+
+services:                  # seeds `services` rows; duration = appointment slot length
+  - code: cambio_aceite
+    name: "Cambio de aceite y filtro"
+    duration_min: 30
+    price_cop: null        # set per taller; price_note used when null
+    price_note: "Depende del tipo de aceite y del vehiculo; se confirma al recibir el vehiculo"
+    requires_deposit: false
+  - code: revision_general
+    name: "Revision general / chequeo preventivo"
+    duration_min: 60
+    price_cop: null
+    price_note: "Valoracion inicial; el costo de reparacion se cotiza tras revisar"
+    requires_deposit: false
+  - code: diagnostico
+    name: "Diagnostico de falla (escaner y revision)"
+    duration_min: 60
+    price_cop: null
+    price_note: "Costo de diagnostico segun taller; se descuenta si se aprueba la reparacion (validar)"
+    requires_deposit: false
+  - code: frenos
+    name: "Revision y cambio de pastillas o discos de freno"
+    duration_min: 90
+    price_cop: null
+    price_note: "Se cotiza por eje y referencia de repuesto tras inspeccion"
+    requires_deposit: false
+  - code: alineacion_balanceo
+    name: "Alineacion y balanceo"
+    duration_min: 60
+    price_cop: null
+    price_note: "Precio por vehiculo y tipo de llanta; validar por taller"
+    requires_deposit: false
+  - code: cambio_llantas
+    name: "Cambio o rotacion de llantas"
+    duration_min: 45
+    price_cop: null
+    price_note: "Depende de la medida y la marca de llanta; el cliente puede llevar sus llantas"
+    requires_deposit: false
+  - code: suspension_direccion
+    name: "Revision de suspension y direccion"
+    duration_min: 90
+    price_cop: null
+    price_note: "Requiere inspeccion en elevador; sin precio por telefono"
+    requires_deposit: false
+  - code: reparacion_motor
+    name: "Reparacion de motor (cotizacion)"
+    duration_min: 30         # solo agenda la cita de cotizacion; la reparacion se programa aparte
+    price_cop: null
+    price_note: "Solo cotizacion presencial; no se confirma costo ni tiempo por WhatsApp"
+    requires_deposit: true
+
+faqs:                      # seeded with source=template; taller can edit
+  - q: "Cuanto cuesta el cambio de aceite?"
+    a: "Depende del aceite y del vehiculo. Te agendo y el asesor te confirma el valor antes de iniciar."
+  - q: "Mi carro hace un ruido raro, que puede ser?"
+    a: "No puedo diagnosticarlo por mensaje. Te agendo un diagnostico para revisarlo con escaner y en elevador."
+  - q: "Cuanto cuesta el diagnostico?"
+    a: "Te confirmo el valor del diagnostico con el asesor al agendar."
+  - q: "Cada cuanto debo cambiar las pastillas de freno?"
+    a: "Depende del uso y del vehiculo. En la revision el mecanico te indica el estado real."
+  - q: "Me pueden recoger el carro?"
+    a: "Si, ofrecemos recogida en la ciudad. Te confirmo disponibilidad y costo al agendar."
+  - q: "Dan garantia?"
+    a: "La garantia depende del servicio. El asesor te explica las condiciones al entregar el vehiculo."
+  - q: "Trabajan con repuestos originales?"
+    a: "Trabajamos con repuestos segun tu preferencia y disponibilidad. Te damos las opciones en la cotizacion."
+  - q: "Atienden motos?"
+    a: "Confirmo con el taller si atendemos tu tipo de vehiculo y te agendo."
+
+handoff:                   # when the bot must pass the chat to a person
+  triggers:
+    - cotizacion_formal        # quote needs inspection or written approval
+    - reclamo_o_garantia       # complaint, warranty claim, damage dispute
+    - falla_de_seguridad       # brakes, steering, leaks, smoke: urge in-person inspection
+    - pago_o_factura           # invoicing, payment disputes
+    - solicitud_fuera_de_tema  # anything not about the taller's services
+  safety_message: "Si el vehiculo presenta fallas de frenos, direccion o humo, no lo conduzcas; te ayudo a agendar la grua o revision urgente."
+
+booking:
+  slot_source: services.duration_min   # slots from Google Calendar, one calendar per bay if needed
+  needs_vehicle_data: true              # marca, modelo, anio, placa (optional until arrival)
+  collect_fields: [nombre, telefono, marca, modelo, anio, servicio, fecha_hora]
+  reminder_hours_before: [24, 2]
+
+compliance:
+  consent_text_key: consent_vehiculo_v1   # shown before storing placa and owner data
+  retention_days: 365                      # service history; owner can request deletion
+  forbidden_topics: [diagnostico_remoto_definitivo, precio_garantizado, temas_politicos, contenido_no_relacionado]
