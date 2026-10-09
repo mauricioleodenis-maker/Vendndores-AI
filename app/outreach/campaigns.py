@@ -24,7 +24,8 @@ from app.outreach.templates import (
     is_sendable,
     render_body,
 )
-from app.privacy.service import is_suppressed
+from app.core.crypto import phone_hash
+from app.db.models.privacy import SuppressionEntry
 
 PREVIEW_SAMPLES = 5
 MAX_AUDIENCE = 5000
@@ -130,14 +131,29 @@ async def select_audience(
     tag = audience.get("tag")
     if tag:
         leads = [lead for lead in leads if tag in (lead.tags or [])]
+    suppressed = await _suppressed_hashes(
+        session, [phone_hash(lead.phone_e164) for lead in leads if lead.phone_e164]
+    )
     eligible: list[Lead] = []
     excluded = 0
     for lead in leads:
-        if lead.phone_e164 and await is_suppressed(session, lead.phone_e164):
+        if lead.phone_e164 and phone_hash(lead.phone_e164) in suppressed:
             excluded += 1
             continue
         eligible.append(lead)
     return eligible, excluded
+
+
+async def _suppressed_hashes(session: AsyncSession, hashes: list[str]) -> set[str]:
+    """Una consulta por lote (en vez de una por lead) contra la lista de supresion."""
+    found: set[str] = set()
+    for i in range(0, len(hashes), 500):
+        chunk = hashes[i : i + 500]
+        rows = await session.execute(
+            select(SuppressionEntry.phone_hash).where(SuppressionEntry.phone_hash.in_(chunk))
+        )
+        found.update(rows.scalars())
+    return found
 
 
 async def render_for_lead(
@@ -182,7 +198,14 @@ async def start(
         raise AppError("confirmacion_requerida", "Confirma explicitamente el inicio", 422)
     if not get_settings().outreach_enabled:
         raise ConflictError("El envio de outreach esta desactivado (VAI_OUTREACH_ENABLED=false)")
-    campaign = await get_campaign(session, campaign_id)
+    # Bloqueo de fila: dos "iniciar" simultaneos no duplican objetivos.
+    campaign = (
+        await session.execute(
+            select(Campaign).where(Campaign.id == campaign_id).with_for_update()
+        )
+    ).scalar_one_or_none()
+    if campaign is None:
+        raise NotFoundError("Campaña no encontrada")
     if campaign.status not in ("draft", "ready"):
         raise ConflictError("La campaña ya fue iniciada o finalizo")
     tpl = await get_template(session, campaign.template_id) if campaign.template_id else None

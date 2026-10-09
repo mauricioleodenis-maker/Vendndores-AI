@@ -5,9 +5,11 @@ from __future__ import annotations
 import uuid
 from typing import Annotated, Any
 
+from urllib.parse import quote
+
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -249,8 +251,20 @@ async def api_transition(
 
 
 # --------------------------------------------------------------------------- UI
-def _redirect(url: str) -> RedirectResponse:
+def _redirect(url: str, *, ok: str = "", error: str = "") -> RedirectResponse:
+    if ok or error:
+        key, val = ("ok", ok) if ok else ("error", error)
+        url += f"{'&' if '?' in url else '?'}{key}={quote(val[:200])}"
     return RedirectResponse(url, status_code=303)
+
+
+def _flash(request: Request) -> dict[str, str] | None:
+    """Mensaje de resultado por query (se escapa al renderizar)."""
+    if msg := request.query_params.get("error"):
+        return {"kind": "error", "message": msg[:200]}
+    if msg := request.query_params.get("ok"):
+        return {"kind": "ok", "message": msg[:200]}
+    return None
 
 
 @router.get("/admin/campanas", response_class=HTMLResponse)
@@ -264,6 +278,7 @@ async def ui_list(
             "campaigns": await campaigns.list_campaigns(session),
             "enabled": get_settings().outreach_enabled,
             "dry_run": get_settings().twilio_dry_run,
+            "flash": _flash(request),
         },
     )
 
@@ -272,7 +287,11 @@ async def ui_list(
 async def ui_templates(
     request: Request, session: AsyncSession = Depends(get_session), _: User = Depends(operator)
 ) -> HTMLResponse:
-    return render(request, "outreach/templates.html", {"templates": await _templates(session)})
+    return render(
+        request,
+        "outreach/templates.html",
+        {"templates": await _templates(session), "flash": _flash(request)},
+    )
 
 
 @router.get("/admin/campanas/nueva", response_class=HTMLResponse)
@@ -286,6 +305,7 @@ async def ui_new(
         {
             "pitch": [t for t in tpls if t.kind == "pitch"],
             "followups": [t for t in tpls if t.kind == "seguimiento"],
+            "flash": _flash(request),
         },
     )
 
@@ -303,17 +323,26 @@ async def ui_create(
     session: AsyncSession = Depends(get_session),
     user: User = Depends(operator),
 ) -> RedirectResponse:
-    data = CampaignIn(
-        name=name,
-        template_id=template_id,
-        followup_template_id=uuid.UUID(followup_template_id) if followup_template_id else None,
-        daily_limit=daily_limit,
-        audience=AudienceFilter(
-            niche=niche or None, city=city or None, min_score=min_score, stage=stage or None
-        ),
-    )
-    campaign = await campaigns.create_campaign(session, user, data)
-    return _redirect(f"/admin/campanas/{campaign.id}")
+    try:
+        data = CampaignIn(
+            name=name,
+            template_id=template_id,
+            followup_template_id=followup_template_id or None,  # type: ignore[arg-type]
+            daily_limit=daily_limit,
+            audience=AudienceFilter(
+                niche=niche or None, city=city or None, min_score=min_score, stage=stage or None
+            ),
+        )
+        campaign = await campaigns.create_campaign(session, user, data)
+    except ValidationError:
+        return _redirect(
+            "/admin/campanas/nueva",
+            error="Revisa los datos: el nombre debe tener al menos 3 caracteres y los campos "
+            "no pueden exceder su largo.",
+        )
+    except AppError as exc:
+        return _redirect("/admin/campanas/nueva", error=exc.message)
+    return _redirect(f"/admin/campanas/{campaign.id}", ok="Borrador creado. Revisa la vista previa.")
 
 
 @router.get("/admin/campanas/{campaign_id}", response_class=HTMLResponse)
@@ -337,6 +366,7 @@ async def ui_detail(
             "can_manage": user.role in ("owner", "admin"),
             "enabled": get_settings().outreach_enabled,
             "dry_run": get_settings().twilio_dry_run,
+            "flash": _flash(request),
         },
     )
 
@@ -348,8 +378,15 @@ async def ui_start(
     session: AsyncSession = Depends(get_session),
     user: User = Depends(admin_only),
 ) -> RedirectResponse:
-    await campaigns.start(session, campaign_id, user, confirm=confirm == "si")
-    return _redirect(f"/admin/campanas/{campaign_id}")
+    back = f"/admin/campanas/{campaign_id}"
+    try:
+        await campaigns.start(session, campaign_id, user, confirm=confirm == "si")
+    except NotFoundError:
+        raise
+    except AppError as exc:
+        await session.rollback()
+        return _redirect(back, error=exc.message)
+    return _redirect(back, ok="Campaña iniciada. Los envíos respetan horario y límite diario.")
 
 
 @router.post("/admin/campanas/{campaign_id}/{action}")
@@ -361,8 +398,16 @@ async def ui_transition(
 ) -> RedirectResponse:
     if action not in ACTIONS:
         raise NotFoundError()
-    await _transition(action, session, campaign_id, user)
-    return _redirect(f"/admin/campanas/{campaign_id}")
+    back = f"/admin/campanas/{campaign_id}"
+    try:
+        await _transition(action, session, campaign_id, user)
+    except NotFoundError:
+        raise
+    except AppError as exc:
+        await session.rollback()
+        return _redirect(back, error=exc.message)
+    done = {"pause": "Campaña pausada.", "resume": "Campaña reanudada.", "cancel": "Campaña cancelada."}
+    return _redirect(back, ok=done[action])
 
 
 routers = [router, webhooks_router]

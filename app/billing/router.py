@@ -38,11 +38,21 @@ def _status(value: str | None) -> str | None:
 async def billing_page(
     request: Request,
     estado: str | None = Query(default=None, max_length=20),
+    page: int = Query(default=1, ge=1, le=100000),
     user: User = Depends(admin),
     session: AsyncSession = Depends(get_session),
 ) -> Response:
     estado = _status(estado)
-    rows = await service.list_records(session, status=estado)
+    page = max(1, page)
+    rows = await service.list_records(
+        session,
+        status=estado,
+        limit=service.PAGE_SIZE + 1,
+        offset=(page - 1) * service.PAGE_SIZE,
+    )
+    has_more = len(rows) > service.PAGE_SIZE
+    rows = rows[: service.PAGE_SIZE]
+    total = await service.count_records(session, status=estado)
     flash = None
     if msg := request.query_params.get("ok"):
         flash = {"kind": "ok", "message": msg[:200]}
@@ -53,6 +63,9 @@ async def billing_page(
         "billing/facturacion.html",
         {
             "rows": rows,
+            "page": page,
+            "has_more": has_more,
+            "total": total,
             "summary": await service.summary(session),
             "estado": estado,
             "estados": BILLING_STATUSES,
@@ -97,15 +110,19 @@ async def generate(
     user: User = Depends(admin), session: AsyncSession = Depends(get_session)
 ) -> Response:
     created = await service.generate_monthly_records(session)
-    await service.mark_overdue(session)
+    overdue = await service.mark_overdue(session)
     await log_event(
         session,
         actor=user,
         action="billing.generate",
         entity_type="billing",
-        diff={"created": created},
+        diff={"created": created, "overdue": overdue},
     )
-    return _redirect(ok=f"Mensualidades generadas: {created}")
+    return _redirect(ok=(
+            f"Mensualidades generadas: {created}"
+            if created
+            else "No había mensualidades pendientes de generar"
+        ))
 
 
 @router.get("/admin/facturacion/exportar.csv")
@@ -115,7 +132,10 @@ async def export(
     user: User = Depends(admin),
     session: AsyncSession = Depends(get_session),
 ) -> Response:
-    rows = await service.list_records(session, status=_status(estado), limit=1000)
+    rows = await service.list_records(
+        session, status=_status(estado), limit=service.EXPORT_MAX_ROWS
+    )
+    total = await service.count_records(session, status=_status(estado))
     await log_event(
         session,
         actor=user,
@@ -127,7 +147,11 @@ async def export(
     return Response(
         service.export_csv(rows),
         media_type="text/csv; charset=utf-8",
-        headers={"Content-Disposition": 'attachment; filename="facturacion.csv"'},
+        headers={
+            "Content-Disposition": 'attachment; filename="facturacion.csv"',
+            "X-Total-Count": str(total),
+            "X-Exported-Count": str(len(rows)),
+        },
     )
 
 

@@ -13,6 +13,7 @@ from datetime import UTC, date, datetime
 from typing import Any
 
 from sqlalchemy import func, select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.audit.service import log_event
@@ -34,6 +35,8 @@ PAST_DUE_DAYS = 15
 LIVE_STATUSES = ("active", "past_due")
 NEGATIVE_KINDS = ("reembolso", "descuento")
 MAX_AMOUNT_COP = 1_000_000_000
+EXPORT_MAX_ROWS = 50_000
+PAGE_SIZE = 50
 
 CSV_COLUMNS: tuple[tuple[str, str], ...] = (
     ("tenant", "Empresa"),
@@ -133,7 +136,7 @@ async def create_record(
         amount_cop=amount_cop,
         iva_cop=iva_cop,
         status="pendiente",
-        due_date=due_date or utcnow().date(),
+        due_date=due_date or to_bogota(utcnow()).date(),
         notes=notes[:1000],
         reference=reference[:120],
         created_by=actor.id if actor else None,
@@ -185,19 +188,24 @@ async def generate_monthly_records(
         fee = effective_monthly_fee(sub, plan)
         if fee <= 0:
             continue
-        session.add(
-            BillingRecord(
-                tenant_id=sub.tenant_id,
-                subscription_id=sub.id,
-                kind="mensualidad",
-                period=period,
-                amount_cop=fee,
-                status="pendiente",
-                due_date=_due_date_for(sub, period),
-            )
-        )
+        try:
+            # Savepoint: una carrera con otra generacion (cron/manual) viola el unico
+            # parcial ``uq_billing_monthly``; se ignora esa fila en vez de fallar todo.
+            async with session.begin_nested():
+                session.add(
+                    BillingRecord(
+                        tenant_id=sub.tenant_id,
+                        subscription_id=sub.id,
+                        kind="mensualidad",
+                        period=period,
+                        amount_cop=fee,
+                        status="pendiente",
+                        due_date=_due_date_for(sub, period),
+                    )
+                )
+        except IntegrityError:
+            continue
         created += 1
-    await session.flush()
     return created
 
 
@@ -208,23 +216,18 @@ def _aware(dt: datetime) -> datetime:
 async def mark_overdue(session: AsyncSession, *, today: date | None = None) -> int:
     """Pendientes con fecha vencida -> ``vencido``; mora > 15 dias -> suscripcion ``past_due``."""
     today = today or to_bogota(utcnow()).date()
-    records = (
-        (
-            await session.execute(
-                select(BillingRecord).where(
-                    BillingRecord.status == "pendiente",
-                    BillingRecord.due_date.is_not(None),
-                    BillingRecord.due_date < today,
-                    BillingRecord.amount_cop > 0,
-                )
-            )
+    result = await session.execute(
+        update(BillingRecord)
+        .where(
+            BillingRecord.status == "pendiente",
+            BillingRecord.due_date.is_not(None),
+            BillingRecord.due_date < today,
+            BillingRecord.amount_cop > 0,
         )
-        .scalars()
-        .all()
+        .values(status="vencido")
+        .execution_options(synchronize_session="fetch")
     )
-    for rec in records:
-        rec.status = "vencido"
-    await session.flush()
+    marked = int(result.rowcount or 0)
     late = (
         (
             await session.execute(
@@ -246,7 +249,23 @@ async def mark_overdue(session: AsyncSession, *, today: date | None = None) -> i
             .values(status="past_due")
         )
     await session.flush()
-    return len(records)
+    return marked
+
+
+async def _recover_if_clear(session: AsyncSession, subscription_id: uuid.UUID) -> None:
+    """Si ya no queda mora en la suscripcion, vuelve a ``active``."""
+    sub = await session.get(Subscription, subscription_id)
+    if sub is None or sub.status != "past_due":
+        return
+    left = (
+        await session.execute(
+            select(func.count())
+            .select_from(BillingRecord)
+            .where(BillingRecord.subscription_id == sub.id, BillingRecord.status == "vencido")
+        )
+    ).scalar_one()
+    if left == 0:
+        sub.status = "active"
 
 
 async def mark_paid(
@@ -273,18 +292,7 @@ async def mark_paid(
     record.reference = reference[:120]
     record.external_invoice_no = (external_invoice_no or None) and external_invoice_no[:60]
     await session.flush()
-    # Si ya no queda mora en la suscripcion, vuelve a active.
-    sub = await session.get(Subscription, record.subscription_id)
-    if sub is not None and sub.status == "past_due":
-        left = (
-            await session.execute(
-                select(func.count())
-                .select_from(BillingRecord)
-                .where(BillingRecord.subscription_id == sub.id, BillingRecord.status == "vencido")
-            )
-        ).scalar_one()
-        if left == 0:
-            sub.status = "active"
+    await _recover_if_clear(session, record.subscription_id)
     await log_event(
         session,
         actor=actor,
@@ -305,7 +313,11 @@ async def void_record(
         raise NotFoundError("Cobro no encontrado")
     if record.status == "pagado":
         raise ConflictError("No se puede anular un cobro pagado")
+    was_overdue = record.status == "vencido"
     record.status = "anulado"
+    await session.flush()
+    if was_overdue:
+        await _recover_if_clear(session, record.subscription_id)
     await log_event(
         session,
         actor=actor,
@@ -330,7 +342,7 @@ async def list_records(
         select(BillingRecord, Tenant.name)
         .join(Tenant, Tenant.id == BillingRecord.tenant_id)
         .order_by(BillingRecord.due_date.desc(), BillingRecord.created_at.desc())
-        .limit(max(1, min(limit, 1000)))
+        .limit(max(1, min(limit, EXPORT_MAX_ROWS)))
         .offset(max(0, offset))
     )
     if status:
@@ -342,17 +354,34 @@ async def list_records(
     return [BillingRow(r, n) for r, n in (await session.execute(stmt)).all()]
 
 
+async def count_records(
+    session: AsyncSession, *, status: str | None = None, tenant_id: uuid.UUID | None = None
+) -> int:
+    stmt = select(func.count()).select_from(BillingRecord)
+    if status:
+        stmt = stmt.where(BillingRecord.status == status)
+    if tenant_id:
+        stmt = stmt.where(BillingRecord.tenant_id == tenant_id)
+    return int((await session.execute(stmt)).scalar_one())
+
+
 async def summary(session: AsyncSession, *, now: datetime | None = None) -> Summary:
     now = now or utcnow()
     start, end = month_bounds(current_period(now))
-    subs = (
+    mrr, active = (
         await session.execute(
-            select(Subscription, Plan)
+            select(
+                func.coalesce(
+                    func.sum(func.coalesce(Subscription.custom_monthly_fee_cop, Plan.monthly_fee_cop)),
+                    0,
+                ),
+                func.count(),
+            )
+            .select_from(Subscription)
             .join(Plan, Plan.id == Subscription.plan_id)
             .where(Subscription.status.in_(LIVE_STATUSES))
         )
-    ).all()
-    mrr = sum(effective_monthly_fee(s, p) for s, p in subs)
+    ).one()
     setups = (
         await session.execute(
             select(func.coalesce(func.sum(BillingRecord.amount_cop), 0)).where(
@@ -378,7 +407,9 @@ async def summary(session: AsyncSession, *, now: datetime | None = None) -> Summ
             ).where(BillingRecord.status == "pendiente", BillingRecord.amount_cop > 0)
         )
     ).scalar_one()
-    return Summary(int(mrr), int(setups), int(overdue[0]), int(overdue[1]), int(pending), len(subs))
+    return Summary(
+        int(mrr), int(setups), int(overdue[0]), int(overdue[1]), int(pending), int(active)
+    )
 
 
 def export_csv(rows: Sequence[BillingRow]) -> str:

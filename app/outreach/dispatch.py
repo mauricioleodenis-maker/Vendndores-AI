@@ -163,7 +163,17 @@ async def dispatch_campaign(
     follow_tpl = await _load_template(
         session, (campaign.audience_filter or {}).get("followup_template_id")
     )
-    for target in await _pending_targets(session, campaign, now):
+    targets = await _pending_targets(session, campaign, now)
+    lead_ids = {t.lead_id for t in targets}
+    leads_by_id: dict[uuid.UUID, Lead] = {}
+    if lead_ids:
+        leads_by_id = {
+            lead.id: lead
+            for lead in (
+                await session.execute(select(Lead).where(Lead.id.in_(lead_ids)))
+            ).scalars()
+        }
+    for target in targets:
         if out["sent"] + out["failed"] >= batch:
             break
         step = 1 if target.status == "pending" else 2
@@ -171,7 +181,7 @@ async def dispatch_campaign(
         if step == 2 and tpl is None:
             target.status = "done"
             continue
-        lead = await session.get(Lead, target.lead_id)
+        lead = leads_by_id.get(target.lead_id)
         if lead is None:
             target.status = "skipped"
             continue
@@ -251,8 +261,14 @@ async def dispatch_all(
         campaign = await session.get(Campaign, cid)
         if campaign is None:
             continue
-        res = await dispatch_campaign(
-            session, campaign, now=now, sender=sender, pace=pace, sleep=sleep
-        )
+        try:
+            res = await dispatch_campaign(
+                session, campaign, now=now, sender=sender, pace=pace, sleep=sleep
+            )
+        except Exception:
+            # Una campana rota no debe frenar a las demas (y no se traga en silencio).
+            await session.rollback()
+            log.error("outreach.campaign_dispatch_failed", campaign_id=str(cid), exc_info=True)
+            continue
         total += res["sent"]
     return {"enabled": True, "campaigns": len(ids), "sent": total}
