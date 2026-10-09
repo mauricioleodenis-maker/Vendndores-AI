@@ -1,4 +1,4 @@
-{% from "partials/macros.html" import csrf %}
+{% from "partials/macros.html" import csrf with context %}
 {% include "tenants/_steps_bar.html" %}
 <form hx-post="/admin/negocios/{{ tenant.id }}/paso2" hx-target="#wizard" hx-swap="innerHTML" method="post" action="/admin/negocios/{{ tenant.id }}/paso2">
   {{ csrf() }}

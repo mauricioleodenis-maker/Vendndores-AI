@@ -44,7 +44,8 @@ async def test_docs_hidden_in_prod(monkeypatch):
     from app.core.config import Settings
 
     s = Settings(env="prod", secret_key="x" * 40, master_keys='{"v1":"a"}', phone_hash_key="k",
-                 cookie_secure=True, _env_file=None)  # fmt: skip
+                 cookie_secure=True, public_base_url="https://a.example.com",
+                 allowed_hosts=["a.example.com"], _env_file=None)  # fmt: skip
     app = create_app(s)
     assert app.docs_url is None and app.openapi_url is None
 

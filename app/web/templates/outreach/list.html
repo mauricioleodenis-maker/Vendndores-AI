@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% from "partials/macros.html" import badge, empty_state %}
+{% block title %}Campañas{% endblock %}
+{% block content %}
+<h1>Campañas</h1>
+<p>
+  {% if not enabled %}{{ badge('desactivado', 'Envío desactivado (kill switch)') }}{% endif %}
+  {% if dry_run %}{{ badge('dry_run', 'Modo prueba: no se llama a Twilio') }}{% endif %}
+</p>
+<p>
+  <a class="btn btn-primary" href="/admin/campanas/nueva">Nueva campaña</a>
+  <a class="btn" href="/admin/campanas/plantillas">Plantillas</a>
+</p>
+{% if campaigns %}
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Campaña</th><th>Estado</th><th>Límite diario</th><th>Objetivos</th></tr></thead>
+  <tbody>
+  {% for c in campaigns %}
+    <tr>
+      <td><a href="/admin/campanas/{{ c.id }}">{{ c.name }}</a></td>
+      <td>{{ badge(c.status) }}{% if c.paused_reason %} <span class="muted">{{ c.paused_reason }}</span>{% endif %}</td>
+      <td>{{ c.daily_limit }}</td>
+      <td>{{ (c.stats or {}).get('targets', 0) }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}
+{{ empty_state('Sin campañas', 'Crea una campaña para contactar leads con plantillas aprobadas.', '/admin/campanas/nueva', 'Nueva campaña') }}
+{% endif %}
+{% endblock %}

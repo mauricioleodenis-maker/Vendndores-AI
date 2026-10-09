@@ -1,4 +1,4 @@
-{% from "partials/macros.html" import csrf %}
+{% from "partials/macros.html" import csrf with context %}
 <div class="card" id="google-calendar">
   <h3>Google Calendar</h3>
   {% if not gcal.configured %}

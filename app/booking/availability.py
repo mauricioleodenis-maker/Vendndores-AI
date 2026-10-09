@@ -20,10 +20,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.booking.calendar_base import CalendarProvider
 from app.core.clock import BOGOTA, ensure_utc, utcnow
+from app.core.logging import get_logger
 from app.db.models.booking import Appointment, TimeOff, WorkingHours
 from app.db.models.bots import BotConfig
 from app.db.models.catalog import Service
 from app.db.models.tenants import Tenant
+
+log = get_logger(__name__)
 
 Interval = tuple[datetime, datetime]
 
@@ -137,6 +140,33 @@ async def load_rules(session: AsyncSession, tenant_id: uuid.UUID) -> BookingRule
     return BookingRules.from_dict(raw if isinstance(raw, dict) else None)
 
 
+_DAY_KEYS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
+
+
+async def _bot_hours(
+    session: AsyncSession, tenant_id: uuid.UUID
+) -> dict[int, list[tuple[time, time]]]:
+    """Horario semanal del bot publicado, usado mientras el negocio no tenga ``working_hours``."""
+    cfg = (
+        await session.execute(
+            select(BotConfig.config).where(
+                BotConfig.tenant_id == tenant_id, BotConfig.status == "published"
+            )
+        )
+    ).scalar_one_or_none()
+    weekly = ((cfg or {}).get("hours") or {}).get("weekly") or {}
+    out: dict[int, list[tuple[time, time]]] = {}
+    for idx, key in enumerate(_DAY_KEYS):
+        for win in weekly.get(key) or []:
+            try:
+                out.setdefault(idx, []).append(
+                    (time.fromisoformat(win["open"]), time.fromisoformat(win["close"]))
+                )
+            except (KeyError, ValueError, TypeError):
+                continue
+    return out
+
+
 async def active_appointments(
     session: AsyncSession,
     tenant_id: uuid.UUID,
@@ -239,6 +269,8 @@ async def compute_slots(
     by_weekday: dict[int, list[tuple[time, time]]] = {}
     for h in hours:
         by_weekday.setdefault(int(h.weekday), []).append((h.start_time, h.end_time))
+    if not by_weekday:
+        by_weekday = await _bot_hours(session, tenant_id)
 
     range_start = datetime.combine(first_day, time.min, tz).astimezone(UTC)
     range_end = datetime.combine(last_day + timedelta(days=1), time.min, tz).astimezone(UTC)
@@ -272,7 +304,12 @@ async def compute_slots(
     if provider is not None:
         try:
             external = await provider.busy_intervals(session, tenant_id, range_start, range_end)
-        except Exception:  # noqa: BLE001 - si el calendario externo cae, se sigue con la DB
+        except Exception as exc:  # noqa: BLE001 - si el calendario externo cae, se sigue con la DB
+            log.warning(
+                "booking.external_busy_failed",
+                tenant_id=str(tenant_id),
+                error=type(exc).__name__,
+            )
             external = []
         busy.extend((ensure_utc(s), ensure_utc(e)) for s, e in external)
 

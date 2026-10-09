@@ -1,4 +1,4 @@
-{% from "partials/macros.html" import csrf %}
+{% from "partials/macros.html" import csrf with context %}
 {% include "tenants/_steps_bar.html" %}
 {% if generating %}
 {% include "tenants/_generando.html" %}

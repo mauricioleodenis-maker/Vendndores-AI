@@ -40,7 +40,9 @@ def make_lead(session) -> Callable[..., Any]:
     return _make
 
 
-def csv_files(data: bytes = CSV, name: str = "leads.csv", ctype: str = "text/csv") -> dict[str, Any]:
+def csv_files(
+    data: bytes = CSV, name: str = "leads.csv", ctype: str = "text/csv"
+) -> dict[str, Any]:
     return {"file": (name, data, ctype)}
 
 
@@ -123,12 +125,19 @@ async def test_move_stage_htmx_and_redirect(authenticated_client, make_lead, ses
     await session.refresh(lead)
     assert lead.stage == "demo"
     ev = (
-        await session.execute(select(LeadEvent).where(LeadEvent.kind == "stage_changed"))
-    ).scalars().all()
+        (await session.execute(select(LeadEvent).where(LeadEvent.kind == "stage_changed")))
+        .scalars()
+        .all()
+    )
     assert [e.data["to"] for e in sorted(ev, key=lambda e: e.data["to"])] == ["contactado", "demo"]
-    assert await session.scalar(
-        select(func.count()).select_from(AuditLog).where(AuditLog.action == "lead.stage_changed")
-    ) == 2
+    assert (
+        await session.scalar(
+            select(func.count())
+            .select_from(AuditLog)
+            .where(AuditLog.action == "lead.stage_changed")
+        )
+        == 2
+    )
     # mismo valor: sin evento nuevo
     await c.post(f"/admin/leads/{lead.id}/etapa", data={"stage": "demo"})
     assert await session.scalar(select(func.count()).select_from(LeadEvent)) == 2
@@ -136,9 +145,7 @@ async def test_move_stage_htmx_and_redirect(authenticated_client, make_lead, ses
 
 async def test_move_stage_invalid(authenticated_client, make_lead):
     lead = await make_lead()
-    r = await authenticated_client.post(
-        f"/api/leads/{lead.id}/stage", json={"stage": "inventada"}
-    )
+    r = await authenticated_client.post(f"/api/leads/{lead.id}/stage", json={"stage": "inventada"})
     assert r.status_code == 422
 
 
@@ -177,7 +184,12 @@ async def test_search_page_warns_without_key(authenticated_client):
 async def test_search_estimate_makes_no_calls_and_creates_nothing(authenticated_client, session):
     r = await authenticated_client.post(
         "/admin/leads/buscar",
-        data={"niche": "dentista", "city": "Cali", "neighborhoods": "Granada, Centro", "modo": "estimar"},
+        data={
+            "niche": "dentista",
+            "city": "Cali",
+            "neighborhoods": "Granada, Centro",
+            "modo": "estimar",
+        },
         headers=HX,
     )
     assert r.status_code == 200
@@ -205,7 +217,9 @@ async def test_search_launch_without_key_shows_error(authenticated_client, sessi
     assert await session.scalar(select(func.count()).select_from(LeadSource)) == 0
 
 
-async def test_search_launch_enqueues_job_and_status_polls(authenticated_client, session, places_key):
+async def test_search_launch_enqueues_job_and_status_polls(
+    authenticated_client, session, places_key
+):
     r = await authenticated_client.post(
         "/admin/leads/buscar",
         data={"niche": "dentista", "city": "Cali", "modo": "buscar"},
@@ -213,7 +227,7 @@ async def test_search_launch_enqueues_job_and_status_polls(authenticated_client,
     )
     assert r.status_code == 200 and "En cola" in r.text and "hx-trigger" in r.text
     source = (await session.execute(select(LeadSource))).scalars().one()
-    assert core_jobs.ENQUEUED == [("leads.search_places", (str(source.id),), {})]
+    assert [("leads.search_places", (str(source.id),), {})] == core_jobs.ENQUEUED
     audit_n = await session.scalar(
         select(func.count()).select_from(AuditLog).where(AuditLog.action == "lead.search")
     )
@@ -222,7 +236,14 @@ async def test_search_launch_enqueues_job_and_status_polls(authenticated_client,
     poll = await authenticated_client.get(f"/admin/leads/sources/{source.id}/status", headers=HX)
     assert "En cola" in poll.text
 
-    source.stats = {"status": "done", "found": 8, "created": 7, "merged": 1, "requests": 4, "cost_usd": 0.14}
+    source.stats = {
+        "status": "done",
+        "found": 8,
+        "created": 7,
+        "merged": 1,
+        "requests": 4,
+        "cost_usd": 0.14,
+    }
     await session.commit()
     done = await authenticated_client.get(f"/admin/leads/sources/{source.id}/status", headers=HX)
     assert "Terminada" in done.text and "hx-trigger" not in done.text and "Ver leads" in done.text
@@ -286,14 +307,17 @@ async def test_api_list_detail_stage(authenticated_client, make_lead):
 
 # ------------------------------------------------------------------ export
 async def test_export_csv_neutralizes_formulas_and_audits(authenticated_client, make_lead, session):
-    await make_lead(name="=HYPERLINK(\"http://evil\")")
+    await make_lead(name='=HYPERLINK("http://evil")')
     r = await authenticated_client.get("/admin/leads/export.csv")
     assert r.status_code == 200 and r.headers["content-type"].startswith("text/csv")
     assert "attachment" in r.headers["content-disposition"]
     assert "'=HYPERLINK" in r.text and ",=HYPERLINK" not in r.text
-    assert await session.scalar(
-        select(func.count()).select_from(AuditLog).where(AuditLog.action == "lead.export")
-    ) == 1
+    assert (
+        await session.scalar(
+            select(func.count()).select_from(AuditLog).where(AuditLog.action == "lead.export")
+        )
+        == 1
+    )
 
 
 # ------------------------------------------------------------------ importar CSV
@@ -324,7 +348,9 @@ async def test_import_html_flow_preview_then_commit(authenticated_client, sessio
     total = await session.scalar(select(func.count()).select_from(Lead))
     assert total and total > 0
     src = (await session.execute(select(LeadSource))).scalars().one()
-    assert src.kind == "csv_import" and src.params["sha256"] == sha and src.stats["created"] == total
+    assert (
+        src.kind == "csv_import" and src.params["sha256"] == sha and src.stats["created"] == total
+    )
 
     # el archivo ya se importo: pide confirmacion explicita
     r2 = await c.post("/admin/leads/importar", files=csv_files(), data={"niche": "dentista"})
@@ -342,7 +368,9 @@ async def test_import_commit_blocks_reupload_unless_forced(authenticated_client,
     assert j["columns"]["name"] == "Titulo"
     form = {"sha256": j["sha256"], "niche": "dentista", "city": "Cali"}
     first = await c.post("/api/leads/import/commit", data=form)
-    assert first.status_code == 201 and first.json()["summary"]["created"] == j["summary"]["created"]
+    assert (
+        first.status_code == 201 and first.json()["summary"]["created"] == j["summary"]["created"]
+    )
 
     # el temporal se descarta tras confirmar
     gone = await c.post("/api/leads/import/commit", data=form)
@@ -394,7 +422,9 @@ async def test_import_commit_rejects_bad_sha_and_tampering(authenticated_client,
 
     c = authenticated_client
     form = {"niche": "dentista", "city": "Cali"}
-    assert (await c.post("/api/leads/import/commit", data={**form, "sha256": "../../etc"})).status_code == 422
+    assert (
+        await c.post("/api/leads/import/commit", data={**form, "sha256": "../../etc"})
+    ).status_code == 422
     sha = "a" * 64
     listing.stash_upload(b"name\nx\n", sha)
     r = await c.post("/api/leads/import/commit", data={**form, "sha256": sha})
@@ -405,10 +435,12 @@ async def test_import_commit_rejects_bad_sha_and_tampering(authenticated_client,
 
 
 async def test_column_override_maps_custom_headers(authenticated_client, session):
-    data = "Razon,Cel\nDental Uno,3001234567\n".encode()
+    data = b"Razon,Cel\nDental Uno,3001234567\n"
     c = authenticated_client
     # sin columna de nombre reconocible: error claro
-    bad = await c.post("/api/leads/import/preview", files=csv_files(data), data={"niche": "dentista"})
+    bad = await c.post(
+        "/api/leads/import/preview", files=csv_files(data), data={"niche": "dentista"}
+    )
     assert bad.status_code == 422 and bad.json()["code"] == "csv_sin_nombre"
 
     from app.leads import listing
@@ -418,14 +450,26 @@ async def test_column_override_maps_custom_headers(authenticated_client, session
     listing.stash_upload(data, sha)
     r = await c.post(
         "/admin/leads/importar/vista-previa",
-        data={"sha256": sha, "niche": "dentista", "city": "Cali", "col_name": "Razon", "col_phone": "Cel"},
+        data={
+            "sha256": sha,
+            "niche": "dentista",
+            "city": "Cali",
+            "col_name": "Razon",
+            "col_phone": "Cel",
+        },
     )
     assert r.status_code == 200 and "Dental Uno" in r.text and "+573001234567" in r.text
     done = await c.post(
         "/admin/leads/importar/confirmar",
-        data={"sha256": sha, "niche": "dentista", "city": "Cali", "col_name": "Razon", "col_phone": "Cel"},
+        data={
+            "sha256": sha,
+            "niche": "dentista",
+            "city": "Cali",
+            "col_name": "Razon",
+            "col_phone": "Cel",
+        },
     )
-    assert "creó 1 leads" in done.text.replace("Se crearon", "creó").replace("  ", " ") or "1 leads nuevos" in done.text
+    assert "Se crearon 1 leads nuevos" in done.text
     assert (await session.execute(select(Lead.name))).scalars().all() == ["Dental Uno"]
 
 

@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}{{ doc.title }}{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="/static/saleskit.css">
+<script src="/static/saleskit.js" defer></script>
+<p><a href="/admin/kit-ventas">&larr; Kit de ventas</a></p>
+<nav class="kit-nav" aria-label="Documentos del kit">
+{% for d in docs %}
+  <a class="btn btn-ghost{% if d.slug == doc.slug %} btn-primary{% endif %}" href="/admin/kit-ventas/{{ d.slug }}"{% if d.slug == doc.slug %} aria-current="page"{% endif %}>{{ d.title }}</a>
+{% endfor %}
+</nav>
+<article class="card kit-doc">
+  <h1>{{ doc.title }}</h1>
+  {{ body }}
+</article>
+{% endblock %}

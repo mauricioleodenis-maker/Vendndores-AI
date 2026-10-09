@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Kit de ventas{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="/static/saleskit.css">
+<h1>Kit de ventas</h1>
+<p class="muted">Guiones, objeciones, planes y checklists listos para usar. Los mensajes tienen botón para copiar.</p>
+<div class="kit-grid">
+{% for d in docs %}
+  <a class="card kit-card" href="/admin/kit-ventas/{{ d.slug }}"><strong>{{ d.title }}</strong></a>
+{% else %}
+  <p class="muted">No hay documentos disponibles.</p>
+{% endfor %}
+</div>
+{% endblock %}

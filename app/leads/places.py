@@ -1,6 +1,6 @@
 """Cliente de Google Places API (New): Text Search y Details con field mask obligatorio.
 
-- Reintenta solo 429 y 5xx (backoff exponencial con jitter, max 4 intentos). 400/403/404 no se reintentan.
+- Reintenta solo 429 y 5xx (backoff exponencial con jitter, max 4 intentos); 400/403/404 no.
 - Limitador de QPS y tope de gasto (diario y mensual) sobre el rate limiter compartido.
 - La API key nunca se loguea ni aparece en los mensajes de error.
 """
@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import math
 import random
 import time
@@ -387,10 +388,8 @@ class PlacesClient:
     def _error(resp: httpx.Response) -> PlacesError:
         status = resp.status_code
         reason = ""
-        try:
+        with contextlib.suppress(ValueError, AttributeError):
             reason = str(resp.json().get("error", {}).get("status") or "")
-        except (ValueError, AttributeError):
-            pass
         log.error("places_error", status=status, reason=reason)
         if status == 429:
             return PlacesError("places_rate_limited", "Google Places limito las solicitudes.", 429)

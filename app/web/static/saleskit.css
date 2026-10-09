@@ -1,0 +1,10 @@
+.kit-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
+.kit-card { text-decoration: none; display: block; }
+.kit-nav { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.kit-doc h2 { margin-top: 1.6em; }
+.kit-msg { display: flex; gap: 12px; align-items: flex-start; justify-content: space-between; border-left: 4px solid var(--primary); background: var(--bg); padding: 10px 12px; margin: 12px 0; border-radius: var(--radius); }
+.kit-msg-text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.kit-msg-text p { margin: 0 0 .5em; }
+.kit-copy { flex: none; }
+.kit-check { list-style: none; margin-left: -1.2em; }
+@media (max-width: 600px) { .kit-msg { flex-direction: column; } .kit-copy { width: 100%; } }

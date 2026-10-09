@@ -73,8 +73,12 @@ class SecurityHeadersMiddleware:
         await self.app(scope, receive, _send)
 
 
+class _BodyTooLargeError(Exception):
+    """Cuerpo de webhook mayor al limite."""
+
+
 class WebhookBodyLimitMiddleware:
-    """Rechaza (413) webhooks con Content-Length mayor a 64 KB."""
+    """Rechaza (413) webhooks de mas de 64 KB (por Content-Length o por bytes recibidos)."""
 
     def __init__(self, app: ASGIApp, *, max_bytes: int = WEBHOOK_MAX_BODY) -> None:
         self.app = app
@@ -87,4 +91,34 @@ class WebhookBodyLimitMiddleware:
                 resp = JSONResponse({"code": "payload_too_large"}, status_code=413)
                 await resp(scope, receive, send)
                 return
+            await self._guarded(scope, receive, send)
+            return
         await self.app(scope, receive, send)
+
+    async def _guarded(self, scope: Scope, receive: Receive, send: Send) -> None:
+        """Cuenta bytes reales (cubre ``Transfer-Encoding: chunked`` sin Content-Length)."""
+        total = 0
+        started = False
+
+        async def _receive() -> Message:
+            nonlocal total
+            message = await receive()
+            if message["type"] == "http.request":
+                total += len(message.get("body", b""))
+                if total > self.max_bytes:
+                    raise _BodyTooLargeError
+            return message
+
+        async def _send(message: Message) -> None:
+            nonlocal started
+            if message["type"] == "http.response.start":
+                started = True
+            await send(message)
+
+        try:
+            await self.app(scope, _receive, _send)
+        except _BodyTooLargeError:
+            if started:
+                raise
+            resp = JSONResponse({"code": "payload_too_large"}, status_code=413)
+            await resp(scope, receive, send)

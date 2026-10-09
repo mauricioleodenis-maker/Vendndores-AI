@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% from "partials/macros.html" import badge, csrf %}
+{% block title %}{{ c.name }}{% endblock %}
+{% block content %}
+<h1>{{ c.name }}</h1>
+<p>{{ badge(c.status) }}
+  {% if c.paused_reason %}<span class="muted">Motivo de pausa: {{ c.paused_reason }}</span>{% endif %}
+  {% if not enabled %}{{ badge('desactivado', 'Envío desactivado (kill switch)') }}{% endif %}
+  {% if dry_run %}{{ badge('dry_run', 'Modo prueba') }}{% endif %}
+</p>
+<p><a class="btn" href="/admin/campanas">Volver</a></p>
+
+{% if preview %}
+<section>
+  <h2>Vista previa</h2>
+  <p>{{ preview.audience_count }} leads en la audiencia
+    ({{ preview.excluded_suppressed }} excluidos por supresión, {{ preview.excluded_missing_data }} sin datos suficientes).</p>
+  {% if not preview.template_approved %}<p class="muted">La plantilla aún no está aprobada por Meta: no se puede iniciar.</p>{% endif %}
+  <ul>
+    {% for s in preview.samples %}<li><strong>{{ s.business }}</strong>: {{ s.body }}</li>{% endfor %}
+  </ul>
+  {% if can_manage %}
+  <form method="post" action="/admin/campanas/{{ c.id }}/iniciar" data-confirm="¿Iniciar el envío a {{ preview.audience_count }} leads?">
+    {{ csrf() }}
+    <label><input type="checkbox" name="confirm" value="si" required> Confirmo que revisé la audiencia y los mensajes</label>
+    <button class="btn btn-primary" type="submit">Iniciar campaña</button>
+  </form>
+  {% else %}
+  <p class="muted">Solo owner o admin pueden iniciar la campaña.</p>
+  {% endif %}
+</section>
+{% endif %}
+
+{% if can_manage %}
+<div class="actions">
+  {% if c.status == 'running' %}
+  <form method="post" action="/admin/campanas/{{ c.id }}/pause">{{ csrf() }}<button class="btn" type="submit">Pausar</button></form>
+  {% elif c.status == 'paused' %}
+  <form method="post" action="/admin/campanas/{{ c.id }}/resume">{{ csrf() }}<button class="btn" type="submit">Reanudar</button></form>
+  {% endif %}
+  {% if c.status in ['draft', 'ready', 'running', 'paused'] %}
+  <form method="post" action="/admin/campanas/{{ c.id }}/cancel" data-confirm="¿Cancelar la campaña? Los envíos pendientes se descartan.">{{ csrf() }}<button class="btn" type="submit">Cancelar</button></form>
+  {% endif %}
+</div>
+{% endif %}
+
+<section>
+  <h2>Resultados</h2>
+  <p>Objetivos: {% for k, v in targets.items() %}{{ k }} {{ v }}{% if not loop.last %} · {% endif %}{% else %}sin objetivos{% endfor %}</p>
+  <p>Mensajes: {% for k, v in counts.items() %}{{ k }} {{ v }}{% if not loop.last %} · {% endif %}{% else %}sin mensajes{% endfor %}</p>
+</section>
+
+{% if messages %}
+<section>
+  <h2>Últimos mensajes</h2>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>Paso</th><th>Plantilla</th><th>Estado</th><th>Enviado</th></tr></thead>
+    <tbody>
+    {% for m in messages %}
+      <tr><td>{{ m.step }}</td><td>{{ m.template_name }}</td><td>{{ badge(m.status) }}</td><td>{{ m.sent_at | fecha_hora if m.sent_at else '-' }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+{% endif %}
+{% endblock %}

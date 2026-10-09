@@ -75,11 +75,10 @@ async def test_base_template_has_full_spanish_nav_and_no_inline_or_cdn(authentic
     assert not re.search(r"https?://(?!test)", html.replace("http://www.w3.org", ""))  # sin CDN
 
 
-async def test_placeholders_for_unbuilt_modules(authenticated_client):
+async def test_top_level_pages_render(authenticated_client):
     for path in PLACEHOLDER_PATHS:
         r = await authenticated_client.get(path)
         assert r.status_code == 200, path
-        assert "Módulo en construcción" in r.text
 
 
 async def test_placeholders_require_auth(client):

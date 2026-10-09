@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% from "partials/macros.html" import badge %}
+{% block title %}Plantillas de outreach{% endblock %}
+{% block content %}
+<h1>Plantillas de outreach</h1>
+<p><a class="btn" href="/admin/campanas">Volver a campañas</a></p>
+<p class="muted">Solo las plantillas aprobadas por Meta (con ContentSid) pueden enviarse. Registra la aprobación con la API.</p>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Nombre</th><th>Tipo</th><th>Categoría</th><th>Estado</th><th>Mensaje</th></tr></thead>
+  <tbody>
+  {% for t in templates %}
+    <tr>
+      <td>{{ t.name }} <span class="muted">v{{ t.version }}</span></td>
+      <td>{{ t.kind }}</td>
+      <td>{{ t.category }}</td>
+      <td>{{ badge(t.approval_status) }}</td>
+      <td>{{ t.body }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}

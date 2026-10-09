@@ -434,3 +434,8 @@ async def eliminar_ausencia(
         delete(TimeOff).where(TimeOff.id == off_id, TimeOff.tenant_id == tenant_id)
     )
     return _redirect(f"/admin/citas/horarios?tenant_id={tenant_id}", ok="Ausencia eliminada")
+
+
+from app.booking.oauth import router as google_oauth_router  # noqa: E402
+
+routers = [google_oauth_router]

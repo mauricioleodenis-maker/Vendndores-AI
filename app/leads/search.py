@@ -1,7 +1,7 @@
 """Busqueda de leads con Google Places: parametros, estimado de costo y job que guarda los leads.
 
-Los leads se guardan con las funciones de B11 (``import_csv``): dedupe por place_id/telefono/dominio,
-cifrado del telefono, scoring y evento ``imported``.
+Los leads se guardan con ``import_csv`` (B11): dedupe por place_id/telefono/dominio, cifrado del
+telefono, scoring y evento ``imported``.
 """
 
 from __future__ import annotations
@@ -18,17 +18,17 @@ from app.core.jobs import register_job
 from app.core.logging import get_logger
 from app.db.models.leads import LeadSource
 from app.db.session import get_sessionmaker
-from app.leads.csv_import import LeadCandidate
+from app.leads.csv_import import LeadCandidate, RowError
 from app.leads.csv_import import import_csv as _import_candidates
 from app.leads.normalize import normalize_website, to_e164_co, website_domain
 from app.leads.places import (
     COST_USD_PER_SEARCH_REQUEST,
     NICHE_QUERIES,
     CostEstimate,
-    PlaceSummary,
     PlacesBudgetExceededError,
     PlacesClient,
     PlacesError,
+    PlaceSummary,
     SearchStats,
     estimate_search,
 )
@@ -116,7 +116,7 @@ def place_to_candidate(place: PlaceSummary, *, row: int, niche: str, city: str) 
         website_domain=website_domain(site),
         rating=Decimal(str(place.rating)) if place.rating is not None else None,
         review_count=place.review_count,
-        maps_url=(place.maps_url or None) and place.maps_url[:500],  # type: ignore[index]
+        maps_url=(place.maps_url or None) and place.maps_url[:500],
         place_id=place.place_id[:200],
         category=(place.primary_type or "")[:100],
         business_status=place.business_status or "OPERATIONAL",
@@ -150,7 +150,7 @@ async def run_search(
     except PlacesError as exc:
         status, error = ("partial" if places else "failed"), exc.message
 
-    candidates = [
+    candidates: list[LeadCandidate | RowError] = [
         place_to_candidate(pl, row=i, niche=p.niche, city=p.city)
         for i, pl in enumerate(places, start=1)
     ]

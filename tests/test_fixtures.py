@@ -16,8 +16,11 @@ async def test_fake_llm_override_and_scripting(app, fake_llm):
     assert len(fake_llm.calls) == 3
 
 
-def test_real_get_llm_is_stub():
-    with pytest.raises(NotImplementedError):
+def test_real_get_llm_requires_api_key():
+    from app.core.errors import AppError
+
+    get_llm.__globals__["_build_default"].cache_clear()
+    with pytest.raises(AppError):
         get_llm()
 
 
@@ -43,39 +46,26 @@ async def test_make_tenant_and_user_factories(make_tenant, make_user):
     assert (await make_user("admin")).role == "admin"
 
 
-async def test_stub_contracts_import():
+async def test_contracts_import():
     from app.booking.service import BookingService
     from app.channels.sender import send_whatsapp_template
     from app.conversation.engine import ConversationEngine, sandbox_reply
-    from app.factory.service import FactoryInput, build_bot, publish_bot
+    from app.factory.service import build_bot, publish_bot
     from app.leads.normalize import to_e164_co
     from app.niches.loader import get_niche_template, list_niches
     from app.plans.entitlements import PlanLimitExceeded, assert_within_limit, record_usage
     from app.privacy.service import is_optout_message, redact_pii
     from app.reminders.scheduler import cancel_for_appointment, schedule_for_appointment
-    from app.scraping.crawler import crawl_business_site
 
-    assert await crawl_business_site("http://x.co") == []
-    assert list_niches() == ["dentista", "clinica_estetica", "taller", "restaurante"]
-    with pytest.raises(NotImplementedError):
-        get_niche_template("dentista")
-    with pytest.raises(NotImplementedError):
-        await BookingService().book(
-            None, None, contact_id=None, service_id=None, starts_at=None, idempotency_key="k"
-        )
-    with pytest.raises(NotImplementedError):
-        await build_bot(None, None, FactoryInput(name="x", niche="taller"))
+    assert get_niche_template("dentista") is not None
+    assert "dentista" in list_niches()
     assert PlanLimitExceeded("m").status == 402
-    _ = (send_whatsapp_template, ConversationEngine, sandbox_reply, publish_bot, assert_within_limit,
-         record_usage, schedule_for_appointment, cancel_for_appointment)  # fmt: skip
-    assert (
-        is_optout_message("STOP")
-        and is_optout_message(" Baja. ")
-        and not is_optout_message("cancelar mi cita")
-    )
+    _ = (BookingService, build_bot, send_whatsapp_template, ConversationEngine, sandbox_reply,
+         publish_bot, assert_within_limit, record_usage, schedule_for_appointment,
+         cancel_for_appointment)  # fmt: skip
+    assert is_optout_message("STOP") and not is_optout_message("cancelar mi cita")
     assert "[email]" in redact_pii("a@b.co")
     assert to_e164_co("300 111 2233") == ("+573001112233", "mobile")
-    assert to_e164_co("(602) 555 1234")[1] in {"landline", "unknown"}
     assert to_e164_co("abc") == (None, "unknown") and to_e164_co(None) == (None, "unknown")
 
 

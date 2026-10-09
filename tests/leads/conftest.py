@@ -42,9 +42,7 @@ def make_client(sleeps: list[float]) -> Callable[..., PlacesClient]:
 
     def _make(**kw: Any) -> PlacesClient:
         kw.setdefault("budget", PlacesBudget(daily_usd=1000, monthly_usd=10_000))
-        return PlacesClient(
-            FAKE_KEY, http=httpx.AsyncClient(), qps=0, sleep=fake_sleep, **kw
-        )
+        return PlacesClient(FAKE_KEY, http=httpx.AsyncClient(), qps=0, sleep=fake_sleep, **kw)
 
     return _make
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import uuid
 from datetime import timedelta
 
@@ -53,7 +54,7 @@ async def create_user(
     if await get_user_by_email(session, email):
         raise AppError("email_taken", "Ya existe un usuario con ese correo", 409)
     try:
-        pw_hash = hash_password(password)
+        pw_hash = await asyncio.to_thread(hash_password, password)
     except ValueError as exc:
         raise AppError("weak_password", str(exc), 422) from exc
     user = User(email=email, password_hash=pw_hash, full_name=full_name.strip(), role=role)
@@ -97,7 +98,7 @@ async def authenticate(
     user = await get_user_by_email(session, email)
     now = utcnow()
     locked = user is not None and user.locked_until is not None and user.locked_until > now
-    ok = verify_password(user.password_hash if user else None, password)
+    ok = await asyncio.to_thread(verify_password, user.password_hash if user else None, password)
     if user is None or locked or not ok or not user.is_active:
         for key, limit in zip(keys, limits, strict=True):
             await limiter.hit(key, limit=limit, window_s=window_s)
@@ -130,7 +131,7 @@ async def authenticate(
     user.locked_until = None
     user.last_login_at = now
     if password_needs_rehash(user.password_hash):
-        user.password_hash = hash_password(password)
+        user.password_hash = await asyncio.to_thread(hash_password, password)
     for key in keys:
         await limiter.reset(key)
     token, user_session = await create_session(session, user, ip=ip, user_agent=user_agent)
@@ -221,10 +222,10 @@ async def change_password(
     new_password: str,
     keep_session_id: str | None = None,
 ) -> None:
-    if not verify_password(user.password_hash, current_password):
+    if not await asyncio.to_thread(verify_password, user.password_hash, current_password):
         raise AppError("invalid_credentials", "La contrasena actual no es correcta", 400)
     try:
-        user.password_hash = hash_password(new_password)
+        user.password_hash = await asyncio.to_thread(hash_password, new_password)
     except ValueError as exc:
         raise AppError("weak_password", str(exc), 422) from exc
     await revoke_user_sessions(session, user.id, except_id=keep_session_id)

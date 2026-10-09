@@ -729,3 +729,8 @@ async def page_add_note(
     lead = await listing.get_lead(session, lead_id)
     await listing.add_note(session, lead, text, user)
     return RedirectResponse(f"/admin/leads/{lead.id}", status_code=303)
+
+
+from app.leads.sales_router import router as sales_router  # noqa: E402
+
+routers = [sales_router]

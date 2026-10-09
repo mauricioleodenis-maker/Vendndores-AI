@@ -37,6 +37,8 @@ def test_prod_valid():
         master_keys='{"v1": "abc"}',
         phone_hash_key="k",
         cookie_secure=True,
+        public_base_url="https://app.example.com",
+        allowed_hosts=["app.example.com"],
         _env_file=None,
     )
     assert s.is_prod and s.parsed_master_keys() == {"v1": "abc"}
@@ -54,3 +56,18 @@ def test_bad_master_keys_json():
 
 def test_get_settings_cached():
     assert get_settings() is get_settings()
+
+
+def test_prod_rejects_http_base_url_and_wildcard_hosts():
+    import pytest
+
+    with pytest.raises(ValueError, match="https"):
+        Settings(
+            env="prod", secret_key="x" * 40, master_keys='{"v1": "a"}', phone_hash_key="k",
+            cookie_secure=True, allowed_hosts=["a.com"], _env_file=None,
+        )  # fmt: skip
+    with pytest.raises(ValueError, match="ALLOWED_HOSTS"):
+        Settings(
+            env="prod", secret_key="x" * 40, master_keys='{"v1": "a"}', phone_hash_key="k",
+            cookie_secure=True, public_base_url="https://a.com", _env_file=None,
+        )  # fmt: skip

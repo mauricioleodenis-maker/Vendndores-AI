@@ -81,6 +81,10 @@ class Settings(BaseSettings):
             problems.append("VAI_PHONE_HASH_KEY requerido en prod")
         if self.debug:
             problems.append("VAI_DEBUG debe ser false en prod")
+        if not self.public_base_url.startswith("https://"):
+            problems.append("VAI_PUBLIC_BASE_URL debe ser https en prod (firma Twilio, OAuth)")
+        if not self.allowed_hosts or "*" in self.allowed_hosts:
+            problems.append("VAI_ALLOWED_HOSTS no puede ser '*' en prod")
         if problems:
             raise ValueError("Configuracion de produccion invalida: " + "; ".join(problems))
         return self

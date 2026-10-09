@@ -170,7 +170,8 @@ async def test_validate_field(authenticated_client: httpx.AsyncClient) -> None:
     )
     assert ok.text == ""
     bad = await c.post(
-        "/admin/negocios/validar-campo", data={"field": "website_url", "value": "javascript:alert(1)"}
+        "/admin/negocios/validar-campo",
+        data={"field": "website_url", "value": "javascript:alert(1)"},
     )
     assert "no válida" in bad.text
     short = await c.post("/admin/negocios/validar-campo", data={"field": "name", "value": "a"})

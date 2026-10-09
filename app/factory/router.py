@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.ai.client import LLMClient, get_llm
 from app.core.deps import get_session, require_role
 from app.core.errors import AppError, NotFoundError
+from app.core.rate_limit import enforce
 from app.db.models.bots import BotConfig
 from app.db.models.tenants import Tenant
 from app.db.models.users import User
@@ -303,6 +304,7 @@ async def regenerate(
 ) -> Response:
     from app.tenants import service as tenants_service
 
+    await enforce(f"factory:regen:{user.id}", limit=10, window_s=3600)
     tenant = await _tenant(session, tenant_id)
     inputs: FactoryInput = await tenants_service.build_factory_input(session, tenant)
 
@@ -381,6 +383,7 @@ async def sandbox_chat(
     error = ""
     if message:
         try:
+            await enforce(f"factory:sandbox:{user.id}", limit=30, window_s=60)
             reply = await sandbox_reply(session, tenant_id, messages, message, bot_config_id=bot.id)
             messages += [
                 {"role": "user", "content": message},

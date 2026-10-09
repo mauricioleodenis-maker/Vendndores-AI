@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% from "partials/macros.html" import csrf with context %}
+{% block title %}Nueva campaña{% endblock %}
+{% block content %}
+<h1>Nueva campaña</h1>
+<form method="post" action="/admin/campanas/nueva" class="stack">
+  {{ csrf() }}
+  <label>Nombre <input name="name" required minlength="3" maxlength="200"></label>
+  <label>Plantilla inicial
+    <select name="template_id" required>
+      {% for t in pitch %}<option value="{{ t.id }}">{{ t.name }}{% if not t.approved %} (sin aprobar){% endif %}</option>{% endfor %}
+    </select>
+  </label>
+  <label>Plantilla de seguimiento (opcional)
+    <select name="followup_template_id">
+      <option value="">Sin seguimiento</option>
+      {% for t in followups %}<option value="{{ t.id }}">{{ t.name }}</option>{% endfor %}
+    </select>
+  </label>
+  <fieldset>
+    <legend>Audiencia</legend>
+    <label>Nicho <input name="niche" maxlength="30"></label>
+    <label>Ciudad <input name="city" maxlength="100"></label>
+    <label>Puntaje mínimo <input type="number" name="min_score" min="0" max="100" value="0"></label>
+    <label>Etapa
+      <select name="stage">
+        <option value="">Cualquiera</option>
+        <option value="nuevo">Nuevo</option>
+        <option value="prueba_secreta">Prueba secreta</option>
+        <option value="contactado">Contactado</option>
+      </select>
+    </label>
+  </fieldset>
+  <label>Límite diario (máx. 80) <input type="number" name="daily_limit" min="1" max="80" value="20"></label>
+  <p class="muted">Solo se contacta a leads activos, con celular y fuera de la lista de supresión. Envío de lunes a sábado, 8:00 a 19:00 (Bogotá), sin festivos.</p>
+  <button class="btn btn-primary" type="submit">Crear borrador</button>
+</form>
+{% endblock %}

@@ -8,7 +8,7 @@ from sqlalchemy import func, select
 from app.core.jobs import JOB_REGISTRY
 from app.db.models.leads import Lead, LeadEvent, LeadSource
 from app.leads import places
-from app.leads.places import PlaceSummary, PlacesBudget
+from app.leads.places import PlacesBudget, PlaceSummary
 from app.leads.search import (
     JOB_NAME,
     SearchParams,
@@ -110,9 +110,7 @@ async def test_run_search_partial_when_budget_runs_out(session, mock_places, mak
 
 async def test_run_search_failed_when_google_rejects(session, mock_places, make_client):
     mock_places.post(SEARCH_URL).mock(return_value=httpx.Response(403))
-    source = await create_search_source(
-        session, SearchParams(niche="taller"), user_id=None
-    )
+    source = await create_search_source(session, SearchParams(niche="taller"), user_id=None)
     async with make_client() as client:
         stats = await run_search(session, source, client)
     assert stats["status"] == "failed" and stats["created"] == 0

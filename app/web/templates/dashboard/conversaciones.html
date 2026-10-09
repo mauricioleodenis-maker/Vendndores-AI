@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% from "partials/macros.html" import badge, empty_state, pager %}
+{% block title %}Conversaciones{% endblock %}
+{% block content %}
+<h1>Conversaciones</h1>
+<form class="filters" method="get" action="/admin/conversaciones">
+  <label>Buscar <input type="search" name="q" value="{{ q }}" maxlength="100" placeholder="Texto del mensaje"></label>
+  <label>Estado
+    <select name="estado"><option value="">Todos</option>
+      {% for e in estados %}<option value="{{ e }}" {% if e == estado %}selected{% endif %}>{{ e | estado_es }}</option>{% endfor %}
+    </select>
+  </label>
+  <button class="btn btn-ghost" type="submit">Filtrar</button>
+</form>
+{% if rows %}
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Empresa</th><th>Contacto</th><th>Último mensaje</th><th>Estado</th><th>Actividad</th></tr></thead>
+  <tbody>
+  {% for r in rows %}
+    <tr>
+      <td>{{ r.tenant_name }}</td>
+      <td><a href="/admin/conversaciones/{{ r.id }}">{{ r.phone | tel_mask }}</a></td>
+      <td>{{ r.preview }}</td>
+      <td>{% if r.paused %}<span class="badge badge-warn">Humano</span>{% else %}<span class="badge badge-info">Bot</span>{% endif %} {{ badge(r.status) }}</td>
+      <td>{{ r.last_message_at | hace }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{{ pager(base_url, page, has_more) }}
+{% else %}
+{{ empty_state('Sin conversaciones', 'Cuando los clientes escriban al bot aparecerán aquí.') }}
+{% endif %}
+{% endblock %}

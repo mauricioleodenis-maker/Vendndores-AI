@@ -101,6 +101,9 @@ async def seed_data(session: AsyncSession) -> dict[str, int]:
         hook = getattr(module, "seed", None)
         if hook is not None:
             await hook(session)
+    from app.outreach.templates import seed_templates
+
+    await seed_templates(session)
     return created
 
 

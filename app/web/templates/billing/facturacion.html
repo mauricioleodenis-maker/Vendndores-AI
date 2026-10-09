@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% from "partials/macros.html" import badge, empty_state, csrf %}
+{% block title %}Facturación{% endblock %}
+{% block content %}
+<h1>Facturación</h1>
+{% if flash %}<div class="alert alert-{{ flash.kind }}" role="status">{{ flash.message }}</div>{% endif %}
+
+<div class="kpis">
+  <div class="kpi"><div class="value">{{ summary.mrr_cop | cop }}</div><div class="label">MRR</div></div>
+  <div class="kpi"><div class="value">{{ summary.setups_month_cop | cop }}</div><div class="label">Setups cobrados del mes</div></div>
+  <div class="kpi"><div class="value">{{ summary.overdue_cop | cop }}</div><div class="label">Vencido ({{ summary.overdue_count }})</div></div>
+  <div class="kpi"><div class="value">{{ summary.pending_cop | cop }}</div><div class="label">Por cobrar</div></div>
+</div>
+
+<form class="filters" method="get" action="/admin/facturacion">
+  <label>Estado
+    <select name="estado">
+      <option value="">Todos</option>
+      {% for e in estados %}<option value="{{ e }}" {% if e == estado %}selected{% endif %}>{{ e | estado_es }}</option>{% endfor %}
+    </select>
+  </label>
+  <button class="btn btn-ghost" type="submit">Filtrar</button>
+  <a class="btn btn-ghost" href="/admin/facturacion/exportar.csv{% if estado %}?estado={{ estado }}{% endif %}">Exportar CSV</a>
+</form>
+<form method="post" action="/admin/facturacion/generar" data-confirm="¿Generar las mensualidades del mes?">
+  {{ csrf() }}<button class="btn btn-ghost" type="submit">Generar mensualidades del mes</button>
+</form>
+
+{% if rows %}
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Empresa</th><th>Tipo</th><th>Periodo</th><th>Monto</th><th>Vence</th><th>Estado</th><th></th></tr></thead>
+  <tbody>
+  {% for r in rows %}
+    <tr>
+      <td>{{ r.tenant_name }}</td>
+      <td>{{ r.record.kind | capitalize }}</td>
+      <td>{{ r.record.period or '-' }}</td>
+      <td>{{ (r.record.amount_cop + r.record.iva_cop) | cop }}</td>
+      <td>{{ r.record.due_date | fecha }}</td>
+      <td>{{ badge(r.record.status) }}</td>
+      <td>
+        {% if r.record.status in ('pendiente', 'vencido') %}
+        <form method="post" action="/admin/facturacion/{{ r.record.id }}/pagar" data-confirm="¿Marcar este cobro como pagado?">
+          {{ csrf() }}
+          <select name="metodo" aria-label="Método de pago">
+            {% for m in methods %}<option value="{{ m }}">{{ m | capitalize }}</option>{% endfor %}
+          </select>
+          <input name="referencia" maxlength="120" placeholder="Referencia" aria-label="Referencia">
+          <button class="btn btn-primary" type="submit">Marcar pagado</button>
+        </form>
+        <form method="post" action="/admin/facturacion/{{ r.record.id }}/anular" data-confirm="¿Anular este cobro?">
+          {{ csrf() }}<button class="btn btn-ghost" type="submit">Anular</button>
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}
+{{ empty_state('Sin cobros', 'Aún no hay registros de cobro. Se crean al activar una suscripción.') }}
+{% endif %}
+{% endblock %}

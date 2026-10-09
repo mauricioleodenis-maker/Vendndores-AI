@@ -189,3 +189,67 @@ AAD `make_aad(tabla, tenant_id, columna)`. `tenant_secrets` guarda `ciphertext/n
 - `worker.py` ademas importa `app.tenants.service` y `app.conversation.memory` (registran jobs fuera de `jobs.py`). Si otros modulos registran jobs en otros archivos, agregarlos a `EXTRA_JOB_MODULES`.
 - Los recordatorios enviados no se guardan como `messages` de la conversacion (el sender no lo hace); si el dashboard debe mostrarlos, B6 puede exponer un helper publico.
 - `tests/test_fixtures.py::test_real_get_llm_is_stub` falla en la suite global (no es de B10; depende de B5).
+
+## B13 Leads ventas – wiring y pendientes
+- **Registro de rutas**: `app/leads/router.py` (B12) solo expone `router`. Para activar las rutas de ventas
+  (`/api/leads/{id}/secret-shop`, `/api/secret-shop/{id}/reply`, `/pitch-evidence`, `/demo-bot`, `/convert`,
+  `/admin/leads/{id}/ventas*` y la pagina PUBLICA `/demo/{token}` + `/demo/{token}/mensaje`) agregar en `app/leads/router.py`:
+  `from app.leads.sales_router import router as sales_router` y `routers = [router, sales_router]`.
+  `/demo/*` no cuelga de `/admin` ni `/api`: no exige sesion ni CSRF (el token firmado + tope de mensajes lo protegen).
+- **Jobs**: crear `app/leads/jobs.py` con `from app.leads.secret_shop import secret_shop_timeout_job`
+  y `CRON_JOBS = [cron(secret_shop_timeout_job, minute={0, 15, 30, 45}, name="leads.secret_shop_timeout")]`
+  (el worker espera ese nombre). Pendiente (spec §12): `purge_expired_demos_job` (borrar tenants `is_demo` vencidos sin conversion;
+  vencimiento = `created_at + VAI_DEMO_TOKEN_TTL_DAYS`).
+- **Etapas**: `listing.move_stage` (B12) deberia delegar en `app.leads.pipeline.transition_stage(session, lead, stage, actor=user)`
+  para validar `ALLOWED`, crear `lead_event` y `audit_log` (no duplique la tabla de transiciones). Para `no_contactar/perdido`
+  usar `pipeline.set_disposition`.
+- **Demo por WhatsApp**: `demo_links()` genera `https://wa.me/<VAI_DEMO_WHATSAPP_NUMBER>?text=DEMO-<slug>`, pero el ruteo
+  inbound del codigo `DEMO-<slug>` hacia el tenant demo (channels, B6) NO esta implementado: no se crea `channel_accounts`
+  (phone_e164 es unique y el numero demo es compartido). Hasta entonces funciona solo la pagina web `/demo/{token}`.
+- **Tope de mensajes de demo**: usa `app.core.rate_limit.enforce("demo-msgs:<tenant_id>")` (memoria en dev/test, Redis en prod).
+- **Plantillas**: el boton/acciones se incrustan con `hx-get="/admin/leads/{id}/ventas" hx-trigger="load"` o `{% include %}` no
+  posible (necesita contexto); sugerido en `leads/detalle.html`: `<div hx-get="/admin/leads/{{ lead.id }}/ventas" hx-trigger="load"></div>`.
+  CSS propio: `app/web/static/leads_sales.css` (enlazado desde los parciales).
+- Demo no crea suscripcion trial (el `trial` de plan basico del spec se omite: los tenants demo no consumen cuotas porque usan `sandbox_reply`).
+
+## B12 (leads: Places + UI)
+- **Job de busqueda**: `app/leads/search.py` registra `leads.search_places` con `@register_job`, pero el worker solo importa `app.<pkg>.jobs`. Debe existir `app/leads/jobs.py` que haga `import app.leads.search  # noqa: F401` (y los jobs de B13). Sin eso el job encolado no corre en el worker arq.
+- **Macro `csrf()` (foundation)**: `partials/macros.html::csrf()` lee `csrf_token` del contexto, pero con `{% from ... import csrf %}` Jinja NO pasa el contexto y el input sale con `value=""` (formularios sin JS fallan CSRF; HTMX no, porque usa el header del meta). B12 importa con `{% from "partials/macros.html" import csrf with context %}`. Revisar `auth/ajustes.html`, `booking/*`, etc., o cambiar la macro a `{% macro csrf() %}` + importar siempre `with context`.
+- **Estilos**: CSP `style-src 'self'` prohibe `<style>` inline; B12 agrego `app/web/static/leads.css` (kanban, timeline) enlazado desde `leads/_tabs.html`. Considerar moverlo a `app.css`.
+- **Config nueva (sin cambios de codigo)**: `VAI_GOOGLE_PLACES_API_KEY` y `VAI_GOOGLE_PLACES_BUDGET_USD_MONTH`. Tope diario = 2x (mensual/30), contadores en el rate limiter compartido (memoria en dev, Redis en prod). Costos por solicitud son constantes orientativas en `places.py` (`COST_USD_PER_SEARCH_REQUEST=0.035`); verificar en la consola de Google.
+- **Etapas**: `listing.move_stage` cambia `Lead.stage` + `LeadEvent(stage_changed)` + auditoria desde kanban/detalle. Si B13 (`pipeline.py`) impone transiciones validas, hacer que `listing.move_stage` delegue en esa funcion.
+- **Places details/reviews**: `PlacesClient.get_details` existe y esta probado, pero el job no lo llama (costo y ToS de cache de resenas). Para `review_signal_scan` usar el CSV del Maps-Scraper o llamarlo bajo demanda.
+- **Dry-run del buscador** = solo estimado (0 llamadas a Google, nada se guarda).
+- **CSV preview**: el archivo subido se guarda en `<tmp>/vai-csv-import/<sha256>.csv` (0600, TTL 1 h) para el paso de confirmacion; con varios hosts web usar volumen compartido o mover a Redis.
+- **Rutas**: `/admin/leads` (tabla), `/admin/leads/kanban`, `/buscar`, `/importar`, `/export.csv`, `/{id}`; API `/api/leads/search|sources/{id}/status|import/preview|import/commit|{id}/stage`. Cuidado con colision de rutas `/admin/leads/{lead_id}` con las de B13 (`sales_router`): las estaticas de B12 se registran antes.
+- **tests/web/test_web.py::test_placeholders_for_unbuilt_modules**: `/admin/leads` ya no es placeholder (lo sirve B12); quitarlo de la lista del test. (`tests/test_fixtures.py::test_real_get_llm_is_stub` y `::test_stub_contracts_import` fallan por B5/otros, no por leads.)
+
+## B14 Outreach – notas de integración
+- **Seed**: `app.outreach.templates.seed_templates(session)` crea las 4 plantillas (borrador, sin aprobar). Se auto-ejecuta al abrir
+  `/admin/campanas/plantillas` o `GET /api/outreach/templates`; `app.cli seed` puede llamarla también.
+- **Aprobación Meta**: no hay llamada a Content API; tras aprobar en Twilio se registra el `ContentSid` con
+  `POST /api/outreach/templates/{id}/approval` (admin). Sin ContentSid aprobado, el ComplianceGate niega y `start` falla.
+- **Dry-run**: se usa `VAI_TWILIO_DRY_RUN` (ya existe; el sender devuelve SID `DRYRUN...`). No se agregó `OUTREACH_DRY_RUN` ni
+  `OUTREACH_MAX_DAILY` a `Settings`: el tope (80/día) y la rampa (20 +10/día) son constantes duras en `app/outreach/compliance.py`.
+  `VAI_OUTREACH_ENABLED=false` bloquea start/resume, el gate y el job `outreach.dispatch` (cron cada minuto, autodescubierto).
+- **StatusCallback**: `channels.sender._status_callback()` apunta a `/webhooks/twilio/status`; outreach se engancha vía
+  `channels.service.STATUS_FALLBACKS` (se registra al importar `app.outreach.webhooks`). `/webhooks/twilio/outreach-status` también existe.
+- **Opt-out por STOP** responde con TwiML `<Message>` (no usa `send_whatsapp_template`, que bloquea números suprimidos).
+- Webhooks usan el token de la plataforma (`VAI_TWILIO_AUTH_TOKEN`) y `VAI_PUBLIC_BASE_URL` para validar la firma.
+- Sugerencia B18: enlazar "Campañas" desde la ficha del lead (`/admin/leads/{id}`) y migración Alembic: sin cambios de esquema.
+
+## B17 (kit de ventas)
+- Router en `app/saleskit/router.py` (paquete existente de la fundación; no se creó `app/sales_kit`). Estáticos propios: `app/web/static/saleskit.css` y `saleskit.js` (botón Copiar, cargados desde las plantillas).
+- Los precios de `docs/ventas/06-oferta-y-planes.md` siguen MAESTRO §7 (Pro 390.000; fundador = 5 clientes, setup 100% off), no `support/05`. Si B2 cambia el seed, actualizar ese documento.
+- Sin dependencias nuevas.
+
+---
+
+## B18 Integrador – resolución (HECHO)
+- HECHO: `app/booking/router.py` expone `routers=[google_oauth_router]`; `app/leads/router.py` expone `routers=[sales_router]`; nuevo `app/leads/jobs.py` (importa `leads.search`, cron `leads.secret_shop_timeout`).
+- HECHO: macro `csrf` importada `with context` en todas las plantillas (tenants wizard, outreach, booking).
+- HECHO: `app.cli seed` llama `seed_templates` de outreach. Tests obsoletos de B0/web actualizados (`test_fixtures.py`, `test_web.py`).
+- HECHO: brecha real corregida: sin `working_hours` la disponibilidad usa `bot_configs.config["hours"]["weekly"]` del bot publicado (`availability._bot_hours`).
+- HECHO: migración `0001` verificada contra los modelos (autogenerate sin diferencias) y `upgrade head` en SQLite OK.
+- HECHO: humo e2e en `tests/integration/test_e2e_smoke.py` (wizard -> build_bot FakeLLM -> publicar -> Twilio firmado -> cita; CSV -> score -> bot demo).
+- PENDIENTE (no bloqueante): `listing.move_stage` aún no delega en `pipeline.transition_stage`; notificación al staff en handoff; plantillas Twilio aprobadas; RLS Postgres; descarga de media; ruteo `DEMO-<slug>` por WhatsApp; `purge_expired_demos_job`.

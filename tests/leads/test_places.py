@@ -127,10 +127,7 @@ async def test_search_all_filters_closed_and_low_reviews(mock_places, make_clien
     stats = SearchStats()
     async with make_client() as client:
         found = [
-            p
-            async for p in client.search_all(
-                "restaurante", "Cali", min_reviews=100, stats=stats
-            )
+            p async for p in client.search_all("restaurante", "Cali", min_reviews=100, stats=stats)
         ]
     assert {p.place_id for p in found} == {"ChIJFAKE000003", "ChIJFAKE000005"}
     assert stats.rejected == 3
