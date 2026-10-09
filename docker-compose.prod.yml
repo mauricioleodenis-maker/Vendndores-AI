@@ -16,6 +16,8 @@ services:
       VAI_DATABASE_URL: postgresql+asyncpg://vendedores:${POSTGRES_PASSWORD:?}@db:5432/vendedores
       VAI_COOKIE_SECURE: "true"
       VAI_DEBUG: "false"
+      # Puerto 8000 no publicado: solo Caddy (red interna) llega aqui.
+      FORWARDED_ALLOW_IPS: "*"
     read_only: true
     tmpfs: ["/tmp"]
   worker:
@@ -37,6 +39,13 @@ services:
       - caddy_data:/data
       - caddy_config:/config
     depends_on: [web]
+    read_only: true
+    cap_drop: ["ALL"]
+    cap_add: ["NET_BIND_SERVICE"]
+    security_opt: ["no-new-privileges:true"]
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "5"}
     restart: unless-stopped
 volumes:
   caddy_data:

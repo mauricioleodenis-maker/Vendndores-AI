@@ -1,24 +1,40 @@
 {% extends "base.html" %}
-{% from "partials/macros.html" import badge, empty_state %}
+{% from "partials/macros.html" import badge, empty_state, kpi %}
 {% block title %}Citas de todas las empresas{% endblock %}
 {% block content %}
-<h1>Citas de todas las empresas</h1>
-<p>Próximos {{ dias }} días. <a href="/admin/citas">Ir a la agenda por empresa</a></p>
+<div class="page-header">
+  <h1>Citas de todas las empresas</h1>
+  <div class="page-actions">
+    <nav class="tabs" aria-label="Rango de días">
+      {% for d in (7, 14, 30) %}<a class="tab{% if d == dias %} active{% endif %}"{% if d == dias %} aria-current="page"{% endif %} href="/admin/citas/resumen?dias={{ d }}">{{ d }} días</a>{% endfor %}
+    </nav>
+    <a class="btn btn-ghost" href="/admin/citas">Agenda por empresa</a>
+  </div>
+</div>
 {% if per_tenant %}
 <div class="kpis">
-  {% for name, n in per_tenant.items() %}<div class="kpi"><div class="value">{{ n }}</div><div class="label">{{ name }}</div></div>{% endfor %}
+  {% for name, n in per_tenant.items() %}{{ kpi(name, n) }}{% endfor %}
 </div>
+{% if total > shown %}<div class="alert alert-warn" role="status">Mostrando las {{ shown }} citas más próximas de {{ total }}. Los conteos por empresa incluyen todas.</div>{% endif %}
+<div class="card">
 <div class="table-wrap">
-<table>
+<table class="cards">
   <thead><tr><th>Fecha</th><th>Empresa</th><th>Servicio</th><th>Estado</th><th>Origen</th></tr></thead>
   <tbody>
   {% for r in rows %}
-    <tr><td>{{ r.starts_at | fecha_hora }}</td><td>{{ r.tenant_name }}</td><td>{{ r.service }}</td><td>{{ badge(r.status) }}</td><td>{{ 'Manual' if r.source == 'manual' else 'Bot' }}</td></tr>
+    <tr>
+      <td data-label="Fecha" class="nowrap">{{ r.starts_at | fecha_hora }}</td>
+      <td data-label="Empresa">{{ r.tenant_name }}</td>
+      <td data-label="Servicio">{{ r.service }}</td>
+      <td data-label="Estado">{{ badge(r.status) }}</td>
+      <td data-label="Origen">{{ 'Manual' if r.source == 'manual' else 'Bot' }}</td>
+    </tr>
   {% endfor %}
   </tbody>
 </table>
 </div>
+</div>
 {% else %}
-{{ empty_state('Sin citas', 'No hay citas próximas en ninguna empresa.') }}
+{{ empty_state('Sin citas próximas', 'No hay citas en los próximos ' ~ dias ~ ' días. Prueba con un rango mayor.', '/admin/citas/resumen?dias=30', 'Ver 30 días') }}
 {% endif %}
 {% endblock %}

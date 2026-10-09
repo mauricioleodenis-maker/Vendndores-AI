@@ -192,3 +192,66 @@ async def test_requires_login_and_csrf(client, session, tenant):
     conv = await _conv(session, tenant)
     assert (await client.get("/admin/inicio")).status_code in (401, 303, 307)
     assert (await client.post(f"/admin/conversaciones/{conv.id}/tomar")).status_code in (401, 403)
+
+
+async def test_search_is_audited_without_text(session, tenant, owner_user):
+    await _conv(session, tenant)
+    await service.list_conversations(session, q="cita secreta", actor=owner_user)
+    await session.commit()
+    ev = (
+        await session.execute(select(AuditLog).where(AuditLog.action == "conversation.search"))
+    ).scalar_one()
+    assert "secreta" not in str(ev.diff)
+    assert ev.diff["q_len"] == len("cita secreta")
+
+
+async def test_manual_reply_rejects_duplicate_and_persists(session, tenant, owner_user):
+    conv = await _conv(session, tenant)
+    await service.take_control(session, conv, actor=owner_user)
+    msg = await service.send_manual_reply(session, conv, "Hola de nuevo", actor=owner_user)
+    assert msg.status == "sent"
+    with pytest.raises(Exception, match="ya se envió"):
+        await service.send_manual_reply(session, conv, "Hola de nuevo", actor=owner_user)
+    count = (
+        (await session.execute(select(Message).where(Message.role == "human_agent")))
+        .scalars()
+        .all()
+    )
+    assert len(count) == 1
+
+
+async def test_failed_send_leaves_no_ghost_message(session, tenant, owner_user, monkeypatch):
+    from types import SimpleNamespace
+
+    conv = await _conv(session, tenant)
+    await service.take_control(session, conv, actor=owner_user)
+
+    async def fail(*a, **k):
+        return SimpleNamespace(ok=False, error="500", sid=None)
+
+    monkeypatch.setattr(service, "send_whatsapp_text", fail)
+    with pytest.raises(Exception, match="No se pudo"):
+        await service.send_manual_reply(session, conv, "x", actor=owner_user)
+
+
+async def test_appointments_overview_counts_all_and_skips_deleted(session, make_tenant):
+    a = await make_tenant(name="Igual")
+    b = await make_tenant(name="Igual")
+    gone = await make_tenant(name="Borrada")
+    gone.deleted_at = utcnow()
+    now = utcnow()
+    for t, n in ((a, 205), (b, 1), (gone, 2)):
+        for i in range(n):
+            session.add(
+                Appointment(
+                    tenant_id=t.id,
+                    starts_at=now + timedelta(hours=1, minutes=i),
+                    ends_at=now + timedelta(hours=2, minutes=i),
+                    status="confirmed",
+                    source="manual",
+                )
+            )
+    await session.commit()
+    rows, per = await service.appointments_overview(session, days=7)
+    assert len(rows) == 200
+    assert sorted(per.values()) == [1, 205] and len(per) == 2

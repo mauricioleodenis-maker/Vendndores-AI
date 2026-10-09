@@ -1,38 +1,57 @@
 {% extends "base.html" %}
-{% from "partials/macros.html" import csrf with context %}
+{% from "partials/macros.html" import csrf, stepper with context %}
 {% block title %}Nueva campaña{% endblock %}
 {% block content %}
-<h1>Nueva campaña</h1>
-<form method="post" action="/admin/campanas/nueva" class="stack">
+<div class="page-header">
+  <h1>Nueva campaña</h1>
+  <div class="page-actions"><a class="btn" href="/admin/campanas">Cancelar</a></div>
+</div>
+{{ stepper(['Datos', 'Vista previa', 'Envío'], 1) }}
+<form method="post" action="/admin/campanas/nueva" class="card stack">
   {{ csrf() }}
-  <label>Nombre <input name="name" required minlength="3" maxlength="200"></label>
-  <label>Plantilla inicial
-    <select name="template_id" required>
-      {% for t in pitch %}<option value="{{ t.id }}">{{ t.name }}{% if not t.approved %} (sin aprobar){% endif %}</option>{% endfor %}
-    </select>
-  </label>
-  <label>Plantilla de seguimiento (opcional)
-    <select name="followup_template_id">
-      <option value="">Sin seguimiento</option>
-      {% for t in followups %}<option value="{{ t.id }}">{{ t.name }}</option>{% endfor %}
-    </select>
-  </label>
+  <div class="form-grid">
+    <div class="field span-2">
+      <label for="f-name">Nombre <span class="required" aria-hidden="true">*</span></label>
+      <input id="f-name" name="name" required minlength="3" maxlength="200" placeholder="Ej. Dentistas Bogotá, octubre">
+    </div>
+    <div class="field">
+      <label for="f-tpl">Plantilla inicial <span class="required" aria-hidden="true">*</span></label>
+      <select id="f-tpl" name="template_id" required>
+        {% for t in pitch %}<option value="{{ t.id }}">{{ t.name }}{% if not t.approved %} (sin aprobar){% endif %}</option>{% endfor %}
+      </select>
+      <small class="help">Solo las plantillas aprobadas por Meta se pueden enviar.</small>
+    </div>
+    <div class="field">
+      <label for="f-follow">Plantilla de seguimiento</label>
+      <select id="f-follow" name="followup_template_id">
+        <option value="">Sin seguimiento</option>
+        {% for t in followups %}<option value="{{ t.id }}">{{ t.name }}</option>{% endfor %}
+      </select>
+    </div>
+  </div>
   <fieldset>
     <legend>Audiencia</legend>
-    <label>Nicho <input name="niche" maxlength="30"></label>
-    <label>Ciudad <input name="city" maxlength="100"></label>
-    <label>Puntaje mínimo <input type="number" name="min_score" min="0" max="100" value="0"></label>
-    <label>Etapa
-      <select name="stage">
-        <option value="">Cualquiera</option>
-        <option value="nuevo">Nuevo</option>
-        <option value="prueba_secreta">Prueba secreta</option>
-        <option value="contactado">Contactado</option>
-      </select>
-    </label>
+    <div class="form-grid">
+      <div class="field"><label for="f-niche">Nicho</label><input id="f-niche" name="niche" maxlength="30"></div>
+      <div class="field"><label for="f-city">Ciudad</label><input id="f-city" name="city" maxlength="100"></div>
+      <div class="field"><label for="f-score">Puntaje mínimo</label><input id="f-score" type="number" name="min_score" min="0" max="100" value="0"></div>
+      <div class="field">
+        <label for="f-stage">Etapa</label>
+        <select id="f-stage" name="stage">
+          <option value="">Cualquiera</option>
+          <option value="nuevo">Nuevo</option>
+          <option value="prueba_secreta">Prueba secreta</option>
+          <option value="contactado">Contactado</option>
+        </select>
+      </div>
+    </div>
   </fieldset>
-  <label>Límite diario (máx. 80) <input type="number" name="daily_limit" min="1" max="80" value="20"></label>
+  <div class="field">
+    <label for="f-limit">Límite diario (máx. 80)</label>
+    <input id="f-limit" type="number" name="daily_limit" min="1" max="80" value="20">
+    <small class="help">Se recomienda empezar con pocos envíos al día para proteger la calidad del número.</small>
+  </div>
   <p class="muted">Solo se contacta a leads activos, con celular y fuera de la lista de supresión. Envío de lunes a sábado, 8:00 a 19:00 (Bogotá), sin festivos.</p>
-  <button class="btn btn-primary" type="submit">Crear borrador</button>
+  <div class="btn-row"><button class="btn btn-primary" type="submit">Crear borrador</button></div>
 </form>
 {% endblock %}

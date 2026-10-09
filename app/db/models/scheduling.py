@@ -41,6 +41,9 @@ class ScheduledJob(TimestampMixin, TenantMixin, Base):
         enum_check("status", SCHEDULED_STATUSES),
         UniqueConstraint("dedupe_key", name="uq_scheduled_jobs_dedupe_key"),
         Index("ix_scheduled_jobs_status_run_at", "status", "run_at"),
+        Index("ix_scheduled_jobs_appointment_id", "appointment_id"),
+        Index("ix_scheduled_jobs_contact_id", "contact_id"),
+        Index("ix_scheduled_jobs_tenant_status_run", "tenant_id", "status", "run_at"),
     )
 
     id: Mapped[uuid.UUID] = uuid_pk()

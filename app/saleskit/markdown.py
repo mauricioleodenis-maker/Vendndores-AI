@@ -23,10 +23,17 @@ _SEP = re.compile(r"^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$")
 
 def inline(text: str) -> str:
     """Escapa y luego aplica formato en linea. El resultado es seguro para insertar como HTML."""
-    out = escape(text, quote=True)
-    out = _CODE.sub(r"<code>\1</code>", out)
+    out = escape(text.replace("\x00", ""), quote=True)
+    spans: list[str] = []
+
+    def _stash(m: re.Match[str]) -> str:
+        spans.append(f"<code>{m.group(1)}</code>")
+        return f"\x00{len(spans) - 1}\x00"
+
+    out = _CODE.sub(_stash, out)  # el codigo en linea no recibe negrita/cursiva
     out = _BOLD.sub(r"<strong>\1</strong>", out)
-    return _ITALIC.sub(r"<em>\1</em>", out)
+    out = _ITALIC.sub(r"<em>\1</em>", out)
+    return re.sub(r"\x00(\d+)\x00", lambda m: spans[int(m.group(1))], out)
 
 
 def _cells(line: str) -> list[str]:

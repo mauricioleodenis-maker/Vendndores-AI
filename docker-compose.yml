@@ -10,6 +10,10 @@ x-app: &app
   restart: unless-stopped
   security_opt: ["no-new-privileges:true"]
   cap_drop: ["ALL"]
+  pids_limit: 512
+  logging:
+    driver: json-file
+    options: {max-size: "10m", max-file: "5"}
 
 services:
   db:
@@ -50,7 +54,8 @@ services:
   web:
     <<: *app
     ports:
-      - "8000:8000"
+      # Solo loopback: en dev no se expone a la red. En prod lo atiende Caddy.
+      - "127.0.0.1:8000:8000"
     depends_on:
       migrate:
         condition: service_completed_successfully

@@ -37,6 +37,10 @@ def make_engine(url: str | None = None, **kwargs: Any) -> AsyncEngine:
 
         return engine
     kwargs.setdefault("pool_pre_ping", True)
+    kwargs.setdefault("pool_size", 10)
+    kwargs.setdefault("max_overflow", 10)
+    kwargs.setdefault("pool_recycle", 1800)
+    kwargs.setdefault("pool_timeout", 15)
     return create_async_engine(url, **kwargs)
 
 

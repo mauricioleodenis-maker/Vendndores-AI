@@ -169,9 +169,7 @@ async def dispatch_campaign(
     if lead_ids:
         leads_by_id = {
             lead.id: lead
-            for lead in (
-                await session.execute(select(Lead).where(Lead.id.in_(lead_ids)))
-            ).scalars()
+            for lead in (await session.execute(select(Lead).where(Lead.id.in_(lead_ids)))).scalars()
         }
     for target in targets:
         if out["sent"] + out["failed"] >= batch:

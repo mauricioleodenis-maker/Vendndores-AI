@@ -1,44 +1,53 @@
 {% extends "base.html" %}
-{% from "partials/macros.html" import badge, empty_state, csrf %}
+{% from "partials/macros.html" import badge, empty_state, csrf, bubble %}
 {% block title %}Conversación{% endblock %}
 {% block content %}
-<p><a href="/admin/conversaciones">&larr; Volver</a></p>
-<h1>Conversación {{ badge(conv.status) }}</h1>
-{% if flash %}<div class="alert alert-{{ flash.kind }}" role="status">{{ flash.message }}</div>{% endif %}
-{% if conv.status == 'handoff' %}
-<form method="post" action="/admin/conversaciones/{{ conv.id }}/devolver" data-confirm="¿Devolver la conversación al bot?">
-  {{ csrf() }}<button class="btn btn-ghost" type="submit">Devolver al bot</button>
-</form>
-{% else %}
-<form method="post" action="/admin/conversaciones/{{ conv.id }}/tomar" data-confirm="¿Tomar el control? El bot dejará de responder.">
-  {{ csrf() }}<button class="btn btn-primary" type="submit">Tomar control</button>
-</form>
-{% endif %}
-{% if conv.summary %}<p class="muted">Resumen: {{ conv.summary }}</p>{% endif %}
-
-<section aria-label="Mensajes" id="hilo">
-{% for m in thread %}
-  <div class="card">
-    <strong>{% if m.role == 'user' %}Cliente{% elif m.role == 'assistant' %}Bot{% elif m.role == 'human_agent' %}Operador{% else %}Sistema{% endif %}</strong>
-    <span class="muted">{{ m.created_at | fecha_hora }}</span>
-    <p>{{ m.body }}</p>
+<p><a href="/admin/conversaciones">&larr; Volver a conversaciones</a></p>
+<div class="page-header">
+  <h1>Conversación {{ badge(conv.status) }}</h1>
+  <div class="page-actions">
+  {% if conv.status == 'handoff' %}
+    <form class="inline-form" method="post" action="/admin/conversaciones/{{ conv.id }}/devolver" data-confirm="¿Devolver la conversación al bot?">
+      {{ csrf() }}<button class="btn btn-ghost" type="submit">Devolver al bot</button>
+    </form>
+  {% else %}
+    <form class="inline-form" method="post" action="/admin/conversaciones/{{ conv.id }}/tomar" data-confirm="¿Tomar el control? El bot dejará de responder.">
+      {{ csrf() }}<button class="btn btn-primary" type="submit">Tomar control</button>
+    </form>
+  {% endif %}
   </div>
-{% else %}
-  {{ empty_state('Sin mensajes', '') }}
-{% endfor %}
+</div>
+{% if flash %}<div class="alert alert-{{ flash.kind }}" role="status" data-toast="{{ flash.message }}" data-toast-kind="{{ flash.kind }}">{{ flash.message }}</div>{% endif %}
+{% if summary %}<div class="card card-flat"><strong>Resumen</strong><p class="muted">{{ summary }}</p></div>{% endif %}
+
+<section class="card" aria-label="Mensajes" id="hilo">
+  <div class="chat" aria-live="polite">
+  {% for m in thread %}
+    {% if m.role == 'user' %}{{ bubble(m.body, 'in', 'Cliente · ' ~ (m.created_at | fecha_hora)) }}
+    {% elif m.role == 'assistant' %}{{ bubble(m.body, 'out', 'Bot · ' ~ (m.created_at | fecha_hora)) }}
+    {% elif m.role == 'human_agent' %}{{ bubble(m.body, 'out', 'Operador · ' ~ (m.created_at | fecha_hora)) }}
+    {% else %}<div class="bubble bubble-system">{{ m.body }}</div>{% endif %}
+  {% else %}
+    {{ empty_state('Sin mensajes', 'Esta conversación todavía no tiene mensajes.') }}
+  {% endfor %}
+  </div>
 </section>
 
 {% if conv.status == 'handoff' %}
   {% if window_open %}
-  <form method="post" action="/admin/conversaciones/{{ conv.id }}/responder" class="card">
+  <form method="post" action="/admin/conversaciones/{{ conv.id }}/responder" class="card stack">
     {{ csrf() }}
-    <label>Responder como operador
-      <textarea name="mensaje" required maxlength="1000" rows="3"></textarea>
-    </label>
-    <button class="btn btn-primary" type="submit">Enviar</button>
+    <div class="field">
+      <label for="f-mensaje">Responder como operador</label>
+      <textarea id="f-mensaje" name="mensaje" required maxlength="1000" rows="3" aria-describedby="h-mensaje"></textarea>
+      <small class="help" id="h-mensaje">Máximo 1000 caracteres. Se envía por WhatsApp al instante.</small>
+    </div>
+    <div class="btn-row"><button class="btn btn-primary" type="submit">Enviar mensaje</button></div>
   </form>
   {% else %}
-  <p class="muted">Fuera de la ventana de 24 h de WhatsApp: no se puede enviar texto libre.</p>
+  <div class="alert alert-warn" role="status">Pasaron más de 24 h desde el último mensaje del cliente: WhatsApp no permite enviar texto libre. Espera a que escriba de nuevo.</div>
   {% endif %}
+{% else %}
+  <p class="muted">Toma el control para responder tú mismo; mientras tanto el bot atiende.</p>
 {% endif %}
 {% endblock %}

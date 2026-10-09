@@ -118,11 +118,13 @@ async def generate(
         entity_type="billing",
         diff={"created": created, "overdue": overdue},
     )
-    return _redirect(ok=(
+    return _redirect(
+        ok=(
             f"Mensualidades generadas: {created}"
             if created
             else "No había mensualidades pendientes de generar"
-        ))
+        )
+    )
 
 
 @router.get("/admin/facturacion/exportar.csv")

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import uuid
 from typing import Annotated, Any
-
 from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, Form, Request
@@ -317,9 +316,9 @@ async def ui_create(
     followup_template_id: Annotated[str, Form()] = "",
     niche: Annotated[str, Form()] = "",
     city: Annotated[str, Form()] = "",
-    min_score: Annotated[int, Form(ge=0, le=100)] = 0,
+    min_score: Annotated[int, Form()] = 0,
     stage: Annotated[str, Form()] = "",
-    daily_limit: Annotated[int, Form(ge=1, le=80)] = 20,
+    daily_limit: Annotated[int, Form()] = 20,
     session: AsyncSession = Depends(get_session),
     user: User = Depends(operator),
 ) -> RedirectResponse:
@@ -342,7 +341,9 @@ async def ui_create(
         )
     except AppError as exc:
         return _redirect("/admin/campanas/nueva", error=exc.message)
-    return _redirect(f"/admin/campanas/{campaign.id}", ok="Borrador creado. Revisa la vista previa.")
+    return _redirect(
+        f"/admin/campanas/{campaign.id}", ok="Borrador creado. Revisa la vista previa."
+    )
 
 
 @router.get("/admin/campanas/{campaign_id}", response_class=HTMLResponse)
@@ -406,7 +407,11 @@ async def ui_transition(
     except AppError as exc:
         await session.rollback()
         return _redirect(back, error=exc.message)
-    done = {"pause": "Campaña pausada.", "resume": "Campaña reanudada.", "cancel": "Campaña cancelada."}
+    done = {
+        "pause": "Campaña pausada.",
+        "resume": "Campaña reanudada.",
+        "cancel": "Campaña cancelada.",
+    }
     return _redirect(back, ok=done[action])
 
 

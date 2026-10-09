@@ -14,6 +14,7 @@ from app.conversation.handoff import bot_is_paused
 from app.core.deps import current_user, get_session
 from app.dashboard import service
 from app.db.models.users import User
+from app.privacy.redaction import redact_pii
 from app.web.templating import render
 
 router = APIRouter(tags=["dashboard"])
@@ -60,7 +61,9 @@ async def conversaciones(
     user: User = Depends(current_user),
     session: AsyncSession = Depends(get_session),
 ) -> Response:
-    rows, has_more = await service.list_conversations(session, status=estado, q=q, page=pagina)
+    rows, has_more = await service.list_conversations(
+        session, status=estado, q=q, page=pagina, actor=user
+    )
     base = "/admin/conversaciones?estado=" + quote(estado or "") + "&q=" + quote(q or "")
     return render(
         request,
@@ -91,6 +94,7 @@ async def conversacion(
         "dashboard/conversacion.html",
         {
             "conv": conv,
+            "summary": redact_pii(conv.summary or ""),
             "thread": thread,
             "paused": bot_is_paused(conv),
             "window_open": service.window_open(conv),
@@ -116,7 +120,7 @@ async def tomar(
     user: User = Depends(current_user),
     session: AsyncSession = Depends(get_session),
 ) -> Response:
-    conv = await service.get_conversation(session, conversation_id)
+    conv = await service.get_conversation(session, conversation_id, for_update=True)
     await service.take_control(session, conv, actor=user)
     return _back(conversation_id, ok="Tomaste el control: el bot no responderá")
 
@@ -127,7 +131,7 @@ async def devolver(
     user: User = Depends(current_user),
     session: AsyncSession = Depends(get_session),
 ) -> Response:
-    conv = await service.get_conversation(session, conversation_id)
+    conv = await service.get_conversation(session, conversation_id, for_update=True)
     await service.return_to_bot(session, conv, actor=user)
     return _back(conversation_id, ok="Conversación devuelta al bot")
 
@@ -139,7 +143,7 @@ async def responder(
     user: User = Depends(current_user),
     session: AsyncSession = Depends(get_session),
 ) -> Response:
-    conv = await service.get_conversation(session, conversation_id)
+    conv = await service.get_conversation(session, conversation_id, for_update=True)
     await service.send_manual_reply(session, conv, mensaje, actor=user)
     return _back(conversation_id, ok="Mensaje enviado")
 
@@ -155,5 +159,11 @@ async def citas_resumen(
     return render(
         request,
         "dashboard/citas_resumen.html",
-        {"rows": rows, "per_tenant": per_tenant, "dias": dias},
+        {
+            "rows": rows,
+            "per_tenant": per_tenant,
+            "total": sum(per_tenant.values()),
+            "shown": len(rows),
+            "dias": dias,
+        },
     )

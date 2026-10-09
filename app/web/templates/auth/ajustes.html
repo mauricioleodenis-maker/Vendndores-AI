@@ -1,52 +1,68 @@
 {% extends "base.html" %}
-{% from "partials/macros.html" import field, csrf, badge %}
+{% from "partials/macros.html" import field, csrf, badge, empty_state %}
+{% set ROLES = {"owner": "Dueño", "admin": "Administrador", "operator": "Operador"} %}
 {% block title %}Ajustes{% endblock %}
 {% block content %}
-<h1>Ajustes</h1>
+<div class="page-header"><h1>Ajustes</h1></div>
+{% if flash %}
+<div class="alert alert-{{ flash.kind }}" role="{{ 'alert' if flash.kind == 'error' else 'status' }}" data-toast="{{ flash.message }}" data-toast-kind="{{ flash.kind }}">{{ flash.message }}</div>
+{% endif %}
 <section class="card">
-  <h2>Mi cuenta</h2>
-  <p class="muted">{{ user.email }} · rol: {{ user.role }}</p>
-  <form method="post" action="/admin/ajustes/password">
+  <div class="card-header"><h2>Mi cuenta</h2><span class="badge badge-primary">{{ ROLES.get(user.role, user.role) }}</span></div>
+  <p class="muted">{{ user.email }}</p>
+  <form method="post" action="/admin/ajustes/password" class="form-grid">
     {{ csrf() }}
     {{ field('current_password', 'Contraseña actual', type='password', required=True, autocomplete='current-password') }}
-    {{ field('new_password', 'Contraseña nueva', type='password', required=True, autocomplete='new-password', help='Mínimo 12 caracteres, con letras y números.') }}
-    <button class="btn btn-primary" type="submit">Cambiar contraseña</button>
+    {{ field('new_password', 'Contraseña nueva', type='password', required=True, autocomplete='new-password', help='Mínimo 12 caracteres, con letras y números. Al cambiarla se cierran tus otras sesiones.') }}
+    <div class="btn-row span-2"><button class="btn btn-primary" type="submit">Cambiar contraseña</button></div>
   </form>
 </section>
 {% if user.role == 'owner' %}
 <section class="card">
-  <h2>Usuarios</h2>
+  <div class="card-header"><h2>Usuarios</h2><span class="count-pill">{{ users | length }}</span></div>
+  {% if users %}
   <div class="table-wrap">
-  <table>
+  <table class="cards">
     <thead><tr><th>Correo</th><th>Nombre</th><th>Rol</th><th>Estado</th><th></th></tr></thead>
     <tbody>
     {% for u in users %}
       <tr>
-        <td>{{ u.email }}</td><td>{{ u.full_name }}</td><td>{{ u.role }}</td>
-        <td>{{ badge('active' if u.is_active else 'paused') }}</td>
-        <td>
+        <td data-label="Correo">{{ u.email }}</td>
+        <td data-label="Nombre">{{ u.full_name or '—' }}</td>
+        <td data-label="Rol">{{ ROLES.get(u.role, u.role) }}</td>
+        <td data-label="Estado">{{ badge('active' if u.is_active else 'paused') }}</td>
+        <td class="row-actions">
           {% if u.id != user.id %}
-          <form method="post" action="/admin/ajustes/usuarios/{{ u.id }}/{{ 'desactivar' if u.is_active else 'activar' }}" data-confirm="¿Confirmas el cambio?">
+          <form class="inline-form" method="post" action="/admin/ajustes/usuarios/{{ u.id }}/{{ 'desactivar' if u.is_active else 'activar' }}" data-confirm="{{ ('¿Desactivar a ' ~ u.email ~ '? Se cerrarán sus sesiones activas.') if u.is_active else ('¿Reactivar a ' ~ u.email ~ '?') }}">
             {{ csrf() }}
-            <button class="btn btn-ghost" type="submit">{{ 'Desactivar' if u.is_active else 'Activar' }}</button>
+            <button class="btn btn-sm {{ 'btn-danger' if u.is_active else 'btn-ghost' }}" type="submit">{{ 'Desactivar' if u.is_active else 'Activar' }}</button>
           </form>
-          {% endif %}
+          {% else %}<span class="muted">Tú</span>{% endif %}
         </td>
       </tr>
     {% endfor %}
     </tbody>
   </table>
   </div>
+  {% else %}
+  {{ empty_state('Sin usuarios', 'Crea el primer usuario del equipo con el formulario de abajo.') }}
+  {% endif %}
+  <div class="divider"></div>
   <h3>Nuevo usuario</h3>
-  <form method="post" action="/admin/ajustes/usuarios">
+  <form method="post" action="/admin/ajustes/usuarios" class="form-grid">
     {{ csrf() }}
-    {{ field('email', 'Correo', type='email', required=True) }}
-    {{ field('full_name', 'Nombre') }}
-    {{ field('password', 'Contraseña inicial', type='password', required=True, autocomplete='new-password') }}
-    <div class="field"><label for="f-role">Rol</label>
-      <select id="f-role" name="role"><option value="operator">Operador</option><option value="admin">Administrador</option><option value="owner">Dueño</option></select>
+    {{ field('email', 'Correo electrónico', type='email', required=True) }}
+    <div class="field"><label for="f-full_name">Nombre</label>
+      <input id="f-full_name" name="full_name" type="text" maxlength="200" autocomplete="off">
     </div>
-    <button class="btn btn-primary" type="submit">Crear usuario</button>
+    {{ field('password', 'Contraseña inicial', type='password', required=True, autocomplete='new-password', help='Mínimo 12 caracteres, con letras y números.') }}
+    <div class="field"><label for="f-role">Rol</label>
+      <select id="f-role" name="role" aria-describedby="h-role">
+        <option value="operator">Operador</option><option value="admin">Administrador</option><option value="owner">Dueño</option>
+      </select>
+      <small class="help" id="h-role">Operador: día a día. Administrador: facturación y planes. Dueño: además gestiona usuarios y auditoría.</small>
+    </div>
+    <div class="btn-row span-2"><button class="btn btn-primary" type="submit">Crear usuario</button></div>
   </form>
 </section>
 {% endif %}

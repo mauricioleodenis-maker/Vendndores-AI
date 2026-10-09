@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import hmac
 import json
@@ -38,7 +39,7 @@ def sanitize_diff(diff: Any) -> Any:
     if isinstance(diff, dict):
         out: dict[str, Any] = {}
         for k, v in diff.items():
-            if _SENSITIVE.search(str(k)) and not isinstance(v, list | dict):
+            if _SENSITIVE.search(str(k)) and v is not None:
                 out[str(k)] = "[redacted]"
             else:
                 out[str(k)] = sanitize_diff(v)
@@ -133,25 +134,63 @@ async def log_event(
     return entry
 
 
+VERIFY_BATCH = 1000
+
+
+def _check_batch(
+    rows: list[AuditLog], prev: str | None, *, strict_first: bool
+) -> tuple[int | None, str]:
+    """CPU puro (HMAC por fila): se ejecuta en un hilo. Devuelve (id_alterado, ultimo_hash)."""
+    for entry in rows:
+        if prev is None:
+            if strict_first and entry.prev_hash != "":
+                return entry.id, ""
+        elif entry.prev_hash != prev:
+            return entry.id, ""
+        if entry.hash != compute_hash(entry.prev_hash, _payload(entry)):
+            return entry.id, ""
+        prev = entry.hash
+    return None, prev or ""
+
+
 async def verify_chain(
     session: AsyncSession, *, limit: int | None = None
 ) -> tuple[bool, int | None]:
-    """Recalcula la cadena. Devuelve ``(ok, id_primer_registro_alterado)``."""
-    stmt = select(AuditLog).order_by(AuditLog.id)
-    if limit:
-        stmt = stmt.limit(limit)
-    prev = ""
-    first = True
-    for entry in (await session.execute(stmt)).scalars():
-        if first and limit is None and entry.prev_hash != "":
-            return False, entry.id
-        if not first and entry.prev_hash != prev:
-            return False, entry.id
-        if entry.hash != compute_hash(entry.prev_hash, _payload(entry)):
-            return False, entry.id
-        prev = entry.hash
-        first = False
-    return True, None
+    """Recalcula la cadena por lotes (keyset). Devuelve ``(ok, id_primer_registro_alterado)``."""
+    ok, bad_id, _n = await verify_chain_counted(session, limit=limit)
+    return ok, bad_id
+
+
+async def verify_chain_counted(
+    session: AsyncSession, *, limit: int | None = None
+) -> tuple[bool, int | None, int]:
+    """Como ``verify_chain`` pero devuelve tambien cuantos registros se verificaron."""
+    prev: str | None = None
+    last_id = 0
+    checked = 0
+    while limit is None or checked < limit:
+        size = VERIFY_BATCH if limit is None else min(VERIFY_BATCH, limit - checked)
+        stmt = select(AuditLog).where(AuditLog.id > last_id).order_by(AuditLog.id).limit(size)
+        rows = list((await session.execute(stmt)).scalars().all())
+        if not rows:
+            break
+        bad, prev_hash = await asyncio.to_thread(
+            _check_batch, rows, prev, strict_first=limit is None
+        )
+        if bad is not None:
+            return False, bad, checked
+        for r in rows:
+            session.expunge(r)  # no acumular la bitacora completa en el identity map
+        prev = prev_hash
+        last_id = rows[-1].id
+        checked += len(rows)
+        if len(rows) < size:
+            break
+    return True, None, checked
+
+
+def _escape_like(value: str) -> str:
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
 async def list_events(
@@ -167,7 +206,7 @@ async def list_events(
 ) -> list[AuditLog]:
     stmt = select(AuditLog).order_by(AuditLog.id.desc())
     if action:
-        stmt = stmt.where(AuditLog.action.like(f"{action}%"))
+        stmt = stmt.where(AuditLog.action.like(f"{_escape_like(action)}%", escape="\\"))
     if tenant_id:
         stmt = stmt.where(AuditLog.tenant_id == tenant_id)
     if actor_user_id:

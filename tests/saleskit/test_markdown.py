@@ -57,3 +57,8 @@ def test_paragraph_joins_lines() -> None:
 @pytest.mark.parametrize("text", ["", "\n\n"])
 def test_empty(text: str) -> None:
     assert str(render_markdown(text)) == ""
+
+
+def test_inline_code_is_not_formatted() -> None:
+    assert inline("`**x**` y **b**") == "<code>**x**</code> y <strong>b</strong>"
+    assert "\x00" not in inline("a\x00b `c`")

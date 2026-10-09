@@ -2,33 +2,43 @@
 {% from "partials/macros.html" import pager, empty_state %}
 {% block title %}Auditoría{% endblock %}
 {% block content %}
-<h1>Auditoría</h1>
-<form class="filters" method="get" action="/admin/auditoria">
-  <label>Acción <input name="action" value="{{ action }}" placeholder="p. ej. auth."></label>
-  <label>Empresa (ID) <input name="tenant_id" value="{{ tenant_id }}"></label>
-  <button class="btn" type="submit">Filtrar</button>
-  <button class="btn btn-ghost" type="button" hx-post="/admin/auditoria/verificar" hx-target="#chain-status" hx-swap="innerHTML">Verificar cadena</button>
-  <span id="chain-status" role="status"></span>
+<div class="page-header"><h1>Auditoría</h1></div>
+<section class="card">
+<form class="table-toolbar" method="get" action="/admin/auditoria">
+  <div class="field{% if tenant_error %} has-error{% endif %}"><label for="f-action">Acción</label>
+    <input id="f-action" name="action" value="{{ action }}" placeholder="p. ej. auth." maxlength="100"></div>
+  <div class="field{% if tenant_error %} has-error{% endif %}"><label for="f-tenant">Empresa (ID)</label>
+    <input id="f-tenant" name="tenant_id" value="{{ tenant_id }}" maxlength="40"{% if tenant_error %} aria-invalid="true" aria-describedby="e-tenant"{% endif %}>
+    {% if tenant_error %}<small class="error" id="e-tenant">ID de empresa no válido</small>{% endif %}</div>
+  <div class="btn-row">
+    <button class="btn btn-primary" type="submit">Filtrar</button>
+    <button class="btn btn-ghost" type="button" hx-post="/admin/auditoria/verificar" hx-target="#chain-status" hx-swap="innerHTML" hx-indicator="#ld-chain">Verificar cadena</button>
+    <span class="htmx-indicator inline" id="ld-chain">Verificando…</span>
+    <span id="chain-status" role="status"></span>
+  </div>
 </form>
 {% if events %}
 <div class="table-wrap">
-<table>
+<table class="cards">
   <thead><tr><th>Fecha</th><th>Actor</th><th>Acción</th><th>Entidad</th><th>Detalle</th></tr></thead>
   <tbody>
   {% for e in events %}
     <tr>
-      <td>{{ e.ts | fecha_hora }}</td>
-      <td>{{ e.actor_type }}{% if e.actor_user_id %} · {{ e.actor_user_id | string | truncate(8, True, '') }}{% endif %}</td>
-      <td><code>{{ e.action }}</code></td>
-      <td>{{ e.entity_type }} {{ e.entity_id | truncate(12, True, '') }}</td>
-      <td class="muted">{{ e.diff | tojson if e.diff else '' }}</td>
+      <td data-label="Fecha" class="nowrap">{{ e.ts | fecha_hora }}</td>
+      <td data-label="Actor"><span class="badge badge-neutral">{{ e.actor_type }}</span>{% if e.actor_user_id %} <span class="muted">{{ e.actor_user_id | string | truncate(8, True, '') }}</span>{% endif %}</td>
+      <td data-label="Acción"><code>{{ e.action }}</code></td>
+      <td data-label="Entidad">{{ e.entity_type }} {{ e.entity_id | truncate(12, True, '') }}</td>
+      <td data-label="Detalle" class="muted truncate">{{ e.diff | tojson if e.diff else '' }}</td>
     </tr>
   {% endfor %}
   </tbody>
 </table>
 </div>
 {{ pager(base_url, page, has_more) }}
+{% elif tenant_error %}
+{{ empty_state('Filtro no válido', 'Revisa el ID de empresa: debe ser un identificador completo.', '/admin/auditoria', 'Quitar filtros') }}
 {% else %}
 {{ empty_state('Sin eventos', 'No hay eventos de auditoría con estos filtros.') }}
 {% endif %}
+</section>
 {% endblock %}

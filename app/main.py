@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import importlib
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -28,6 +29,8 @@ from app.web.nav import NAV_ITEMS, PLACEHOLDER_PATHS
 from app.web.templating import STATIC_DIR, render
 
 log = get_logger(__name__)
+
+READY_TIMEOUT_S = 3.0
 
 # Paquetes de dominio (MAESTRO §3). Cada uno puede exponer ``app.<pkg>.router`` con ``router``
 # (y opcionalmente ``routers: list[APIRouter]``). Los que no existen se omiten.
@@ -107,6 +110,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         get_engine()
+        if settings.is_prod and not settings.redis_url:
+            log.warning("redis_missing_in_prod", impact="rate_limit_por_proceso_y_jobs_locales")
         log.info("app_started", env=settings.env, version=__version__)
         try:
             yield
@@ -142,23 +147,30 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def readyz() -> Response:
         checks: dict[str, str] = {}
         ok = True
-        try:
+
+        async def _db() -> None:
             async with get_engine().connect() as conn:
                 await conn.execute(text("SELECT 1"))
-            checks["db"] = "ok"
-        except Exception:
-            checks["db"] = "error"
-            ok = False
-        if settings.redis_url:
-            try:
-                import redis.asyncio as aioredis
 
-                client = aioredis.from_url(settings.redis_url)
+        async def _redis() -> None:
+            import redis.asyncio as aioredis
+
+            client = aioredis.from_url(settings.redis_url)
+            try:
                 await client.ping()
+            finally:
                 await client.aclose()
-                checks["redis"] = "ok"
-            except Exception:
-                checks["redis"] = "error"
+
+        probes = {"db": _db()}
+        if settings.redis_url:
+            probes["redis"] = _redis()
+        for name, probe in probes.items():
+            try:
+                await asyncio.wait_for(probe, timeout=READY_TIMEOUT_S)
+                checks[name] = "ok"
+            except Exception as exc:
+                log.error("readiness_failed", check=name, error_type=type(exc).__name__)
+                checks[name] = "error"
                 ok = False
         return JSONResponse(
             {"status": "ok" if ok else "error", "checks": checks}, status_code=200 if ok else 503

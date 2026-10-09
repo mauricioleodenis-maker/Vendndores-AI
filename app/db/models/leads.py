@@ -74,6 +74,7 @@ class Lead(TimestampMixin, Base):
         Index("ix_leads_niche_city", "niche", "city"),
         Index("ix_leads_name_key", "name_key"),
         Index("ix_leads_website_domain", "website_domain"),
+        Index("ix_leads_owner_user_id", "owner_user_id"),
     )
 
     id: Mapped[uuid.UUID] = uuid_pk()

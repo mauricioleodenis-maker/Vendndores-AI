@@ -1,12 +1,13 @@
+{% from "partials/macros.html" import kpi %}
 <div class="kpis" id="kpis" hx-get="/admin/inicio/kpis" hx-trigger="every 60s" hx-swap="outerHTML">
-  <div class="kpi"><div class="value">{{ kpis.active_tenants }}</div><div class="label">Empresas activas</div></div>
-  <div class="kpi"><div class="value">{{ kpis.conversations_month }}</div><div class="label">Conversaciones del mes</div></div>
-  <div class="kpi"><div class="value">{{ kpis.bot_appointments_month }}</div><div class="label">Citas agendadas por el bot</div></div>
-  <div class="kpi"><div class="value">{{ kpis.hot_leads }}</div><div class="label">Leads calientes</div></div>
+  {{ kpi('Empresas activas', kpis.active_tenants) }}
+  {{ kpi('Conversaciones del mes', kpis.conversations_month) }}
+  {{ kpi('Citas agendadas por el bot', kpis.bot_appointments_month, 'ok') }}
+  {{ kpi('Leads calientes', kpis.hot_leads, 'warn' if kpis.hot_leads else '') }}
   {% if kpis.mrr_cop is not none %}
-  <div class="kpi"><div class="value">{{ kpis.mrr_cop | cop }}</div><div class="label">MRR</div></div>
-  <div class="kpi"><div class="value">{{ kpis.overdue_cop | cop }}</div><div class="label">Cobros vencidos</div></div>
+  {{ kpi('Ingreso recurrente (MRR)', kpis.mrr_cop | cop, 'ok') }}
+  {{ kpi('Cobros vencidos', kpis.overdue_cop | cop, 'danger' if kpis.overdue_cop else '') }}
   {% endif %}
-  <div class="kpi"><div class="value">{{ kpis.demos }}</div><div class="label">Demos</div></div>
-  <div class="kpi"><div class="value">{{ kpis.pending_handoffs }}</div><div class="label">Traspasos sin atender</div></div>
+  {{ kpi('Demos', kpis.demos) }}
+  {{ kpi('Traspasos sin atender', kpis.pending_handoffs, 'danger' if kpis.pending_handoffs else '', 'Un cliente espera a una persona' if kpis.pending_handoffs else '') }}
 </div>

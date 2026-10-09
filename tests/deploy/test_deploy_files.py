@@ -47,3 +47,19 @@ def test_makefile_targets_and_docs_exist() -> None:
         assert target in mk
     assert (ROOT / "docs/runbook.md").exists()
     assert "Twilio" in (ROOT / "README.md").read_text(encoding="utf-8")
+
+
+def test_no_wildcard_forwarded_ips_in_image() -> None:
+    text = (ROOT / "Dockerfile").read_text(encoding="utf-8")
+    assert '"*"' not in text
+    assert "FORWARDED_ALLOW_IPS=127.0.0.1" in text
+
+
+def test_dev_compose_binds_loopback_only() -> None:
+    base = yaml.safe_load((ROOT / "docker-compose.yml").read_text(encoding="utf-8"))
+    assert all(p.startswith("127.0.0.1:") for p in base["services"]["web"]["ports"])
+
+
+def test_backup_script_fails_loudly() -> None:
+    sh = (ROOT / "deploy/backup.sh").read_text(encoding="utf-8")
+    assert "umask 077" in sh and "gzip -t" in sh and "exit 1" in sh

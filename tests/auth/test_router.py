@@ -40,7 +40,7 @@ async def test_login_success_sets_secure_session_cookie(client, owner_user):
 
 async def test_login_wrong_password_generic_message(client, owner_user):
     r = await do_login(client, owner_user.email, "incorrecta-12345")
-    assert r.status_code == 401 and "Correo o contrasena incorrectos" in r.text
+    assert r.status_code == 401 and "Correo o contraseña incorrectos" in r.text
     assert session_cookie_name() not in client.cookies
 
 
@@ -197,3 +197,11 @@ async def test_login_events_audited(client, owner_user, session):
     await do_login(client, owner_user.email, TEST_PASSWORD)
     actions = (await session.execute(select(AuditLog.action))).scalars().all()
     assert "auth.login" in actions
+
+
+async def test_flash_shows_only_fixed_messages(authenticated_client):
+    c = authenticated_client
+    page = await c.get("/admin/ajustes?error=Su cuenta fue suspendida llame al 300")
+    assert "suspendida" not in page.text and "No se pudo completar" in page.text
+    page = await c.get("/admin/ajustes?ok=password_ok")
+    assert "Contraseña actualizada" in page.text

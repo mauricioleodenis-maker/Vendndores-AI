@@ -2,32 +2,34 @@
 {% from "partials/macros.html" import badge, empty_state %}
 {% block title %}Campañas{% endblock %}
 {% block content %}
-<h1>Campañas</h1>
-<p>
-  {% if not enabled %}{{ badge('desactivado', 'Envío desactivado (kill switch)') }}{% endif %}
-  {% if dry_run %}{{ badge('dry_run', 'Modo prueba: no se llama a Twilio') }}{% endif %}
-</p>
-<p>
-  <a class="btn btn-primary" href="/admin/campanas/nueva">Nueva campaña</a>
-  <a class="btn" href="/admin/campanas/plantillas">Plantillas</a>
-</p>
+<div class="page-header">
+  <h1>Campañas de WhatsApp</h1>
+  <div class="page-actions">
+    <a class="btn" href="/admin/campanas/plantillas">Plantillas</a>
+    <a class="btn btn-primary" href="/admin/campanas/nueva">Nueva campaña</a>
+  </div>
+</div>
+{% if not enabled %}<div class="alert alert-warn" role="status">El envío está desactivado (kill switch). Las campañas no enviarán mensajes hasta activarlo.</div>{% endif %}
+{% if dry_run %}<div class="alert alert-info" role="status">Modo prueba: no se llama a Twilio, los envíos son simulados.</div>{% endif %}
 {% if campaigns %}
+<div class="card">
 <div class="table-wrap">
-<table>
-  <thead><tr><th>Campaña</th><th>Estado</th><th>Límite diario</th><th>Objetivos</th></tr></thead>
+<table class="cards">
+  <thead><tr><th>Campaña</th><th>Estado</th><th class="num">Límite diario</th><th class="num">Objetivos</th></tr></thead>
   <tbody>
   {% for c in campaigns %}
     <tr>
-      <td><a href="/admin/campanas/{{ c.id }}">{{ c.name }}</a></td>
-      <td>{{ badge(c.status) }}{% if c.paused_reason %} <span class="muted">{{ c.paused_reason }}</span>{% endif %}</td>
-      <td>{{ c.daily_limit }}</td>
-      <td>{{ (c.stats or {}).get('targets', 0) }}</td>
+      <td data-label="Campaña"><a href="/admin/campanas/{{ c.id }}">{{ c.name }}</a></td>
+      <td data-label="Estado">{{ badge(c.status) }}{% if c.paused_reason %} <span class="muted">{{ c.paused_reason }}</span>{% endif %}</td>
+      <td class="num" data-label="Límite diario">{{ c.daily_limit }}</td>
+      <td class="num" data-label="Objetivos">{{ (c.stats or {}).get('targets', 0) }}</td>
     </tr>
   {% endfor %}
   </tbody>
 </table>
 </div>
+</div>
 {% else %}
-{{ empty_state('Sin campañas', 'Crea una campaña para contactar leads con plantillas aprobadas.', '/admin/campanas/nueva', 'Nueva campaña') }}
+{{ empty_state('Aún no tienes campañas', 'Crea una campaña para contactar a tus leads con plantillas aprobadas por Meta.', '/admin/campanas/nueva', 'Crear primera campaña') }}
 {% endif %}
 {% endblock %}

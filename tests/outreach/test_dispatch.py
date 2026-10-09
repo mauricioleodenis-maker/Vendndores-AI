@@ -202,3 +202,26 @@ async def test_job_wrapper(engine, session, pitch, make_lead, make_campaign) -> 
     )
     out = await dispatch_campaign_job({"pace": 0})
     assert out["enabled"] is True and out["campaigns"] == 1
+
+
+async def test_dispatch_all_isolates_failing_campaign(session, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    from app.outreach import dispatch as d
+
+    calls: list[object] = []
+
+    async def boom(sess, campaign, **kw):  # type: ignore[no-untyped-def]
+        calls.append(campaign.id)
+        if len(calls) == 1:
+            raise RuntimeError("x")
+        return {"sent": 1, "failed": 0, "skipped": 0}
+
+    from tests.outreach.conftest import CONTENT_SID  # noqa: F401
+
+    monkeypatch.setattr(d, "dispatch_campaign", boom)
+    from app.db.models.outreach import Campaign
+
+    for n in ("uno", "dos"):
+        session.add(Campaign(name=n, status="running", daily_limit=5, stats={}, audience_filter={}))
+    await session.commit()
+    res = await d.dispatch_all(session, pace=0)
+    assert len(calls) == 2 and res["sent"] == 1

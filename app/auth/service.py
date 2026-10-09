@@ -24,7 +24,8 @@ from app.core.security import (
 )
 from app.db.models.users import USER_ROLES, User, UserSession
 
-GENERIC_LOGIN_ERROR = "Correo o contrasena incorrectos"
+GENERIC_LOGIN_ERROR = "Correo o contraseña incorrectos"
+MAX_NAME_LEN = 200
 TOUCH_INTERVAL = timedelta(seconds=60)
 
 
@@ -47,17 +48,20 @@ async def create_user(
     actor: User | None = None,
 ) -> User:
     if role not in USER_ROLES:
-        raise AppError("invalid_role", "Rol invalido", 422)
+        raise AppError("invalid_role", "Rol no válido", 422)
+    full_name = full_name.strip()
+    if len(full_name) > MAX_NAME_LEN:
+        raise AppError("invalid_name", "El nombre es demasiado largo (máximo 200 caracteres)", 422)
     email = normalize_email(email)
     if "@" not in email or len(email) > 320:
-        raise AppError("invalid_email", "Correo invalido", 422)
+        raise AppError("invalid_email", "Correo no válido", 422)
     if await get_user_by_email(session, email):
         raise AppError("email_taken", "Ya existe un usuario con ese correo", 409)
     try:
         pw_hash = await asyncio.to_thread(hash_password, password)
     except ValueError as exc:
         raise AppError("weak_password", str(exc), 422) from exc
-    user = User(email=email, password_hash=pw_hash, full_name=full_name.strip(), role=role)
+    user = User(email=email, password_hash=pw_hash, full_name=full_name, role=role)
     session.add(user)
     await session.flush()
     await log_event(
@@ -86,14 +90,14 @@ async def authenticate(
     window_s = settings.login_window_min * 60
     keys = [f"login:ip:{ip or '-'}", f"login:email:{email}"]
     limits = [settings.login_max_attempts * 4, settings.login_max_attempts]
-    for key, limit in zip(keys, limits, strict=True):
+    for kind, key, limit in zip(("ip", "email"), keys, limits, strict=True):
         res = await limiter.peek(key, limit=limit, window_s=window_s)
         if not res.allowed:
             await log_event(
-                session, actor=None, action="auth.login_rate_limited", ip=ip, diff={"key": key[:8]}
+                session, actor=None, action="auth.login_rate_limited", ip=ip, diff={"scope": kind}
             )
             await session.commit()
-            raise AppError("rate_limited", "Demasiados intentos. Intenta mas tarde.", 429)
+            raise AppError("rate_limited", "Demasiados intentos. Inténtalo más tarde.", 429)
 
     user = await get_user_by_email(session, email)
     now = utcnow()
@@ -223,7 +227,7 @@ async def change_password(
     keep_session_id: str | None = None,
 ) -> None:
     if not await asyncio.to_thread(verify_password, user.password_hash, current_password):
-        raise AppError("invalid_credentials", "La contrasena actual no es correcta", 400)
+        raise AppError("invalid_credentials", "La contraseña actual no es correcta", 400)
     try:
         user.password_hash = await asyncio.to_thread(hash_password, new_password)
     except ValueError as exc:
@@ -246,8 +250,27 @@ async def set_user_active(
         raise AppError("not_found", "Usuario no encontrado", 404)
     if user.id == actor.id and not active:
         raise AppError("self_deactivate", "No puedes desactivarte a ti mismo", 400)
+    if not active and user.role == "owner" and user.is_active:
+        # Bloquea las filas de owners activos (FOR UPDATE; no-op en SQLite) para que dos
+        # desactivaciones simultaneas no dejen la agencia sin ningun owner.
+        owners = (
+            (
+                await session.execute(
+                    select(User.id)
+                    .where(User.role == "owner", User.is_active.is_(True))
+                    .with_for_update()
+                )
+            )
+            .scalars()
+            .all()
+        )
+        if len([o for o in owners if o != user.id]) < 1:
+            raise AppError("last_owner", "Debe quedar al menos un dueño activo", 400)
     user.is_active = active
-    if not active:
+    if active:
+        user.failed_logins = 0
+        user.locked_until = None
+    else:
         await revoke_user_sessions(session, user.id)
     await log_event(
         session,

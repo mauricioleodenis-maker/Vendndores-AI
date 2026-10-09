@@ -77,3 +77,38 @@ async def test_ids_increment_and_order(session):
     assert b.id > a.id
     rows = (await session.execute(select(AuditLog.action).order_by(AuditLog.id))).scalars().all()
     assert rows == ["a", "b"]
+
+
+def test_sanitize_diff_redacts_compound_under_sensitive_key():
+    assert sanitize_diff({"token": {"x": 1}}) == {"token": "[redacted]"}
+    assert sanitize_diff({"secret": ["a", "b"]}) == {"secret": "[redacted]"}
+
+
+async def test_verify_chain_batches_and_counts(session, monkeypatch):
+    from app.audit import service as audit_service
+
+    monkeypatch.setattr(audit_service, "VERIFY_BATCH", 3)
+    for i in range(8):
+        await log_event(session, actor="system", action=f"b.{i}")
+    await session.commit()
+    assert await audit_service.verify_chain_counted(session) == (True, None, 8)
+    assert await audit_service.verify_chain_counted(session, limit=5) == (True, None, 5)
+    first = (
+        (await session.execute(select(AuditLog).order_by(AuditLog.id).offset(6))).scalars().first()
+    )
+    await session.execute(text("UPDATE audit_log SET action='x' WHERE id=:i"), {"i": first.id})
+    await session.commit()
+    session.expire_all()
+    ok, bad, _ = await audit_service.verify_chain_counted(session)
+    assert (ok, bad) == (False, first.id)
+
+
+async def test_list_events_action_filter_escapes_wildcards(session):
+    from app.audit.service import list_events
+
+    await log_event(session, actor="system", action="auth.login")
+    await log_event(session, actor="system", action="auth_login")
+    await session.commit()
+    rows = await list_events(session, action="auth_")
+    assert [r.action for r in rows] == ["auth_login"]
+    assert await list_events(session, action="%") == []

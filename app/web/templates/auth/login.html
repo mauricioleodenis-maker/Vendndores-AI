@@ -2,16 +2,17 @@
 {% from "partials/macros.html" import field %}
 {% block title %}Iniciar sesión{% endblock %}
 {% block public %}
-<section class="login-card">
+<section class="login-card card">
   <h1>{{ app_name }}</h1>
-  <p class="muted">Ingresa con tu cuenta de la agencia.</p>
+  <p class="muted">Ingresa con tu cuenta de la agencia para gestionar tus vendedores.</p>
   {% if error %}<div class="alert alert-error" role="alert">{{ error }}</div>{% endif %}
-  <form method="post" action="/login" autocomplete="on">
+  <form method="post" action="/login" autocomplete="on" class="stack">
     <input type="hidden" name="login_csrf" value="{{ login_csrf }}">
     <input type="hidden" name="next" value="{{ next }}">
-    {{ field('email', 'Correo', value=email, type='email', required=True, autocomplete='username') }}
+    {{ field('email', 'Correo electrónico', value=email, type='email', required=True, autocomplete='username') }}
     {{ field('password', 'Contraseña', type='password', required=True, autocomplete='current-password') }}
-    <button class="btn btn-primary btn-block" type="submit">Entrar</button>
+    <button class="btn btn-primary btn-block btn-lg" type="submit">Entrar</button>
   </form>
+  <p class="help">¿Olvidaste tu contraseña? Pide a un dueño de la agencia que te cree una nueva.</p>
 </section>
 {% endblock %}

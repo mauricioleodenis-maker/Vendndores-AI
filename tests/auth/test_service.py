@@ -179,3 +179,27 @@ async def test_session_row_has_no_raw_token(session, make_user):
     await session.commit()
     ids = (await session.execute(select(UserSession.id))).scalars().all()
     assert token not in ids
+
+
+async def test_create_user_rejects_long_name(session):
+    with pytest.raises(AppError) as e:
+        await service.create_user(
+            session, email="largo@example.com", password=TEST_PASSWORD, full_name="x" * 201
+        )
+    assert e.value.code == "invalid_name" and e.value.status == 422
+
+
+async def test_cannot_deactivate_last_active_owner(session, owner_user):
+    actor = await service.create_user(session, email="adm@example.com", password=TEST_PASSWORD)
+    with pytest.raises(AppError) as e:
+        await service.set_user_active(session, actor, owner_user.id, active=False)
+    assert e.value.code == "last_owner" and owner_user.is_active
+
+
+async def test_reactivation_clears_lockout(session, owner_user):
+    u = await service.create_user(session, email="bloq@example.com", password=TEST_PASSWORD)
+    u.locked_until = utcnow() + timedelta(minutes=10)
+    u.failed_logins = 3
+    await service.set_user_active(session, owner_user, u.id, active=False)
+    await service.set_user_active(session, owner_user, u.id, active=True)
+    assert u.locked_until is None and u.failed_logins == 0

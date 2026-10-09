@@ -22,6 +22,7 @@ JOB_REGISTRY: dict[str, JobFn] = {}
 ENQUEUED: list[tuple[str, tuple[Any, ...], dict[str, Any]]] = []
 _tasks: set[asyncio.Task[None]] = set()
 _arq_pool: Any = None
+_arq_lock = asyncio.Lock()
 
 
 def register_job(name: str) -> Callable[[JobFn], JobFn]:
@@ -59,10 +60,12 @@ async def run_enqueued() -> int:
 async def _get_arq_pool() -> Any:
     global _arq_pool
     if _arq_pool is None:
-        from arq import create_pool
-        from arq.connections import RedisSettings
+        async with _arq_lock:  # evita crear varios pools en solicitudes concurrentes
+            if _arq_pool is None:
+                from arq import create_pool
+                from arq.connections import RedisSettings
 
-        _arq_pool = await create_pool(RedisSettings.from_dsn(str(get_settings().redis_url)))
+                _arq_pool = await create_pool(RedisSettings.from_dsn(str(get_settings().redis_url)))
     return _arq_pool
 
 

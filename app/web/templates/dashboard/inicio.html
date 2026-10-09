@@ -1,10 +1,12 @@
 {% extends "base.html" %}
 {% block title %}Inicio{% endblock %}
 {% block content %}
-<h1>Inicio</h1>
+<div class="page-header">
+  <h1>Inicio</h1>
+  <div class="page-actions">
+    <a class="btn btn-ghost" href="/admin/conversaciones?estado=handoff">Traspasos pendientes</a>
+    <a class="btn btn-ghost" href="/admin/citas/resumen">Citas próximas</a>
+  </div>
+</div>
 {% include "dashboard/_kpis.html" %}
-<p>
-  <a class="btn btn-ghost" href="/admin/conversaciones?estado=handoff">Ver traspasos pendientes</a>
-  <a class="btn btn-ghost" href="/admin/citas/resumen">Citas de los próximos días</a>
-</p>
 {% endblock %}

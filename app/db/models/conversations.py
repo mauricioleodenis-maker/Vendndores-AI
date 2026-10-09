@@ -16,6 +16,7 @@ from sqlalchemy import (
     String,
     Text,
     Uuid,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -106,6 +107,14 @@ class Handoff(TimestampMixin, TenantMixin, Base):
         enum_check("reason", HANDOFF_REASONS),
         enum_check("status", ("open", "claimed", "resolved")),
         Index("ix_handoffs_tenant_status", "tenant_id", "status"),
+        Index("ix_handoffs_conversation_id", "conversation_id"),
+        Index(
+            "uq_handoffs_active_conversation",
+            "conversation_id",
+            unique=True,
+            sqlite_where=text("status IN ('open', 'claimed')"),
+            postgresql_where=text("status IN ('open', 'claimed')"),
+        ),
     )
 
     id: Mapped[uuid.UUID] = uuid_pk()

@@ -72,3 +72,31 @@ async def test_redis_backend_with_fake_client():
     assert not (await rl.peek("k", limit=2, window_s=60)).allowed
     await rl.reset("k")
     r.delete.assert_awaited_with("vai:rl:k")
+
+
+async def test_memory_sweep_drops_expired_keys():
+    now = [0.0]
+    lim = MemoryRateLimiter(clock=lambda: now[0])
+    for i in range(50):
+        await lim.hit(f"k{i}", limit=1, window_s=10)
+    now[0] = 100.0
+    lim._sweep()
+    assert not lim._hits
+
+
+async def test_enforce_falls_back_to_memory_when_redis_fails():
+    import app.core.rate_limit as rl
+
+    class Broken:
+        async def incr(self, *_a):
+            raise ConnectionError("down")
+
+    rl.set_rate_limiter(rl.RedisRateLimiter(Broken()))
+    rl._fallback = None
+    try:
+        await rl.enforce("fb", limit=1, window_s=60)
+        with pytest.raises(rl.AppError):
+            await rl.enforce("fb", limit=1, window_s=60)
+    finally:
+        rl.set_rate_limiter(None)
+        rl._fallback = None

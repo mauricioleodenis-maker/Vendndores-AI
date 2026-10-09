@@ -5,7 +5,17 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, ForeignKey, Index, LargeBinary, String, Text, UniqueConstraint, Uuid
+from sqlalchemy import (
+    Boolean,
+    ForeignKey,
+    Index,
+    LargeBinary,
+    String,
+    Text,
+    UniqueConstraint,
+    Uuid,
+    text,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, TenantMixin, TimestampMixin, UTCDateTime, enum_check, utcnow, uuid_pk
@@ -37,6 +47,15 @@ class Consent(TimestampMixin, TenantMixin, Base):
     __table_args__ = (
         enum_check("purpose", ("atencion", "recordatorios", "marketing")),
         Index("ix_consents_tenant_contact", "tenant_id", "contact_id"),
+        Index(
+            "uq_consents_active",
+            "tenant_id",
+            "contact_id",
+            "purpose",
+            unique=True,
+            sqlite_where=text("revoked_at IS NULL"),
+            postgresql_where=text("revoked_at IS NULL"),
+        ),
     )
 
     id: Mapped[uuid.UUID] = uuid_pk()

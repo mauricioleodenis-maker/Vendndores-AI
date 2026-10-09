@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import RedirectResponse, Response
@@ -143,14 +144,40 @@ async def settings_page(
     return render(request, "auth/ajustes.html", {"users": users, "flash": _flash(request)})
 
 
+_FLASH_OK = {
+    "password_ok": "Contraseña actualizada. Las demás sesiones se cerraron.",
+    "user_created": "Usuario creado. Compártele su contraseña inicial por un canal seguro.",
+    "user_updated": "Usuario actualizado.",
+}
+_FLASH_ERROR = {
+    "invalid_credentials": "La contraseña actual no es correcta.",
+    "weak_password": "La contraseña es débil: usa mínimo 12 caracteres con letras y números.",
+    "invalid_role": "Rol no válido.",
+    "invalid_email": "Correo no válido.",
+    "invalid_name": "El nombre es demasiado largo (máximo 200 caracteres).",
+    "email_taken": "Ya existe un usuario con ese correo.",
+    "self_deactivate": "No puedes desactivar tu propia cuenta.",
+    "last_owner": "Debe quedar al menos un dueño activo.",
+    "not_found": "Usuario no encontrado.",
+}
+
+
 def _flash(request: Request) -> dict[str, str] | None:
-    msg = request.query_params.get("ok")
+    """Mensaje fijo a partir de un codigo (nunca se muestra texto arbitrario de la URL)."""
+    ok = _FLASH_OK.get(request.query_params.get("ok", ""))
+    if ok:
+        return {"kind": "ok", "message": ok}
     err = request.query_params.get("error")
-    if msg:
-        return {"kind": "ok", "message": msg[:200]}
     if err:
-        return {"kind": "error", "message": err[:200]}
+        return {
+            "kind": "error",
+            "message": _FLASH_ERROR.get(err, "No se pudo completar la acción."),
+        }
     return None
+
+
+def _redir(kind: str, code: str) -> RedirectResponse:
+    return RedirectResponse(f"/admin/ajustes?{urlencode({kind: code})}", status_code=303)
 
 
 @router.post("/admin/ajustes/password", response_model=None)
@@ -171,8 +198,8 @@ async def change_password(
             keep_session_id=user_session.id,
         )
     except AppError as exc:
-        return RedirectResponse(f"/admin/ajustes?error={exc.message}", status_code=303)
-    return RedirectResponse("/admin/ajustes?ok=Contraseña actualizada", status_code=303)
+        return _redir("error", exc.code)
+    return _redir("ok", "password_ok")
 
 
 @router.post("/admin/ajustes/usuarios", response_model=None)
@@ -190,8 +217,8 @@ async def create_user(
             session, email=email, password=password, full_name=full_name, role=role, actor=owner
         )
     except AppError as exc:
-        return RedirectResponse(f"/admin/ajustes?error={exc.message}", status_code=303)
-    return RedirectResponse("/admin/ajustes?ok=Usuario creado", status_code=303)
+        return _redir("error", exc.code)
+    return _redir("ok", "user_created")
 
 
 @router.post("/admin/ajustes/usuarios/{user_id}/{action}", response_model=None)
@@ -207,5 +234,5 @@ async def toggle_user(
     try:
         await service.set_user_active(session, owner, user_id, active=action == "activar")
     except AppError as exc:
-        return RedirectResponse(f"/admin/ajustes?error={exc.message}", status_code=303)
-    return RedirectResponse("/admin/ajustes?ok=Usuario actualizado", status_code=303)
+        return _redir("error", exc.code)
+    return _redir("ok", "user_updated")

@@ -308,3 +308,33 @@ AAD `make_aad(tabla, tenant_id, columna)`. `tenant_secrets` guarda `ciphertext/n
 - Barrido periodico: registrar un cron que llame `app.leads.search.expire_stale_sources(session)` (hoy las busquedas atascadas se marcan `failed` al leerlas, tras 15 min).
 - Decision de producto: las busquedas pagadas de Google requieren rol `admin`/`owner`; `operator` solo estima. Ajustar `PRIVILEGED_ROLES` en `app/leads/search.py` si se quiere abrir.
 - `lead_sources` no necesita indices nuevos (acceso por PK); `leads.place_id`/`phone_hash` ya cubiertos por el dedupe.
+
+## Mejoras (billing+dashboard)
+- app/web/static/app.js: añadir un `[data-once]`/submit-guard genérico que deshabilite el botón al enviar formularios (doble clic en "Enviar mensaje"). Hoy el servidor ya rechaza el mismo texto del operador en 10 s (`DUPLICATE_WINDOW_S`).
+- app/db/models/conversations.py / migración: `Message.body_redacted ILIKE '%q%'` (búsqueda en /admin/conversaciones) hace seq scan; añadir índice GIN `pg_trgm` (`CREATE EXTENSION pg_trgm; CREATE INDEX ix_messages_body_trgm ON messages USING gin (body_redacted gin_trgm_ops)`). La búsqueda ya queda auditada (`conversation.search`, solo longitud).
+- app/db/models/plans.py: índice `(subscription_id, status)` en `billing_records` aceleraría `_recover_if_clear`; `(status, kind, paid_at)` para el KPI de implementaciones cobradas.
+- Operadores = agencia (cartera completa, MAESTRO §5); si pasa a ser por tenant, filtrar `list_conversations`/`get_conversation` por tenant del usuario.
+- Posible: macro `kpi` acepta `hint` vacío; `conversation.summary` se redacta al mostrar (`redact_pii`), conviene también redactar al guardar (módulo conversation).
+
+## Mejoras (auth + audit + saleskit)
+- `app/db/models/audit.py`: añadir `key_id` a `AuditLog` y clave dedicada `AUDIT_CHAIN_KEY` versionada; hoy rotar `SECRET_KEY` invalida `verify_chain` (M3).
+- Postgres: índice `audit_log (action text_pattern_ops)` para el filtro por prefijo y `(tenant_id, id DESC)` para el listado por empresa.
+- `pg_advisory_xact_lock` de la bitácora se mantiene hasta el commit del llamador: no auditar dentro de transacciones con IO externo (B3).
+- Bloqueo de cuenta por correo (M5) se mantiene por diseño (5 fallos = 15 min); el evento `auth.lockout` registra la IP. Decisión de producto pendiente (retardo progresivo / por IP+correo).
+- Macro `field()` (partials/macros.html): aceptar `maxlength`, `pattern`, `inputmode` para evitar HTML crudo en plantillas.
+
+## Mejoras (core+db)
+- Pool de Postgres fijado en `app/db/session.py` (10 + 10 overflow, recycle 1800 s). Si se quiere configurable, anadir `VAI_DB_POOL_SIZE` etc. a `Settings` y a `.env.example`.
+- UI: `partials/placeholder.html` (usado por `app/main.py`) pertenece a `app/web`; migrar su vacio a la macro `empty_state` del sistema de diseno.
+- Migracion `0002_indices_fk` agrega indices FK (appointments/handoffs/scheduled_jobs/campaign_targets/leads): ejecutar `alembic upgrade head`.
+
+## Mejoras (deploy)
+- `pyproject.toml`: excluir `.claude` y `docs` de `ruff format` (hoy `ruff format --check .` falla por bloques de codigo en markdown); CI/Makefile usan `app tests alembic` mientras tanto.
+- `pyproject.toml`: agregar `bandit` y `pip-audit` a extras `dev` para que `make audit` funcione localmente.
+- Servicio HTTP: considerar `--limit-concurrency`/`--timeout-keep-alive` en uvicorn segun carga.
+
+## B18 Integrador – segunda pasada (HECHO)
+- HECHO: migración `0003_indices_unicos_parciales` (upgrade/downgrade verificados en SQLite): único parcial `subscriptions(tenant_id) WHERE status != 'cancelled'`, `consents(tenant_id, contact_id, purpose) WHERE revoked_at IS NULL`, `handoffs(conversation_id) WHERE status IN ('open','claimed')`; índices `scheduled_jobs(tenant_id,status,run_at)`, `billing_records(subscription_id,status)`, `time_off(tenant_id,ends_at)`. Modelos actualizados.
+- HECHO: ítem "Recordatorios" en el menú (`app/web/nav.py`).
+- Humo en vivo (uvicorn + SQLite, owner + seed): todas las páginas /admin responden 200, sin `<style>`/`style=`/`<script>` inline, sin enlaces ni estáticos rotos.
+- PENDIENTE (no bloqueante): resto de "Mejoras" de producto/refactor (flash firmado, pg_trgm, catálogo borrador vs publicado, outbox, key_id de auditoría, etc.).

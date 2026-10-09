@@ -64,7 +64,10 @@ class WorkingHours(TimestampMixin, TenantMixin, Base):
 
 class TimeOff(TimestampMixin, TenantMixin, Base):
     __tablename__ = "time_off"
-    __table_args__ = (Index("ix_time_off_tenant_starts", "tenant_id", "starts_at"),)
+    __table_args__ = (
+        Index("ix_time_off_tenant_starts", "tenant_id", "starts_at"),
+        Index("ix_time_off_tenant_ends", "tenant_id", "ends_at"),
+    )
 
     id: Mapped[uuid.UUID] = uuid_pk()
     resource_id: Mapped[uuid.UUID | None] = mapped_column(
@@ -94,6 +97,7 @@ class Appointment(TimestampMixin, TenantMixin, Base):
             postgresql_where=text(ACTIVE_APPOINTMENT_SQL),
         ),
         Index("ix_appointments_tenant_starts", "tenant_id", "starts_at"),
+        Index("ix_appointments_tenant_contact", "tenant_id", "contact_id"),
     )
 
     id: Mapped[uuid.UUID] = uuid_pk()

@@ -154,3 +154,35 @@ async def test_ui_pages(authenticated_client, session, pitch, make_lead) -> None
     )  # type: ignore[attr-defined]
     assert r.status_code == 303
     assert "Reanudar" in (await c.get(f"/admin/campanas/{camp.id}")).text
+
+
+async def test_ui_create_invalid_input_redirects_with_message(authenticated_client, pitch) -> None:  # type: ignore[no-untyped-def]
+    c = authenticated_client
+    for extra in ({"followup_template_id": "no-es-uuid"}, {"name": "ab"}, {"min_score": "500"}):
+        data = {
+            "name": "Campaña ok",
+            "template_id": str(pitch.id),
+            "csrf_token": c.csrf_token,  # type: ignore[attr-defined]
+            **extra,
+        }
+        r = await c.post("/admin/campanas/nueva", data=data, follow_redirects=False)
+        assert r.status_code == 303, extra
+        assert r.headers["location"].startswith("/admin/campanas/nueva?error=")
+    page = await c.get(r.headers["location"])
+    assert page.status_code == 200 and "alert-error" in page.text
+
+
+async def test_ui_start_conflict_shows_message_not_500(authenticated_client, pitch) -> None:  # type: ignore[no-untyped-def]
+    c = authenticated_client
+    r = await c.post(
+        "/admin/campanas/nueva",
+        data={"name": "Sin audiencia", "template_id": str(pitch.id), "csrf_token": c.csrf_token},  # type: ignore[attr-defined]
+        follow_redirects=False,
+    )
+    back = r.headers["location"].split("?")[0]
+    r = await c.post(
+        f"{back}/iniciar",
+        data={"confirm": "si", "csrf_token": c.csrf_token},  # type: ignore[attr-defined]
+        follow_redirects=False,
+    )
+    assert r.status_code == 303 and "error=" in r.headers["location"]

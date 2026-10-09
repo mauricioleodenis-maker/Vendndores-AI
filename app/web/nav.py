@@ -23,6 +23,7 @@ NAV_ITEMS: tuple[NavItem, ...] = (
     ),
     NavItem("Conversaciones", "/admin/conversaciones"),
     NavItem("Citas", "/admin/citas"),
+    NavItem("Recordatorios", "/admin/recordatorios"),
     NavItem("Leads", "/admin/leads"),
     NavItem("Campañas", "/admin/campanas"),
     NavItem(

@@ -209,3 +209,101 @@ async def test_cron_registered():
     assert "billing.generate_monthly_records" in JOB_REGISTRY
     assert CRON_JOBS[0].name == "billing.generate_monthly_records"
     assert isinstance(timedelta(days=1), timedelta)
+
+
+async def test_void_overdue_recovers_past_due_subscription(session, make_tenant, owner_user):
+    plan = await _plan(session)
+    sub = await _sub(session, await make_tenant(), plan)
+    rec = await service.create_record(
+        session,
+        subscription_id=sub.id,
+        kind="mensualidad",
+        amount_cop=250_000,
+        due_date=date(2026, 1, 1),
+    )
+    await service.mark_overdue(session, today=date(2026, 2, 20))
+    await session.refresh(sub)
+    assert sub.status == "past_due"
+    await service.void_record(session, rec.id, actor=owner_user)
+    await session.refresh(sub)
+    assert sub.status == "active"
+
+
+async def test_mark_overdue_bulk_counts_rows(session, make_tenant):
+    plan = await _plan(session)
+    sub = await _sub(session, await make_tenant(), plan)
+    for i in range(3):
+        await service.create_record(
+            session,
+            subscription_id=sub.id,
+            kind="setup",
+            amount_cop=1000 + i,
+            due_date=date(2026, 1, 1),
+        )
+    assert await service.mark_overdue(session, today=date(2026, 1, 5)) == 3
+    assert await service.mark_overdue(session, today=date(2026, 1, 5)) == 0
+
+
+async def test_create_record_default_due_date_is_bogota(session, make_tenant, monkeypatch):
+    plan = await _plan(session)
+    sub = await _sub(session, await make_tenant(), plan)
+    # 01:00 UTC del 11 = 20:00 del 10 en Bogota
+    monkeypatch.setattr(service, "utcnow", lambda: datetime(2026, 3, 11, 1, tzinfo=UTC))
+    rec = await service.create_record(
+        session, subscription_id=sub.id, kind="setup", amount_cop=1000
+    )
+    assert rec.due_date == date(2026, 3, 10)
+
+
+async def test_generation_survives_concurrent_duplicate(session, make_tenant, monkeypatch):
+    plan = await _plan(session)
+    s1 = await _sub(session, await make_tenant(), plan)
+    await _sub(session, await make_tenant(), plan)
+    # Simula la carrera: otra transaccion ya inserto la de s1 tras leer `existing`.
+    session.add(
+        BillingRecord(
+            tenant_id=s1.tenant_id,
+            subscription_id=s1.id,
+            kind="mensualidad",
+            period="2026-02",
+            amount_cop=1,
+            status="pendiente",
+            due_date=date(2026, 2, 1),
+        )
+    )
+    await session.flush()
+    real = session.execute
+    calls = {"n": 0}
+
+    async def fake_execute(stmt, *a, **kw):
+        res = await real(stmt, *a, **kw)
+        calls["n"] += 1
+        if calls["n"] == 2:  # consulta `existing`: oculta la fila ya creada
+
+            class _R:
+                def scalars(self):
+                    class _S:
+                        def all(self_inner):
+                            return []
+
+                    return _S()
+
+            return _R()
+        return res
+
+    monkeypatch.setattr(session, "execute", fake_execute)
+    assert await service.generate_monthly_records(session, "2026-02") == 1
+
+
+async def test_list_pagination_count_and_summary_single_query(session, make_tenant):
+    plan = await _plan(session)
+    sub = await _sub(session, await make_tenant(), plan, custom_monthly_fee_cop=10)
+    await _sub(session, await make_tenant(), plan, status="past_due")
+    for i in range(3):
+        await service.create_record(
+            session, subscription_id=sub.id, kind="setup", amount_cop=100 + i
+        )
+    assert await service.count_records(session) == 3
+    assert len(await service.list_records(session, limit=2, offset=2)) == 1
+    s = await service.summary(session)
+    assert (s.mrr_cop, s.active_subscriptions) == (250_010, 2)

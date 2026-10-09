@@ -1,1 +1,1 @@
-{% if ok %}<span class="badge badge-ok">Cadena íntegra</span>{% else %}<span class="badge badge-danger">Cadena alterada (registro {{ bad_id }})</span>{% endif %}
+{% if ok %}<span class="badge badge-ok">Cadena íntegra{% if checked is defined %} · {{ checked }} registros{% endif %}</span>{% else %}<span class="badge badge-danger">Cadena alterada (registro {{ bad_id }})</span>{% endif %}

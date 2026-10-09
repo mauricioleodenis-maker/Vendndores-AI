@@ -10,6 +10,9 @@ from typing import Protocol
 
 from app.core.config import get_settings
 from app.core.errors import AppError
+from app.core.logging import get_logger
+
+log = get_logger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -33,13 +36,30 @@ class MemoryRateLimiter:
     def __init__(self, clock: Callable[[], float] = time.monotonic) -> None:
         self._clock = clock
         self._hits: dict[str, deque[float]] = defaultdict(deque)
+        self._windows: dict[str, int] = {}
+        self._ops = 0
+
+    _SWEEP_EVERY = 1024  # operaciones entre barridos de llaves vencidas
 
     def _prune(self, key: str, window_s: int) -> deque[float]:
+        self._ops += 1
+        if self._ops % self._SWEEP_EVERY == 0:
+            self._sweep()
         q = self._hits[key]
         cutoff = self._clock() - window_s
         while q and q[0] <= cutoff:
             q.popleft()
+        self._windows[key] = window_s
         return q
+
+    def _sweep(self) -> None:
+        """Elimina llaves cuya ventana ya vencio (evita crecimiento sin limite)."""
+        now = self._clock()
+        for key in list(self._hits):
+            q = self._hits[key]
+            if not q or q[-1] <= now - self._windows.get(key, 0):
+                self._hits.pop(key, None)
+                self._windows.pop(key, None)
 
     def _result(self, q: deque[float], limit: int, window_s: int, allowed: bool) -> RateLimitResult:
         retry = 0 if allowed or not q else max(1, int(q[0] + window_s - self._clock()) + 1)
@@ -58,6 +78,7 @@ class MemoryRateLimiter:
 
     async def reset(self, key: str) -> None:
         self._hits.pop(key, None)
+        self._windows.pop(key, None)
 
 
 class RedisRateLimiter:
@@ -116,8 +137,24 @@ def set_rate_limiter(limiter: RateLimiter | None) -> None:
     _limiter = limiter
 
 
+_fallback: MemoryRateLimiter | None = None
+
+
 async def enforce(key: str, *, limit: int, window_s: int) -> None:
-    """Consume un intento o lanza 429."""
-    res = await get_rate_limiter().hit(key, limit=limit, window_s=window_s)
+    """Consume un intento o lanza 429.
+
+    Si Redis falla se degrada a un contador en memoria (se registra): un corte de Redis no debe
+    tumbar el login ni dejar los endpoints sin ningun limite.
+    """
+    global _fallback
+    try:
+        res = await get_rate_limiter().hit(key, limit=limit, window_s=window_s)
+    except Exception as exc:
+        if isinstance(get_rate_limiter(), MemoryRateLimiter):
+            raise
+        log.error("rate_limit_backend_failed", error_type=type(exc).__name__)
+        if _fallback is None:
+            _fallback = MemoryRateLimiter()
+        res = await _fallback.hit(key, limit=limit, window_s=window_s)
     if not res.allowed:
         raise AppError("rate_limited", "Demasiadas solicitudes. Intenta mas tarde.", 429)

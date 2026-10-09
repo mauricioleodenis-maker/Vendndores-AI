@@ -77,6 +77,13 @@ class Subscription(TimestampMixin, TenantMixin, Base):
         enum_check("status", SUBSCRIPTION_STATUSES),
         enum_check("guarantee_status", GUARANTEE_STATUSES, nullable=True),
         Index("ix_subscriptions_tenant_status", "tenant_id", "status"),
+        Index(
+            "uq_subscriptions_tenant_live",
+            "tenant_id",
+            unique=True,
+            sqlite_where=text("status != 'cancelled'"),
+            postgresql_where=text("status != 'cancelled'"),
+        ),
     )
 
     id: Mapped[uuid.UUID] = uuid_pk()
@@ -111,6 +118,7 @@ class BillingRecord(TimestampMixin, TenantMixin, Base):
             postgresql_where=text("kind = 'mensualidad'"),
         ),
         Index("ix_billing_records_status_due", "status", "due_date"),
+        Index("ix_billing_records_sub_status", "subscription_id", "status"),
     )
 
     id: Mapped[uuid.UUID] = uuid_pk()

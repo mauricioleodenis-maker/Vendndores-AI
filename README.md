@@ -25,7 +25,7 @@ Sin `VAI_REDIS_URL` los jobs corren en proceso. Pruebas: `make test`; calidad: `
 
 ```bash
 cp .env.example .env            # complete secretos
-make up                         # web, worker, db (Postgres 16), redis y migrate (una vez)
+make up                         # (web solo en 127.0.0.1:8000) web, worker, db (Postgres 16), redis y migrate (una vez)
 docker compose run --rm web python -m app.cli seed
 docker compose run --rm web python -m app.cli create-owner
 ```
@@ -69,6 +69,10 @@ docker compose run --rm web python -m app.cli create-owner
    - Envíe a su propio número, luego a un lote pequeño con plantillas aprobadas por Meta.
    - Suba volumen gradualmente; ante quejas o bloqueos, pause la campaña o apague `VAI_OUTREACH_ENABLED` (kill switch).
    - Respete siempre los STOP/BAJA: se registran en la lista de supresión (Ley 1581).
+
+## Calidad y seguridad
+
+`make check` ejecuta ruff, `pip-audit`, `bandit` y las pruebas (los mismos controles de CI). El contenedor corre sin root, con `cap_drop: ALL`, `no-new-privileges` y límite de procesos; en producción `web`, `worker` y `caddy` son de solo lectura. `FORWARDED_ALLOW_IPS` es `127.0.0.1` por defecto y solo se abre en el compose de producción (puerto 8000 sin publicar).
 
 ## Comandos
 

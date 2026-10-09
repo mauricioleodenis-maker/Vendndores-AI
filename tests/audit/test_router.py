@@ -46,3 +46,10 @@ async def test_pagination(authenticated_client, session):
     assert "Anterior" in p2.text
     events = await list_events(session, limit=100)
     assert len(events) >= 55
+
+
+async def test_invalid_tenant_filter_shows_notice_and_no_rows(authenticated_client, session):
+    await log_event(session, actor="system", action="visible.event")
+    await session.commit()
+    page = await authenticated_client.get("/admin/auditoria?tenant_id=no-es-uuid")
+    assert "ID de empresa no válido" in page.text and "visible.event" not in page.text

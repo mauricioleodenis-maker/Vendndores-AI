@@ -1,65 +1,87 @@
 {% extends "base.html" %}
-{% from "partials/macros.html" import badge, empty_state, csrf %}
+{% from "partials/macros.html" import badge, empty_state, csrf, kpi, pager %}
 {% block title %}Facturación{% endblock %}
 {% block content %}
-<h1>Facturación</h1>
-{% if flash %}<div class="alert alert-{{ flash.kind }}" role="status">{{ flash.message }}</div>{% endif %}
+<div class="page-header">
+  <h1>Facturación</h1>
+  <div class="page-actions">
+    <a class="btn btn-ghost" href="/admin/facturacion/exportar.csv{% if estado %}?estado={{ estado | urlencode }}{% endif %}">Exportar CSV</a>
+    <form class="inline-form" method="post" action="/admin/facturacion/generar" data-confirm="¿Generar las mensualidades del mes? Las que ya existen no se duplican.">
+      {{ csrf() }}<button class="btn btn-primary" type="submit">Generar mensualidades del mes</button>
+    </form>
+  </div>
+</div>
+{% if flash %}<div class="alert alert-{{ flash.kind }}" role="status" data-toast="{{ flash.message }}" data-toast-kind="{{ flash.kind }}">{{ flash.message }}</div>{% endif %}
 
 <div class="kpis">
-  <div class="kpi"><div class="value">{{ summary.mrr_cop | cop }}</div><div class="label">MRR</div></div>
-  <div class="kpi"><div class="value">{{ summary.setups_month_cop | cop }}</div><div class="label">Setups cobrados del mes</div></div>
-  <div class="kpi"><div class="value">{{ summary.overdue_cop | cop }}</div><div class="label">Vencido ({{ summary.overdue_count }})</div></div>
-  <div class="kpi"><div class="value">{{ summary.pending_cop | cop }}</div><div class="label">Por cobrar</div></div>
+  {{ kpi('Ingreso recurrente (MRR)', summary.mrr_cop | cop, 'ok', summary.active_subscriptions ~ ' suscripciones activas') }}
+  {{ kpi('Implementaciones cobradas este mes', summary.setups_month_cop | cop) }}
+  {{ kpi('Vencido (' ~ summary.overdue_count ~ ')', summary.overdue_cop | cop, 'danger' if summary.overdue_count else '') }}
+  {{ kpi('Por cobrar', summary.pending_cop | cop, 'warn' if summary.pending_cop else '') }}
 </div>
 
-<form class="filters" method="get" action="/admin/facturacion">
-  <label>Estado
-    <select name="estado">
-      <option value="">Todos</option>
-      {% for e in estados %}<option value="{{ e }}" {% if e == estado %}selected{% endif %}>{{ e | estado_es }}</option>{% endfor %}
-    </select>
-  </label>
-  <button class="btn btn-ghost" type="submit">Filtrar</button>
-  <a class="btn btn-ghost" href="/admin/facturacion/exportar.csv{% if estado %}?estado={{ estado }}{% endif %}">Exportar CSV</a>
-</form>
-<form method="post" action="/admin/facturacion/generar" data-confirm="¿Generar las mensualidades del mes?">
-  {{ csrf() }}<button class="btn btn-ghost" type="submit">Generar mensualidades del mes</button>
-</form>
+<div class="card">
+  <form class="table-toolbar" method="get" action="/admin/facturacion">
+    <div class="field">
+      <label for="f-estado">Estado</label>
+      <select id="f-estado" name="estado">
+        <option value="">Todos</option>
+        {% for e in estados %}<option value="{{ e }}" {% if e == estado %}selected{% endif %}>{{ e | estado_es }}</option>{% endfor %}
+      </select>
+    </div>
+    <button class="btn btn-ghost" type="submit">Filtrar</button>
+    <span class="muted">{{ total }} cobro{{ '' if total == 1 else 's' }}</span>
+  </form>
 
-{% if rows %}
-<div class="table-wrap">
-<table>
-  <thead><tr><th>Empresa</th><th>Tipo</th><th>Periodo</th><th>Monto</th><th>Vence</th><th>Estado</th><th></th></tr></thead>
-  <tbody>
-  {% for r in rows %}
-    <tr>
-      <td>{{ r.tenant_name }}</td>
-      <td>{{ r.record.kind | capitalize }}</td>
-      <td>{{ r.record.period or '-' }}</td>
-      <td>{{ (r.record.amount_cop + r.record.iva_cop) | cop }}</td>
-      <td>{{ r.record.due_date | fecha }}</td>
-      <td>{{ badge(r.record.status) }}</td>
-      <td>
-        {% if r.record.status in ('pendiente', 'vencido') %}
-        <form method="post" action="/admin/facturacion/{{ r.record.id }}/pagar" data-confirm="¿Marcar este cobro como pagado?">
-          {{ csrf() }}
-          <select name="metodo" aria-label="Método de pago">
-            {% for m in methods %}<option value="{{ m }}">{{ m | capitalize }}</option>{% endfor %}
-          </select>
-          <input name="referencia" maxlength="120" placeholder="Referencia" aria-label="Referencia">
-          <button class="btn btn-primary" type="submit">Marcar pagado</button>
-        </form>
-        <form method="post" action="/admin/facturacion/{{ r.record.id }}/anular" data-confirm="¿Anular este cobro?">
-          {{ csrf() }}<button class="btn btn-ghost" type="submit">Anular</button>
-        </form>
-        {% endif %}
-      </td>
-    </tr>
-  {% endfor %}
-  </tbody>
-</table>
+  {% if rows %}
+  <div class="table-wrap">
+  <table class="cards">
+    <thead><tr><th>Empresa</th><th>Tipo</th><th>Periodo</th><th class="num">Monto</th><th>Vence</th><th>Estado</th><th>Acciones</th></tr></thead>
+    <tbody>
+    {% for r in rows %}
+      <tr>
+        <td data-label="Empresa">{{ r.tenant_name }}</td>
+        <td data-label="Tipo">{{ r.record.kind | capitalize }}</td>
+        <td data-label="Periodo">{{ r.record.period or '-' }}</td>
+        <td class="num nowrap" data-label="Monto">{{ (r.record.amount_cop + r.record.iva_cop) | cop }}</td>
+        <td data-label="Vence">{{ r.record.due_date | fecha }}</td>
+        <td data-label="Estado">{{ badge(r.record.status) }}</td>
+        <td data-label="Acciones">
+          {% if r.record.status in ('pendiente', 'vencido') %}
+          <details class="stack">
+            <summary class="btn btn-primary btn-sm">Marcar pagado</summary>
+            <form class="form-grid" method="post" action="/admin/facturacion/{{ r.record.id }}/pagar" data-confirm="¿Marcar este cobro como pagado?">
+              {{ csrf() }}
+              <div class="field">
+                <label for="m-{{ r.record.id }}">Método de pago</label>
+                <select id="m-{{ r.record.id }}" name="metodo">
+                  {% for m in methods %}<option value="{{ m }}">{{ m | capitalize }}</option>{% endfor %}
+                </select>
+              </div>
+              <div class="field">
+                <label for="r-{{ r.record.id }}">Referencia</label>
+                <input id="r-{{ r.record.id }}" name="referencia" maxlength="120" placeholder="N.º de transferencia">
+              </div>
+              <div class="field">
+                <label for="n-{{ r.record.id }}">N.º de factura</label>
+                <input id="n-{{ r.record.id }}" name="factura" maxlength="60" placeholder="Opcional">
+              </div>
+              <div class="btn-row"><button class="btn btn-primary" type="submit">Confirmar pago</button></div>
+            </form>
+          </details>
+          <form class="inline-form" method="post" action="/admin/facturacion/{{ r.record.id }}/anular" data-confirm="¿Anular este cobro? Esta acción no se puede deshacer.">
+            {{ csrf() }}<button class="btn btn-ghost btn-sm" type="submit">Anular</button>
+          </form>
+          {% else %}<span class="muted">-</span>{% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {{ pager('/admin/facturacion' ~ ('?estado=' ~ (estado | urlencode) if estado else ''), page, has_more) }}
+  {% else %}
+  {{ empty_state('Sin cobros', 'Aún no hay cobros' ~ (' en este estado' if estado else '') ~ '. Genera las mensualidades del mes o espera a que se active una suscripción.') }}
+  {% endif %}
 </div>
-{% else %}
-{{ empty_state('Sin cobros', 'Aún no hay registros de cobro. Se crean al activar una suscripción.') }}
-{% endif %}
 {% endblock %}

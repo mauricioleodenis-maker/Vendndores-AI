@@ -372,7 +372,9 @@ async def summary(session: AsyncSession, *, now: datetime | None = None) -> Summ
         await session.execute(
             select(
                 func.coalesce(
-                    func.sum(func.coalesce(Subscription.custom_monthly_fee_cop, Plan.monthly_fee_cop)),
+                    func.sum(
+                        func.coalesce(Subscription.custom_monthly_fee_cop, Plan.monthly_fee_cop)
+                    ),
                     0,
                 ),
                 func.count(),

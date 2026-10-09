@@ -5,7 +5,7 @@
 - Logs: `make logs` (JSON estructurado; sin PII ni secretos).
 
 ## Respaldos
-- Diario: `sh deploy/backup.sh /ruta/backups` (pg_dump comprimido, retención 30 días). Programe en cron y copie fuera del servidor (almacenamiento cifrado).
+- Diario: `sh deploy/backup.sh /ruta/backups` (pg_dump comprimido, retención 30 días; el script sale con error y no purga si el volcado falla o está vacío, así que monitoree el código de salida del cron). Programe en cron y copie fuera del servidor (almacenamiento cifrado).
 - Respalde también `.env` (en gestor de secretos) y **`VAI_MASTER_KEYS`**: sin ellas los secretos cifrados son irrecuperables.
 - Restaurar:
   ```bash

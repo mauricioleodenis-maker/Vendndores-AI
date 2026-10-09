@@ -30,7 +30,7 @@ class RequestContextMiddleware:
             return
         headers = dict(scope.get("headers") or [])
         incoming = headers.get(b"x-request-id", b"").decode("latin-1")[:64]
-        request_id = incoming if incoming.isalnum() else uuid.uuid4().hex
+        request_id = incoming if incoming.isascii() and incoming.isalnum() else uuid.uuid4().hex
         scope.setdefault("state", {})["request_id"] = request_id
         structlog.contextvars.clear_contextvars()
         structlog.contextvars.bind_contextvars(request_id=request_id)
@@ -62,6 +62,10 @@ class SecurityHeadersMiddleware:
                 headers.setdefault("Referrer-Policy", "same-origin")
                 headers.setdefault("X-Frame-Options", "DENY")
                 headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+                headers.setdefault("Cross-Origin-Opener-Policy", "same-origin")
+                headers.setdefault("Cross-Origin-Resource-Policy", "same-origin")
+                if path.startswith("/static/"):
+                    headers.setdefault("Cache-Control", "public, max-age=300")
                 if self.hsts:
                     headers.setdefault(
                         "Strict-Transport-Security", "max-age=31536000; includeSubDomains"

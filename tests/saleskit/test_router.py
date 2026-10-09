@@ -70,3 +70,16 @@ async def test_unknown_doc_404(authenticated_client: httpx.AsyncClient) -> None:
 async def test_static_assets(client: httpx.AsyncClient) -> None:
     assert (await client.get("/static/saleskit.js")).status_code == 200
     assert (await client.get("/static/saleskit.css")).status_code == 200
+
+
+def test_deleted_or_unreadable_doc_does_not_crash(tmp_path: Path) -> None:
+    good = tmp_path / "01-ok.md"
+    bad = tmp_path / "02-mal.md"
+    good.write_text("# Bueno\n\ntexto", encoding="utf-8")
+    bad.write_bytes(b"\xff\xfe\x00bad")
+    assert [d.title for d in service.list_docs(tmp_path)] == ["Bueno", "02-mal"]
+    assert service.get_doc("02-mal", tmp_path) is None
+    stale = service.list_docs(tmp_path)  # cache
+    good.unlink()
+    assert [d.slug for d in service.list_docs(tmp_path)] == ["02-mal"]
+    assert stale  # el listado previo no se rompe

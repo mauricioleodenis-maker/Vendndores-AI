@@ -1,29 +1,50 @@
 {% extends "base.html" %}
-{% from "partials/macros.html" import badge, csrf %}
+{% from "partials/macros.html" import badge, csrf, kpi, empty_state, stepper %}
 {% block title %}{{ c.name }}{% endblock %}
 {% block content %}
-<h1>{{ c.name }}</h1>
-<p>{{ badge(c.status) }}
-  {% if c.paused_reason %}<span class="muted">Motivo de pausa: {{ c.paused_reason }}</span>{% endif %}
-  {% if not enabled %}{{ badge('desactivado', 'Envío desactivado (kill switch)') }}{% endif %}
-  {% if dry_run %}{{ badge('dry_run', 'Modo prueba') }}{% endif %}
-</p>
-<p><a class="btn" href="/admin/campanas">Volver</a></p>
+<div class="page-header">
+  <h1>{{ c.name }} {{ badge(c.status) }}</h1>
+  <div class="page-actions">
+    <a class="btn" href="/admin/campanas">Volver</a>
+    {% if can_manage %}
+      {% if c.status == 'running' %}
+      <form method="post" action="/admin/campanas/{{ c.id }}/pause" class="inline-form">{{ csrf() }}<button class="btn" type="submit">Pausar</button></form>
+      {% elif c.status == 'paused' %}
+      <form method="post" action="/admin/campanas/{{ c.id }}/resume" class="inline-form">{{ csrf() }}<button class="btn btn-primary" type="submit">Reanudar</button></form>
+      {% endif %}
+      {% if c.status in ['draft', 'ready', 'running', 'paused'] %}
+      <form method="post" action="/admin/campanas/{{ c.id }}/cancel" class="inline-form" data-confirm="¿Cancelar la campaña? Los envíos pendientes se descartan.">{{ csrf() }}<button class="btn btn-danger" type="submit">Cancelar campaña</button></form>
+      {% endif %}
+    {% endif %}
+  </div>
+</div>
+{% if c.paused_reason %}<div class="alert alert-warn" role="status">Motivo de pausa: {{ c.paused_reason }}</div>{% endif %}
+{% if not enabled %}<div class="alert alert-warn" role="status">El envío está desactivado (kill switch).</div>{% endif %}
+{% if dry_run %}<div class="alert alert-info" role="status">Modo prueba: no se llama a Twilio.</div>{% endif %}
 
 {% if preview %}
-<section>
-  <h2>Vista previa</h2>
-  <p>{{ preview.audience_count }} leads en la audiencia
-    ({{ preview.excluded_suppressed }} excluidos por supresión, {{ preview.excluded_missing_data }} sin datos suficientes).</p>
-  {% if not preview.template_approved %}<p class="muted">La plantilla aún no está aprobada por Meta: no se puede iniciar.</p>{% endif %}
-  <ul>
-    {% for s in preview.samples %}<li><strong>{{ s.business }}</strong>: {{ s.body }}</li>{% endfor %}
-  </ul>
+{{ stepper(['Datos', 'Vista previa', 'Envío'], 2) }}
+<section class="card stack">
+  <div class="card-header"><h2>Vista previa</h2></div>
+  <div class="kpis">
+    {{ kpi('En la audiencia', preview.audience_count, 'ok') }}
+    {{ kpi('Excluidos por supresión', preview.excluded_suppressed) }}
+    {{ kpi('Sin datos suficientes', preview.excluded_missing_data, 'warn' if preview.excluded_missing_data else '') }}
+  </div>
+  {% if not preview.template_approved %}<div class="alert alert-warn" role="status">La plantilla aún no está aprobada por Meta: no se puede iniciar.</div>{% endif %}
+  {% if preview.samples %}
+  <h3>Ejemplos de mensajes</h3>
+  <div class="stack">
+    {% for s in preview.samples %}<div class="card card-flat"><strong>{{ s.business }}</strong><p>{{ s.body }}</p></div>{% endfor %}
+  </div>
+  {% else %}
+  {{ empty_state('Audiencia vacía', 'Ningún lead cumple los filtros. Ajusta la audiencia y crea otra campaña.') }}
+  {% endif %}
   {% if can_manage %}
-  <form method="post" action="/admin/campanas/{{ c.id }}/iniciar" data-confirm="¿Iniciar el envío a {{ preview.audience_count }} leads?">
+  <form method="post" action="/admin/campanas/{{ c.id }}/iniciar" class="stack" data-confirm="¿Iniciar el envío a {{ preview.audience_count }} leads?">
     {{ csrf() }}
-    <label><input type="checkbox" name="confirm" value="si" required> Confirmo que revisé la audiencia y los mensajes</label>
-    <button class="btn btn-primary" type="submit">Iniciar campaña</button>
+    <div class="field-check"><input type="checkbox" id="f-confirm" name="confirm" value="si" required><label for="f-confirm">Confirmo que revisé la audiencia y los mensajes</label></div>
+    <div class="btn-row"><button class="btn btn-primary" type="submit">Iniciar campaña</button></div>
   </form>
   {% else %}
   <p class="muted">Solo owner o admin pueden iniciar la campaña.</p>
@@ -31,38 +52,31 @@
 </section>
 {% endif %}
 
-{% if can_manage %}
-<div class="actions">
-  {% if c.status == 'running' %}
-  <form method="post" action="/admin/campanas/{{ c.id }}/pause">{{ csrf() }}<button class="btn" type="submit">Pausar</button></form>
-  {% elif c.status == 'paused' %}
-  <form method="post" action="/admin/campanas/{{ c.id }}/resume">{{ csrf() }}<button class="btn" type="submit">Reanudar</button></form>
-  {% endif %}
-  {% if c.status in ['draft', 'ready', 'running', 'paused'] %}
-  <form method="post" action="/admin/campanas/{{ c.id }}/cancel" data-confirm="¿Cancelar la campaña? Los envíos pendientes se descartan.">{{ csrf() }}<button class="btn" type="submit">Cancelar</button></form>
-  {% endif %}
-</div>
-{% endif %}
-
-<section>
+<section class="stack">
   <h2>Resultados</h2>
-  <p>Objetivos: {% for k, v in targets.items() %}{{ k }} {{ v }}{% if not loop.last %} · {% endif %}{% else %}sin objetivos{% endfor %}</p>
-  <p>Mensajes: {% for k, v in counts.items() %}{{ k }} {{ v }}{% if not loop.last %} · {% endif %}{% else %}sin mensajes{% endfor %}</p>
+  <div class="kpis">
+    {% for k, v in targets.items() %}{{ kpi('Objetivos: ' ~ (k | estado_es), v) }}{% else %}{{ kpi('Objetivos', 0) }}{% endfor %}
+    {% for k, v in counts.items() %}{{ kpi('Mensajes: ' ~ (k | estado_es), v) }}{% endfor %}
+  </div>
 </section>
 
-{% if messages %}
-<section>
+<section class="stack">
   <h2>Últimos mensajes</h2>
+  {% if messages %}
+  <div class="card">
   <div class="table-wrap">
-  <table>
-    <thead><tr><th>Paso</th><th>Plantilla</th><th>Estado</th><th>Enviado</th></tr></thead>
+  <table class="cards">
+    <thead><tr><th class="num">Paso</th><th>Plantilla</th><th>Estado</th><th>Enviado</th></tr></thead>
     <tbody>
     {% for m in messages %}
-      <tr><td>{{ m.step }}</td><td>{{ m.template_name }}</td><td>{{ badge(m.status) }}</td><td>{{ m.sent_at | fecha_hora if m.sent_at else '-' }}</td></tr>
+      <tr><td class="num" data-label="Paso">{{ m.step }}</td><td data-label="Plantilla">{{ m.template_name }}</td><td data-label="Estado">{{ badge(m.status) }}</td><td class="nowrap" data-label="Enviado">{{ m.sent_at | fecha_hora if m.sent_at else '-' }}</td></tr>
     {% endfor %}
     </tbody>
   </table>
   </div>
+  </div>
+  {% else %}
+  {{ empty_state('Sin mensajes todavía', 'Cuando la campaña envíe, verás aquí el estado de cada mensaje.') }}
+  {% endif %}
 </section>
-{% endif %}
 {% endblock %}

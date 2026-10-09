@@ -12,9 +12,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.audit.service import log_event
 from app.core.clock import utcnow
 from app.core.config import get_settings
+from app.core.crypto import phone_hash
 from app.core.errors import AppError, ConflictError, ForbiddenError, NotFoundError
 from app.db.models.leads import Lead
 from app.db.models.outreach import Campaign, CampaignTarget, MessageTemplate, OutreachMessage
+from app.db.models.privacy import SuppressionEntry
 from app.db.models.users import User
 from app.leads import secret_shop
 from app.outreach.compliance import MAX_DAILY, RAMP_START
@@ -24,8 +26,6 @@ from app.outreach.templates import (
     is_sendable,
     render_body,
 )
-from app.core.crypto import phone_hash
-from app.db.models.privacy import SuppressionEntry
 
 PREVIEW_SAMPLES = 5
 MAX_AUDIENCE = 5000
@@ -200,9 +200,7 @@ async def start(
         raise ConflictError("El envio de outreach esta desactivado (VAI_OUTREACH_ENABLED=false)")
     # Bloqueo de fila: dos "iniciar" simultaneos no duplican objetivos.
     campaign = (
-        await session.execute(
-            select(Campaign).where(Campaign.id == campaign_id).with_for_update()
-        )
+        await session.execute(select(Campaign).where(Campaign.id == campaign_id).with_for_update())
     ).scalar_one_or_none()
     if campaign is None:
         raise NotFoundError("Campaña no encontrada")

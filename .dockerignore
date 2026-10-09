@@ -11,3 +11,10 @@ docs
 .pytest_cache
 .ruff_cache
 .mypy_cache
+.claude
+.github
+deploy
+.coverage
+htmlcov
+*.egg-info
+alembic/versions/__pycache__

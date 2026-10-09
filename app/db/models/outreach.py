@@ -87,6 +87,7 @@ class CampaignTarget(TimestampMixin, Base):
     __tablename__ = "campaign_targets"
     __table_args__ = (
         UniqueConstraint("campaign_id", "lead_id", name="uq_campaign_targets_campaign_lead"),
+        Index("ix_campaign_targets_lead_id", "lead_id"),
     )
 
     id: Mapped[uuid.UUID] = uuid_pk()

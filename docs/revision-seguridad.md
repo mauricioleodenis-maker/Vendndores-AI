@@ -35,3 +35,26 @@ teléfono/correo/cuerpo/token), `ComplianceGate` fail-closed, herramientas del b
 8. **Redirecciones con mensaje en query** (`/admin/ajustes?error=...`): se escapan al renderizar (sin XSS) pero no se URL-encodean; usar `urllib.parse.quote`.
 9. **Dependencias**: ejecutar `pip-audit` y `bandit -r app` en CI (añadir al workflow; no se modificó `pyproject.toml`).
 10. **Descifrado fallido** (clave rotada) en varios módulos devuelve un texto genérico con log; considerar alerta/métrica.
+
+## Ronda 2 (verificación final)
+
+Revisión final con los criterios `security-reviewer`, `healthcare-reviewer` y `performance-optimizer`
+sobre toda la app tras la ronda de mejoras. Suite completa verde y `ruff` limpio.
+
+### Rutas críticas re-verificadas (sin hallazgos críticos/altos nuevos)
+- **Twilio**: firma validada con `hmac.compare_digest` por tenant (token propio) antes de persistir; destino desconocido o firma inválida responde 403; `/status` usa el token de la plataforma para outreach. Idempotencia por `MessageSid` (duplicado devuelve TwiML vacío; si falla la cola se libera el SID y se responde 503 para reintento).
+- **Aislamiento de tenant**: servicios y herramientas del bot filtran por `tenant_id` en servidor; el LLM nunca elige el tenant.
+- **CSRF / SSRF / inyección**: CSRF global con verificación de Origin; `safe_fetch` con DNS pinning; guardarraíles de prompt sin cambios.
+- **Baja y supresión antes de cada envío**: todo envío pasa por `send_whatsapp_text`/`send_whatsapp_template` (comprueban `is_suppressed`; solo la confirmación de STOP usa `bypass_suppression`); campañas además pasan por `ComplianceGate`. Recordatorios, respuesta manual del operador, bot y outreach usan esas funciones (sin llamadas directas a Twilio fuera de `_post_message`).
+- **PII cifrada, cadena de auditoría y rate limits**: sin regresiones; cubiertos por las suites `tests/security`, `tests/auth`, `tests/core`.
+
+### Endurecido / optimizado / UI en la ronda
+Los cambios de los módulos (índices FK y únicos parciales `0002`/`0003`, pool de DB fijo, límites de tasa del chat de prueba, UI del sistema de diseño, menú de Recordatorios) fueron integrados y verificados con la suite completa.
+
+### Pendientes (no bloquean)
+1. Exigir Redis en producción para el rate limit con varios workers.
+2. `key_id` y clave dedicada para la cadena de auditoría (rotar `SECRET_KEY` hoy invalida `verify_chain`).
+3. Rotación de claves para mensajes/contactos/leads cifrados.
+4. RLS de Postgres; índice `pg_trgm` en búsqueda de conversaciones; dedupe difuso O(N²).
+5. Submit-guard genérico en formularios (doble clic); URL-encode de mensajes en redirecciones.
+6. `pip-audit` y `bandit` en CI; barrido periódico `expire_stale_sources`.
