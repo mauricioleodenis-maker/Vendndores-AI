@@ -6,7 +6,7 @@ import json
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field, SecretStr, model_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _DEV_SECRET = "dev-only-secret-key-change-me-0123456789abcdef"  # noqa: S105
@@ -65,6 +65,15 @@ class Settings(BaseSettings):
     demo_max_messages: int = 30
     demo_whatsapp_number: str = ""
     voice_say_voice: str = "Polly.Mia-Neural"
+
+    @field_validator("database_url")
+    @classmethod
+    def _async_driver(cls, value: str) -> str:
+        """Render/Railway entregan ``postgres://``; SQLAlchemy async necesita asyncpg."""
+        for prefix in ("postgres://", "postgresql://"):
+            if value.startswith(prefix):
+                return "postgresql+asyncpg://" + value[len(prefix) :]
+        return value
 
     @model_validator(mode="after")
     def _validate_prod(self) -> Settings:

@@ -30,6 +30,17 @@ docker compose run --rm web python -m app.cli seed
 docker compose run --rm web python -m app.cli create-owner
 ```
 
+### Publicar en Render (un paso)
+
+1. Cree una cuenta en render.com y conecte su GitHub.
+2. *New → Blueprint* → elija este repositorio y la rama. `render.yaml` crea la web, el worker, Postgres y Redis; las migraciones y los planes se cargan solos al arrancar.
+3. En el grupo de variables `vendedores-secretos` complete lo marcado como pendiente:
+   - `VAI_MASTER_KEYS`: genérela con `python -c "import os,base64,json;print(json.dumps({'v1':base64.b64encode(os.urandom(32)).decode()}))"`
+   - `VAI_PUBLIC_BASE_URL=https://<servicio>.onrender.com` y `VAI_ALLOWED_HOSTS=["<servicio>.onrender.com"]`
+   - Sus llaves de Anthropic, Twilio, Google y `VAI_DEMO_WHATSAPP_NUMBER`.
+4. Cree el usuario dueño desde la *Shell* del servicio web: `python -m app.cli create-owner --email su@correo.com`
+5. En Twilio apunte *When a message comes in* a `https://<servicio>.onrender.com/webhooks/twilio/whatsapp` y *Status callback* a `.../webhooks/twilio/status`.
+
 ### Producción (TLS automático con Caddy)
 
 1. Apunte el DNS de `DOMAIN` al servidor; abra puertos 80/443.

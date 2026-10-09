@@ -1,0 +1,60 @@
+# Blueprint de Render: web + worker + Postgres + Redis (Key Value).
+# Uso: Render -> New -> Blueprint -> este repo. Complete en el panel las variables
+# marcadas "sync: false" (ver README, "Publicar en Render") y apunte Twilio a
+# https://<servicio>.onrender.com/webhooks/twilio/whatsapp
+envVarGroups:
+  - name: vendedores-secretos
+    envVars:
+      # web y worker deben compartir estas claves (sesiones, hash de telefonos, cifrado)
+      - key: VAI_SECRET_KEY
+        generateValue: true
+      - key: VAI_PHONE_HASH_KEY
+        generateValue: true
+      - { key: VAI_MASTER_KEYS, sync: false }
+      - { key: VAI_PUBLIC_BASE_URL, sync: false }
+      - { key: VAI_ALLOWED_HOSTS, sync: false }
+      - { key: VAI_ANTHROPIC_API_KEY, sync: false }
+      - { key: VAI_TWILIO_ACCOUNT_SID, sync: false }
+      - { key: VAI_TWILIO_AUTH_TOKEN, sync: false }
+      - { key: VAI_TWILIO_WHATSAPP_FROM, sync: false }
+      - { key: VAI_DEMO_WHATSAPP_NUMBER, sync: false }
+      - { key: VAI_GOOGLE_PLACES_API_KEY, sync: false }
+      - { key: VAI_GOOGLE_OAUTH_CLIENT_ID, sync: false }
+      - { key: VAI_GOOGLE_OAUTH_CLIENT_SECRET, sync: false }
+      - { key: VAI_ENV, value: prod }
+      - { key: VAI_TWILIO_DRY_RUN, value: "true" }
+      - { key: VAI_OUTREACH_ENABLED, value: "false" }
+
+services:
+  - type: web
+    name: vendedores-ai
+    runtime: docker
+    plan: starter
+    healthCheckPath: /healthz
+    dockerCommand: sh -c "alembic upgrade head && python -m app.cli seed && uvicorn app.main:create_app --factory --host 0.0.0.0 --port 8000 --proxy-headers --no-server-header"
+    envVars:
+      - { key: PORT, value: "8000" }
+      - fromGroup: vendedores-secretos
+      - key: VAI_DATABASE_URL
+        fromDatabase: { name: vendedores-db, property: connectionString }
+      - key: VAI_REDIS_URL
+        fromService: { type: keyvalue, name: vendedores-redis, property: connectionString }
+  - type: worker
+    name: vendedores-worker
+    runtime: docker
+    plan: starter
+    dockerCommand: arq app.worker.WorkerSettings
+    envVars:
+      - fromGroup: vendedores-secretos
+      - key: VAI_DATABASE_URL
+        fromDatabase: { name: vendedores-db, property: connectionString }
+      - key: VAI_REDIS_URL
+        fromService: { type: keyvalue, name: vendedores-redis, property: connectionString }
+  - type: keyvalue
+    name: vendedores-redis
+    plan: starter
+    ipAllowList: []
+
+databases:
+  - name: vendedores-db
+    plan: basic-256mb
