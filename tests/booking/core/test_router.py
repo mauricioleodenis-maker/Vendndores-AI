@@ -182,3 +182,35 @@ async def test_operator_cannot_edit_hours(
     await login(client, op)
     assert (await client.get("/admin/citas")).status_code == 200
     assert (await client.get(f"/admin/citas/horarios?tenant_id={tenant.id}")).status_code == 403
+
+
+async def test_absurd_dates_do_not_crash(
+    authenticated_client: httpx.AsyncClient, tenant: Tenant
+) -> None:
+    c = authenticated_client
+    r = await c.get(f"/admin/citas?tenant_id={tenant.id}&dia=9999-12-31")
+    assert r.status_code == 200
+    r = await c.get(f"/admin/citas?tenant_id={tenant.id}&dia=0001-01-01")
+    assert r.status_code == 200
+
+
+async def test_time_off_range_is_bounded(
+    authenticated_client: httpx.AsyncClient, session: AsyncSession, tenant: Tenant
+) -> None:
+    c = authenticated_client
+    csrf = c.headers.get("x-csrf-token") or ""
+    for desde, hasta in (("2026-01-01", "9999-12-31"), ("2026-01-01", "2030-01-01")):
+        r = await c.post(
+            "/admin/citas/ausencias",
+            data={"tenant_id": str(tenant.id), "desde": desde, "hasta": hasta, "csrf_token": csrf},
+            follow_redirects=False,
+        )
+        assert r.status_code == 303 and "error=" in r.headers["location"]
+    assert not (await session.execute(select(TimeOff))).scalars().all()
+
+
+async def test_selector_has_no_inline_handlers(
+    authenticated_client: httpx.AsyncClient, tenant: Tenant
+) -> None:
+    r = await authenticated_client.get(f"/admin/citas?tenant_id={tenant.id}")
+    assert "onchange=" not in r.text and "style=" not in r.text.split("<main")[-1]

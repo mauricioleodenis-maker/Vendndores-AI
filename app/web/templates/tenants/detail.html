@@ -3,21 +3,26 @@
 {% set tab_labels = {'datos': 'Datos', 'servicios': 'Servicios', 'faqs': 'Preguntas frecuentes', 'horarios': 'Horarios', 'canales': 'Canales y secretos'} %}
 {% block title %}{{ tenant.name }}{% endblock %}
 {% block content %}
-<h1>{{ tenant.name }} {{ badge(tenant.status) }}</h1>
-<p class="muted">{{ tenant.niche | nicho_es }} · {{ tenant.city or 'Sin ciudad' }}</p>
-<p>
+<div class="page-header">
+  <div>
+    <h1>{{ tenant.name }} {{ badge(tenant.status) }}</h1>
+    <p class="muted">{{ tenant.niche | nicho_es }} · {{ tenant.city or 'Sin ciudad' }}</p>
+  </div>
+  <div class="page-actions">
   <a class="btn" href="/admin/negocios/{{ tenant.id }}/bot">Revisar bot</a>
+  {% if tenant.status in ('draft', 'review') %}<a class="btn btn-primary" href="/admin/negocios/{{ tenant.id }}/wizard?paso=2">Continuar asistente</a>{% endif %}
   {% if tenant.status in ('active', 'paused') %}
-  <form method="post" action="/admin/negocios/{{ tenant.id }}/estado" style="display:inline">{{ csrf() }}
+  <form method="post" action="/admin/negocios/{{ tenant.id }}/estado" class="inline-form">{{ csrf() }}
     <input type="hidden" name="nuevo" value="{{ 'paused' if tenant.status == 'active' else 'active' }}">
     <button class="btn btn-ghost" type="submit">{{ 'Pausar' if tenant.status == 'active' else 'Reanudar' }}</button>
   </form>
   {% endif %}
-</p>
+  </div>
+</div>
 <nav class="tabs" aria-label="Secciones">
-  {% for t in tabs %}<a class="btn {{ 'btn-primary' if t == tab else 'btn-ghost' }}" href="/admin/negocios/{{ tenant.id }}?tab={{ t }}" {% if t == tab %}aria-current="page"{% endif %}>{{ tab_labels[t] }}</a> {% endfor %}
+  {% for t in tabs %}<a class="tab{{ ' active' if t == tab else '' }}" href="/admin/negocios/{{ tenant.id }}?tab={{ t }}" {% if t == tab %}aria-current="page"{% endif %}>{{ tab_labels[t] }}</a> {% endfor %}
 </nav>
-<section class="card">
+<section class="card stack">
 {% if tab == 'datos' %}
 <form method="post" action="/admin/negocios/{{ tenant.id }}/datos">
   {{ csrf() }}
@@ -35,14 +40,14 @@
 </form>
 {% if user.role == 'owner' %}
 <form method="post" action="/admin/negocios/{{ tenant.id }}/eliminar" data-confirm="¿Eliminar esta empresa? Dejará de aparecer en el panel.">
-  {{ csrf() }}<button class="btn btn-ghost" type="submit">Eliminar empresa</button>
+  {{ csrf() }}<button class="btn btn-danger" type="submit">Eliminar empresa</button>
 </form>
 {% endif %}
 
 {% elif tab == 'servicios' %}
 {% if services %}
 {% for s in services %}
-<form method="post" action="/admin/negocios/{{ tenant.id }}/servicios/{{ s.id }}" class="card">
+<form method="post" action="/admin/negocios/{{ tenant.id }}/servicios/{{ s.id }}" class="card card-flat form-grid">
   {{ csrf() }}
   {% if s.needs_review %}<span class="badge badge-warn">Falta confirmar</span>{% endif %}
   <label>Nombre <input name="name" value="{{ s.name }}" required></label>
@@ -53,10 +58,10 @@
   <label><input type="checkbox" name="requires_deposit" {% if s.requires_deposit %}checked{% endif %}> Requiere anticipo</label>
   <label><input type="checkbox" name="is_active" {% if s.is_active %}checked{% endif %}> Activo</label>
   <button class="btn" type="submit">Guardar</button>
-  <button class="btn btn-ghost" type="submit" formaction="/admin/negocios/{{ tenant.id }}/servicios/{{ s.id }}/eliminar" formnovalidate onclick="return confirm('¿Eliminar este servicio?')">Eliminar</button>
+  <button class="btn btn-danger btn-sm" type="submit" formaction="/admin/negocios/{{ tenant.id }}/servicios/{{ s.id }}/eliminar" formnovalidate data-confirm="¿Eliminar este servicio?">Eliminar</button>
 </form>
 {% endfor %}
-{% else %}{{ empty_state('Sin servicios', 'Agrega el primero abajo.') }}{% endif %}
+{% else %}{{ empty_state('Sin servicios', 'Agrega el primero en el formulario de abajo; el bot los usa para responder precios y agendar.') }}{% endif %}
 <h3>Agregar servicio</h3>
 <form method="post" action="/admin/negocios/{{ tenant.id }}/servicios">
   {{ csrf() }}
@@ -68,14 +73,14 @@
 
 {% elif tab == 'faqs' %}
 {% for f in faqs %}
-<form method="post" action="/admin/negocios/{{ tenant.id }}/faqs/{{ f.id }}" class="card">
+<form method="post" action="/admin/negocios/{{ tenant.id }}/faqs/{{ f.id }}" class="card card-flat form-grid">
   {{ csrf() }}
   {% if f.needs_review %}<span class="badge badge-warn">Falta confirmar</span>{% endif %}
   <label>Pregunta <input name="question" value="{{ f.question }}" required></label>
   <label>Respuesta <textarea name="answer" rows="3" required>{{ f.answer }}</textarea></label>
   <label><input type="checkbox" name="is_active" {% if f.is_active %}checked{% endif %}> Activa</label>
   <button class="btn" type="submit">Guardar</button>
-  <button class="btn btn-ghost" type="submit" formaction="/admin/negocios/{{ tenant.id }}/faqs/{{ f.id }}/eliminar" formnovalidate onclick="return confirm('¿Eliminar esta pregunta?')">Eliminar</button>
+  <button class="btn btn-danger btn-sm" type="submit" formaction="/admin/negocios/{{ tenant.id }}/faqs/{{ f.id }}/eliminar" formnovalidate data-confirm="¿Eliminar esta pregunta?">Eliminar</button>
 </form>
 {% else %}{{ empty_state('Sin preguntas frecuentes', 'Agrega la primera abajo.') }}{% endfor %}
 <h3>Agregar pregunta</h3>
@@ -101,11 +106,11 @@
 {% elif tab == 'canales' %}
 <h2>Canales de WhatsApp</h2>
 {% if channels %}
-<div class="table-wrap"><table>
+<div class="table-wrap"><table class="cards">
   <thead><tr><th>Número</th><th>Estado</th><th>Voz</th><th></th></tr></thead>
   <tbody>{% for c in channels %}
-  <tr><td>{{ c.phone_e164 | tel_mask }}</td><td>{{ c.whatsapp_sender_status }}</td><td>{{ 'Sí' if c.voice_enabled else 'No' }}</td>
-  <td><form method="post" action="/admin/negocios/{{ tenant.id }}/canales/{{ c.id }}/eliminar" data-confirm="¿Quitar este canal?">{{ csrf() }}<button class="btn btn-ghost" type="submit">Quitar</button></form></td></tr>
+  <tr><td data-label="Número">{{ c.phone_e164 | tel_mask }}</td><td data-label="Estado">{{ c.whatsapp_sender_status | estado_es }}</td><td data-label="Voz">{{ 'Sí' if c.voice_enabled else 'No' }}</td>
+  <td class="row-actions"><form method="post" action="/admin/negocios/{{ tenant.id }}/canales/{{ c.id }}/eliminar" data-confirm="¿Quitar este canal?">{{ csrf() }}<button class="btn btn-danger btn-sm" type="submit">Quitar</button></form></td></tr>
   {% endfor %}</tbody>
 </table></div>
 {% else %}{{ empty_state('Sin canales', 'Registra el número de WhatsApp del negocio.') }}{% endif %}
@@ -119,10 +124,10 @@
 </form>
 <h2>Secretos</h2>
 <p class="muted">Los valores se guardan cifrados; solo vemos los últimos 4 caracteres.</p>
-<ul>
+<ul class="stack">
 {% for s in secrets %}
   <li>{{ secret_labels.get(s.kind, s.kind) }}: •••• {{ s.last4 }}
-  {% if user.role == 'owner' %}<form method="post" action="/admin/negocios/{{ tenant.id }}/secretos/{{ s.kind }}/eliminar" style="display:inline" data-confirm="¿Eliminar este secreto?">{{ csrf() }}<button class="btn btn-ghost" type="submit">Eliminar</button></form>{% endif %}</li>
+  {% if user.role == 'owner' %}<form method="post" action="/admin/negocios/{{ tenant.id }}/secretos/{{ s.kind }}/eliminar" class="inline-form" data-confirm="¿Eliminar este secreto?">{{ csrf() }}<button class="btn btn-danger btn-sm" type="submit">Eliminar</button></form>{% endif %}</li>
 {% else %}<li class="muted">Sin secretos guardados.</li>{% endfor %}
 </ul>
 {% if user.role == 'owner' %}

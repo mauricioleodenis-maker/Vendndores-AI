@@ -1,8 +1,12 @@
 {% extends "base.html" %}
 {% block title %}Nueva empresa{% endblock %}
 {% block content %}
-<h1>Nueva empresa</h1>
-<div id="wizard" class="card">
+<div class="page-header">
+  <h1>Nueva empresa</h1>
+  <div class="page-actions"><a class="btn btn-ghost" href="/admin/negocios">Cancelar</a></div>
+</div>
+<div id="wizard" class="card" hx-indicator="#ld-wizard">
   {% include step_template %}
 </div>
+<span class="htmx-indicator inline" id="ld-wizard">Cargando…</span>
 {% endblock %}

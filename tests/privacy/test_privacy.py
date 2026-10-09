@@ -16,6 +16,7 @@ from app.db.models.conversations import Conversation, Message
 from app.privacy import dsar, retention, service
 from app.privacy.jobs import purge_retention_job
 from app.privacy.keywords import is_erase_request, is_rights_request
+from app.privacy.redaction import redact_pii
 from app.privacy.texts import privacy_notice
 
 PHONE = "+573001234567"
@@ -254,3 +255,51 @@ async def test_dsar_api(authenticated_client: Any, session: Any, tenant: Any) ->
 async def test_dsar_api_requires_auth(client: Any, tenant: Any) -> None:
     r = await client.get(f"/api/privacidad/{tenant.id}/contactos/{uuid.uuid4()}/exportar")
     assert r.status_code == 401
+
+
+async def test_erase_covers_handoff_cancel_reason_and_is_idempotent(
+    session: Any, tenant: Any
+) -> None:
+    from app.db.models.booking import Appointment
+    from app.db.models.conversations import Handoff
+
+    c = await _contact(session, tenant)
+    m = await _conv_with_message(session, tenant, c)
+    h = Handoff(
+        tenant_id=tenant.id,
+        conversation_id=m.conversation_id,
+        reason="user_request",
+        summary="Paciente Ana con dolor",
+    )
+    session.add(h)
+    await session.commit()
+    exp = await dsar.export_contact_data(session, tenant.id, c.id)
+    assert exp["derivaciones"][0]["resumen"] == "Paciente Ana con dolor"
+    await dsar.erase_contact(session, tenant.id, c.id)
+    await session.commit()
+    await session.refresh(h)
+    await session.refresh(c)
+    assert h.summary == ""
+    first_hash, first_at = c.phone_hash, c.erased_at
+    await dsar.erase_contact(session, tenant.id, c.id)
+    await session.refresh(c)
+    assert c.phone_hash == first_hash and c.erased_at == first_at
+    assert Appointment.cancel_reason is not None
+
+
+async def test_long_slug_rejected(client: Any, tenant: Any) -> None:
+    r = await client.get(f"/privacidad/{tenant.slug}{'x' * 100}", headers={"accept": "text/html"})
+    assert r.status_code == 404
+
+
+def test_redact_id_label_and_notice_truncation() -> None:
+    assert "[documento]" in redact_pii("CC: 1098765432")
+    assert len(privacy_notice(negocio="N" * 500)) < 700
+
+
+async def test_backfill_batches_by_date(session: Any, tenant: Any) -> None:
+    c = await _contact(session, tenant)
+    for _ in range(3):
+        await _conv_with_message(session, tenant, c)
+    assert await retention.backfill_purge_after(session) == 3
+    assert await retention.backfill_purge_after(session) == 0

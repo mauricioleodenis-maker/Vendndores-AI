@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.booking.service import BookingService
 from app.conversation.context import BusinessContext, format_when, price_text
-from app.conversation.guardrails import fold, is_affirmation
+from app.conversation.guardrails import fold, is_affirmation, sanitize_config_text
 from app.conversation.handoff import LLM_REASONS, normalize_reason, open_handoff
 from app.core.clock import BOGOTA, to_bogota, utcnow
 from app.core.crypto import get_crypto, make_aad, pack_blob
@@ -340,22 +340,35 @@ async def get_business_info(ctx: ToolContext, args: BusinessInfoArgs) -> ToolOut
         data: Any = [
             {
                 "id": str(s.id),
-                "name": s.name,
+                "name": sanitize_config_text(s.name, limit=120),
                 "duration_min": s.duration_min,
-                "description": s.description,
+                # descripcion sin revisar (scrape/IA) no llega al LLM
+                "description": (
+                    "" if s.needs_review else sanitize_config_text(s.description or "", limit=400)
+                ),
             }
             for s in bc.services
         ]
     elif args.topic == "precios":
-        data = [{"name": s.name, "price": price_text(s)} for s in bc.services]
+        data = [
+            {
+                "name": sanitize_config_text(s.name, limit=120),
+                "price": sanitize_config_text(price_text(s), limit=120),
+            }
+            for s in bc.services
+        ]
     elif args.topic == "horarios":
-        data = bc.hours_text
+        data = sanitize_config_text(bc.hours_text, limit=400)
     elif args.topic == "ubicacion":
-        data = {"city": tenant.city, "address": tenant.address, "phone": tenant.phone_contact}
+        data = {
+            "city": sanitize_config_text(tenant.city or "", limit=80),
+            "address": sanitize_config_text(tenant.address or "", limit=240),
+            "phone": tenant.phone_contact,
+        }
     else:
         rules = ctx.bc.booking_rules
         policies = [
-            f.answer
+            sanitize_config_text(f.answer, limit=600)
             for f in bc.faqs
             if any(k in fold(f.question) for k in ("polit", "cancel", "pago", "garant"))
         ]

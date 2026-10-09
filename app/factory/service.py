@@ -7,7 +7,7 @@ import uuid
 from typing import Any
 
 from pydantic import ValidationError
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai.client import LLMClient, get_llm
@@ -131,6 +131,23 @@ async def load_kb(session: AsyncSession, tenant_id: uuid.UUID) -> list[KbDocumen
     return list((await session.execute(stmt)).scalars())
 
 
+async def load_kb_preview(
+    session: AsyncSession, tenant_id: uuid.UUID, chars: int = 1500
+) -> list[Any]:
+    """Filas (title, source_url, content recortado) sin traer el contenido completo."""
+    stmt = (
+        select(
+            KbDocument.title,
+            KbDocument.source_url,
+            func.substr(KbDocument.content, 1, chars).label("content"),
+        )
+        .where(KbDocument.tenant_id == tenant_id)
+        .order_by(KbDocument.fetched_at.desc())
+        .limit(MAX_KB_PAGES)
+    )
+    return list((await session.execute(stmt)).all())
+
+
 async def _scrape(session: AsyncSession, tenant_id: uuid.UUID, inputs: FactoryInput) -> str | None:
     """Rastrea la web del negocio. Devuelve un mensaje de error (o ``None``); nunca lanza."""
     if not (inputs.website_url or inputs.instagram_url):
@@ -212,7 +229,7 @@ def _normalize(
         declared = owner_by_name.get(key)
         if declared is not None:
             update: dict[str, Any] = {"source_ref": "owner"}
-            if isinstance(declared.get("price_cop"), int):
+            if _valid_price(declared.get("price_cop")):
                 update["price_cop"] = declared["price_cop"]
             dur = declared.get("duration_min")
             if isinstance(dur, int) and 5 <= dur <= 480:
@@ -230,7 +247,7 @@ def _normalize(
                     name=name,
                     description=str(declared.get("description") or "")[:300],
                     duration_min=dur if isinstance(dur, int) and 5 <= dur <= 480 else 30,
-                    price_cop=price if isinstance(price, int) and price >= 0 else None,
+                    price_cop=price if _valid_price(price) else None,
                     source_ref="owner",
                 )
             )
@@ -248,6 +265,11 @@ def _normalize(
     return config.model_copy(
         update={"business": biz, "services": services, "handoff_rules": handoffs}
     )
+
+
+def _valid_price(value: Any) -> bool:
+    """Entero (no bool) dentro de 0..50.000.000 COP."""
+    return isinstance(value, int) and not isinstance(value, bool) and 0 <= value <= 50_000_000
 
 
 def _phone(raw: str | None) -> str | None:
@@ -315,7 +337,7 @@ async def build_bot(
     entrega una configuracion valida tras un reintento.
     """
     tenant = await session.get(Tenant, tenant_id)
-    if tenant is None:
+    if tenant is None or tenant.deleted_at is not None:
         raise NotFoundError("Empresa no encontrada")
     tpl = get_niche_template(inputs.niche)
     scrape_error = await _scrape(session, tenant_id, inputs) if scrape else None
@@ -361,6 +383,11 @@ async def build_bot(
     for i, faq in enumerate(config.faqs):
         if has_injection(faq.answer) or has_injection(faq.question):
             report.faq_indexes.add(i)
+    # Descripciones/nombres de servicio (origen web) tambien llegan al prompt de runtime
+    for svc in config.services:
+        if has_injection(svc.description) or has_injection(svc.name):
+            report.service_ids.add(svc.id)
+            report.reasons.append(f"Servicio con texto sospechoso: {svc.name}")
     needs_review = report.needs_review or injected
 
     for old in await review.list_versions(session, tenant_id):
@@ -521,6 +548,9 @@ async def rollback_bot(
     if bot.published_at is None:
         raise ConflictError("Solo se puede volver a una versión que ya estuvo publicada")
     cfg = review.parsed_config(bot)
+    blockers = review.rollback_blockers(bot, cfg)
+    if blockers:
+        raise AppError("rollback_blocked", " ".join(blockers), 422)
     await review.sync_catalog_from_config(session, tenant_id, cfg, replace=True)
     await _make_published(session, bot, actor=actor)
     await log_event(

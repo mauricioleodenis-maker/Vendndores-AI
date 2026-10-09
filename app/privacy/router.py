@@ -39,9 +39,11 @@ async def public_policy(request: Request) -> HTMLResponse:
 async def tenant_policy(
     request: Request, tenant_slug: str, session: AsyncSession = Depends(get_session)
 ) -> HTMLResponse:
+    if len(tenant_slug) > 80:
+        raise NotFoundError("Página no encontrada")
     tenant = (
         await session.execute(
-            select(Tenant).where(Tenant.slug == tenant_slug[:80], Tenant.deleted_at.is_(None))
+            select(Tenant).where(Tenant.slug == tenant_slug, Tenant.deleted_at.is_(None))
         )
     ).scalar_one_or_none()
     if tenant is None:

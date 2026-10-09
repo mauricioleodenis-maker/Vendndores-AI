@@ -15,7 +15,7 @@ from app.core.errors import NotFoundError
 from app.core.logging import get_logger
 from app.db.models.booking import Appointment
 from app.db.models.contacts import Consent, Contact
-from app.db.models.conversations import Conversation, Message
+from app.db.models.conversations import Conversation, Handoff, Message
 
 log = get_logger(__name__)
 ERASED_BODY = "[eliminado a solicitud del titular]"
@@ -58,7 +58,13 @@ async def export_contact_data(
     """Paquete de acceso del titular (JSON serializable)."""
     contact = await _get_contact(session, tenant_id, contact_id)
     consents = (
-        (await session.execute(select(Consent).where(Consent.contact_id == contact_id)))
+        (
+            await session.execute(
+                select(Consent).where(
+                    Consent.contact_id == contact_id, Consent.tenant_id == tenant_id
+                )
+            )
+        )
         .scalars()
         .all()
     )
@@ -73,36 +79,59 @@ async def export_contact_data(
         .scalars()
         .all()
     )
-    conversations: list[dict[str, Any]] = []
-    for conv in convs:
-        msgs = (
+    conv_ids = [c.id for c in convs]
+    msgs_by_conv: dict[uuid.UUID, list[Message]] = {cid: [] for cid in conv_ids}
+    handoffs: list[Handoff] = []
+    if conv_ids:
+        all_msgs = (
             (
                 await session.execute(
                     select(Message)
-                    .where(Message.conversation_id == conv.id)
+                    .where(Message.conversation_id.in_(conv_ids))
                     .order_by(Message.created_at)
                 )
             )
             .scalars()
             .all()
         )
-        conversations.append(
-            {
-                "id": str(conv.id),
-                "channel": conv.channel,
-                "mensajes": [
-                    {
-                        "fecha": _iso(m.created_at),
-                        "direccion": m.direction,
-                        "texto": _decrypt(tenant_id, "messages", "body_enc", m.body_enc)
-                        or m.body_redacted,
-                    }
-                    for m in msgs
-                ],
-            }
+        for m in all_msgs:
+            msgs_by_conv[m.conversation_id].append(m)
+        handoffs = list(
+            (
+                await session.execute(
+                    select(Handoff).where(
+                        Handoff.conversation_id.in_(conv_ids), Handoff.tenant_id == tenant_id
+                    )
+                )
+            )
+            .scalars()
+            .all()
         )
+    conversations: list[dict[str, Any]] = [
+        {
+            "id": str(conv.id),
+            "channel": conv.channel,
+            "resumen": conv.summary or None,
+            "mensajes": [
+                {
+                    "fecha": _iso(m.created_at),
+                    "direccion": m.direction,
+                    "texto": _decrypt(tenant_id, "messages", "body_enc", m.body_enc)
+                    or m.body_redacted,
+                }
+                for m in msgs_by_conv[conv.id]
+            ],
+        }
+        for conv in convs
+    ]
     appts = (
-        (await session.execute(select(Appointment).where(Appointment.contact_id == contact_id)))
+        (
+            await session.execute(
+                select(Appointment).where(
+                    Appointment.contact_id == contact_id, Appointment.tenant_id == tenant_id
+                )
+            )
+        )
         .scalars()
         .all()
     )
@@ -133,8 +162,19 @@ async def export_contact_data(
                 "inicio": _iso(a.starts_at),
                 "estado": a.status,
                 "notas": _decrypt(tenant_id, "appointments", "notes_enc", a.notes_enc),
+                "motivo_cancelacion": a.cancel_reason,
             }
             for a in appts
+        ],
+        "derivaciones": [
+            {
+                "id": str(h.id),
+                "motivo": h.reason,
+                "estado": h.status,
+                "resumen": h.summary or None,
+                "abierta_en": _iso(h.opened_at),
+            }
+            for h in handoffs
         ],
     }
     await log_event(
@@ -158,6 +198,8 @@ async def erase_contact(
     """Anonimiza al contacto y sus mensajes. Conserva filas (citas, metricas) sin PII. El hash del
     telefono se reemplaza para permitir un contacto nuevo; la lista de supresion no se toca."""
     contact = await _get_contact(session, tenant_id, contact_id)
+    if contact.erased_at is not None:
+        return  # idempotente: no regenerar hash ni fecha
     now = utcnow()
     contact.phone_enc = None
     contact.display_name_enc = None
@@ -184,12 +226,23 @@ async def erase_contact(
         await session.execute(
             update(Conversation).where(Conversation.id.in_(conv_ids)).values(summary="")
         )
+        await session.execute(
+            update(Handoff)
+            .where(Handoff.conversation_id.in_(conv_ids), Handoff.tenant_id == tenant_id)
+            .values(summary="")
+        )
     await session.execute(
-        update(Appointment).where(Appointment.contact_id == contact_id).values(notes_enc=None)
+        update(Appointment)
+        .where(Appointment.contact_id == contact_id, Appointment.tenant_id == tenant_id)
+        .values(notes_enc=None, cancel_reason=None)
     )
     await session.execute(
         update(Consent)
-        .where(Consent.contact_id == contact_id, Consent.revoked_at.is_(None))
+        .where(
+            Consent.contact_id == contact_id,
+            Consent.tenant_id == tenant_id,
+            Consent.revoked_at.is_(None),
+        )
         .values(revoked_at=now)
     )
     await log_event(

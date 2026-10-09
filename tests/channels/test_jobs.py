@@ -125,7 +125,7 @@ async def test_media_only_message_gets_text_request(
     await core_jobs.run_enqueued()
     session.expire_all()
     bodies = _bodies(await _outs(session), tid)
-    assert bodies == [jobs.MEDIA_REPLY]
+    assert len(bodies) == 2 and bodies[1] == jobs.MEDIA_REPLY  # aviso + peticion de texto
     assert fake_llm.calls == []
 
 
@@ -161,7 +161,7 @@ async def test_engine_failure_does_not_crash(
     import uuid
 
     sent = await jobs.process(session, uuid.UUID(t), uuid.UUID(c), uuid.UUID(m), Boom())
-    assert sent == 0
+    assert sent == 1  # mensaje de respaldo, el paciente no queda sin respuesta
     inbound = (await session.execute(select(Message).where(Message.direction == "in"))).scalar_one()
     assert inbound.processed_at is not None
 
@@ -220,3 +220,34 @@ async def test_conversation_closed_creates_new(
     await session.commit()
     await _receive(client, "dos")
     assert len((await session.execute(select(Conversation))).scalars().all()) == 2
+
+
+async def test_rights_and_erase_keywords_get_privacy_reply(
+    client: httpx.AsyncClient,
+    session: AsyncSession,
+    channel: ChannelAccount,
+    tid: uuid.UUID,
+    _engine_llm: None,
+    fake_llm: FakeLLM,
+) -> None:
+    for word in ("DERECHOS", "BORRAR MIS DATOS"):
+        await _receive(client, word)
+    await core_jobs.run_enqueued()
+    session.expire_all()
+    bodies = _bodies(await _outs(session), tid)
+    assert len(bodies) == 2 and all("/privacidad" in b for b in bodies)
+    assert not fake_llm.calls
+
+
+async def test_media_first_message_sends_privacy_notice(
+    client: httpx.AsyncClient,
+    session: AsyncSession,
+    channel: ChannelAccount,
+    tid: uuid.UUID,
+    _engine_llm: None,
+) -> None:
+    await _receive(client, "", NumMedia="1")
+    await core_jobs.run_enqueued()
+    session.expire_all()
+    outs = await _outs(session)
+    assert outs[0].template_name == "privacy_notice" and len(outs) == 2

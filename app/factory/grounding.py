@@ -9,7 +9,12 @@ from typing import Any
 
 from app.factory.schemas import GeneratedBotConfig
 
-_NUM_RE = re.compile(r"\d[\d.,'\s]*\d|\d")
+# Monto = numero con separador de miles, cifra de 4+ digitos, o 1-3 digitos con marca de moneda.
+_NUM_RE = re.compile(
+    r"(?<![\d.,'])(?P<cur>\$\s*)?(?P<num>\d{1,3}(?:[.,']\d{3})+|\d+)(?![\d])"
+    r"(?P<suf>\s*(?:cop\b|pesos\b))?",
+    re.I,
+)
 _MIL_RE = re.compile(r"(\d{1,4})(?:[.,](\d))?\s*(?:mil\b|k\b)", re.I)
 _INJECTION_RE = re.compile(
     r"ignor[ae]\s+(?:todas?\s+)?(?:las\s+)?instrucciones|ignore\s+(?:all\s+)?(?:previous|prior)|"
@@ -29,13 +34,13 @@ def extract_amounts(text: str) -> set[int]:
     """Todos los montos enteros que aparecen en el texto ($80.000, 80,000, 80 mil, 80k)."""
     found: set[int] = set()
     for m in _NUM_RE.finditer(text):
-        digits = re.sub(r"[.,'\s]", "", m.group(0))
-        if digits.isdigit() and len(digits) <= 9:
-            found.add(int(digits))
-        for part in re.split(r"\s+", m.group(0).strip()):
-            clean = re.sub(r"[.,']", "", part)
-            if clean.isdigit():
-                found.add(int(clean))
+        digits = re.sub(r"[.,']", "", m.group("num"))
+        if not digits.isdigit() or len(digits) > 9:
+            continue
+        # Cifras cortas (direcciones, telefonos parciales, horas) solo cuentan con marca de moneda.
+        if len(digits) <= 3 and not (m.group("cur") or m.group("suf")):
+            continue
+        found.add(int(digits))
     for m in _MIL_RE.finditer(text):
         base = int(m.group(1)) * 1000 + (int(m.group(2)) * 100 if m.group(2) else 0)
         found.add(base)
@@ -119,7 +124,7 @@ def verify_grounding(
         report.reasons.append("Horarios sin fuente: " + ", ".join(report.hours_ungrounded))
     for i, faq in enumerate(config.faqs):
         cited = extract_amounts(faq.answer)
-        if any(c >= 5000 and not 1900 <= c <= 2100 and c not in amounts for c in cited):
+        if any(c >= 1000 and not 1900 <= c <= 2100 and c not in amounts for c in cited):
             report.faq_indexes.add(i)
             report.reasons.append(f"FAQ con cifra sin fuente: {faq.question[:60]}")
     return report

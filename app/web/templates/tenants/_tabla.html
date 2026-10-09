@@ -3,22 +3,24 @@
 {% if tenants %}
 <div class="table-wrap">
 <table class="cards">
-  <thead><tr><th>Empresa</th><th>Nicho</th><th>Ciudad</th><th>Estado</th><th></th></tr></thead>
+  <thead><tr><th>Empresa</th><th>Nicho</th><th>Ciudad</th><th>Estado</th><th><span class="sr-only">Acciones</span></th></tr></thead>
   <tbody>
   {% for t in tenants %}
     <tr>
-      <td data-label="Empresa"><a href="/admin/negocios/{{ t.id }}">{{ t.name }}</a></td>
+      <td data-label="Empresa"><a href="/admin/negocios/{{ t.id }}"><strong>{{ t.name }}</strong></a></td>
       <td data-label="Nicho">{{ t.niche | nicho_es }}</td>
       <td data-label="Ciudad">{{ t.city or '-' }}</td>
       <td data-label="Estado">{{ badge(t.status) }}</td>
-      <td><a class="btn btn-ghost" href="/admin/negocios/{{ t.id }}">Abrir</a></td>
+      <td class="row-actions"><a class="btn btn-ghost btn-sm" href="/admin/negocios/{{ t.id }}">Abrir</a></td>
     </tr>
   {% endfor %}
   </tbody>
 </table>
 </div>
 {{ pager(base_url, page, has_more) }}
+{% elif q or niche or status %}
+{{ empty_state('Sin resultados', 'Ninguna empresa coincide con los filtros. Prueba con otra búsqueda.', '/admin/negocios', 'Quitar filtros') }}
 {% else %}
-{{ empty_state('Aún no tienes empresas', 'Crea la primera en 3 pasos.', '/admin/negocios/nuevo', 'Nueva empresa') }}
+{{ empty_state('Aún no tienes empresas', 'Crea la primera en 3 pasos: datos, servicios y generación del bot.', '/admin/negocios/nuevo', 'Nueva empresa') }}
 {% endif %}
 </div>

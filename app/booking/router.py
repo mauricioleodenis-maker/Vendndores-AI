@@ -20,6 +20,7 @@ from app.core.clock import ensure_utc, utcnow
 from app.core.crypto import get_crypto, make_aad, unpack_blob
 from app.core.deps import current_user, get_session, require_role
 from app.core.errors import AppError, NotFoundError
+from app.core.logging import get_logger
 from app.db.models.booking import Appointment, TimeOff, WorkingHours
 from app.db.models.catalog import Service
 from app.db.models.contacts import Contact
@@ -28,11 +29,15 @@ from app.db.models.users import User
 from app.leads.normalize import to_e164_co
 from app.web.templating import render
 
+log = get_logger(__name__)
 router = APIRouter(tags=["citas"])
 admin_only = require_role("admin")
 
 WEEKDAYS = ("Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo")
 MAX_WINDOWS_PER_DAY = 2
+MAX_DAYS_AHEAD = 730  # tope de fecha aceptada (evita OverflowError y citas absurdas)
+MAX_TIME_OFF_DAYS = 366
+MIN_YEAR = 2000
 SERVICE = BookingService()
 
 
@@ -92,18 +97,30 @@ def _contact_label(tenant_id: uuid.UUID, contact: Contact | None) -> str:
         try:
             aad = make_aad("contacts", tenant_id, "display_name_enc")
             return get_crypto().decrypt_str(unpack_blob(contact.display_name_enc), aad=aad)
-        except Exception:  # noqa: BLE001 - clave rotada/corrupta
+        except Exception as exc:  # noqa: BLE001 - clave rotada/corrupta
+            log.warning("booking.contact_decrypt_failed", error_type=type(exc).__name__)
             return "Contacto"
     return "Contacto sin nombre"
+
+
+def _today(tz_name: str) -> date:
+    return utcnow().astimezone(availability.zone_for(tz_name)).date()
+
+
+def _valid_date(d: date, tz_name: str) -> bool:
+    """Rango sano: evita OverflowError al sumar dias y fechas absurdas."""
+    return d.year >= MIN_YEAR and d <= _today(tz_name) + timedelta(days=MAX_DAYS_AHEAD)
 
 
 def _parse_day(raw: str | None, tz_name: str) -> date:
     if raw:
         try:
-            return date.fromisoformat(raw)
+            d = date.fromisoformat(raw)
         except ValueError:
-            pass
-    return utcnow().astimezone(availability.zone_for(tz_name)).date()
+            d = None
+        if d is not None and _valid_date(d, tz_name):
+            return d
+    return _today(tz_name)
 
 
 def _day_bounds(day: date, tz_name: str) -> tuple[datetime, datetime]:
@@ -226,13 +243,14 @@ async def crear_cita(
     if e164 is None:
         return _redirect(back, error="El teléfono no es válido")
     try:
+        day = date.fromisoformat(fecha)
         starts_local = datetime.combine(
-            date.fromisoformat(fecha),
-            time.fromisoformat(hora),
-            availability.zone_for(tenant.timezone),
+            day, time.fromisoformat(hora), availability.zone_for(tenant.timezone)
         )
     except ValueError:
         return _redirect(back, error="Fecha u hora inválida")
+    if not _valid_date(day, tenant.timezone):
+        return _redirect(back, error="La fecha está fuera del rango permitido")
     try:
         contact = await get_or_create_contact(session, tenant.id, e164, nombre.strip() or None)
         key = f"manual:{uuid.uuid4().hex}"
@@ -268,10 +286,15 @@ async def cancelar_cita(
     ).scalar_one_or_none()
     if appt is None:
         raise NotFoundError("Cita no encontrada")
-    back = f"/admin/citas?tenant_id={tenant_id}&dia={appt.starts_at.date().isoformat()}"
+    tenant_tz = (
+        await session.execute(select(Tenant.timezone).where(Tenant.id == tenant_id))
+    ).scalar_one_or_none() or "America/Bogota"
+    local_day = ensure_utc(appt.starts_at).astimezone(availability.zone_for(tenant_tz)).date()
+    back = f"/admin/citas?tenant_id={tenant_id}&dia={local_day.isoformat()}"
     try:
         await SERVICE.cancel(session, tenant_id, appointment_id, by="tenant", reason=motivo)
     except AppError as exc:
+        await session.rollback()
         return _redirect(back, error=exc.message)
     return _redirect(back, ok="Cita cancelada")
 
@@ -405,6 +428,10 @@ async def crear_ausencia(
         return _redirect(back, error="Fechas inválidas")
     if d_to < d_from:
         return _redirect(back, error="La fecha final no puede ser anterior a la inicial")
+    if not (_valid_date(d_from, tenant.timezone) and _valid_date(d_to, tenant.timezone)):
+        return _redirect(back, error="Las fechas están fuera del rango permitido")
+    if (d_to - d_from).days > MAX_TIME_OFF_DAYS:
+        return _redirect(back, error="La ausencia no puede superar un año")
     starts, _ = _day_bounds(d_from, tenant.timezone)
     _, ends = _day_bounds(d_to, tenant.timezone)
     session.add(

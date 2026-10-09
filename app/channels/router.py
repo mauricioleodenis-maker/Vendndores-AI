@@ -22,7 +22,7 @@ EMPTY_TWIML = '<?xml version="1.0" encoding="UTF-8"?><Response/>'
 VOICE_TWIML = (
     '<?xml version="1.0" encoding="UTF-8"?><Response>'
     '<Say language="es-MX">Hola. Por ahora atendemos solo por WhatsApp. '
-    "Escribenos y con gusto te ayudamos. Hasta pronto.</Say><Hangup/></Response>"
+    "Escríbenos y con gusto te ayudamos. Hasta pronto.</Say><Hangup/></Response>"
 )
 MAX_PARAMS = 100
 
@@ -35,13 +35,17 @@ async def _form_params(request: Request) -> dict[str, str]:
     form = await request.form()
     params: dict[str, str] = {}
     for key, value in form.multi_items():
-        if isinstance(value, str) and len(params) < MAX_PARAMS:
-            params[key] = value
+        if not isinstance(value, str):
+            continue
+        if len(params) >= MAX_PARAMS and key not in params:
+            log.warning("twilio.params_truncated")
+            continue
+        params[key] = value
     return params
 
 
 def _forbidden() -> AppError:
-    return AppError("firma_invalida", "Firma invalida", 403)
+    return AppError("firma_invalida", "Firma inválida", 403)
 
 
 def _signature_ok(request: Request, params: dict[str, str], token: str) -> bool:
@@ -65,15 +69,23 @@ async def whatsapp_inbound(
         log.warning("twilio.bad_signature", tenant_id=str(channel.tenant.id))
         raise _forbidden()
     result = await service.persist_inbound(session, channel, params)
+    if result.missing_sid:
+        raise AppError("sid_requerido", "Falta MessageSid", 400)
     if result.duplicate or result.message_id is None:
         return twiml()
     await session.commit()  # el job debe ver el mensaje ya persistido
-    await enqueue(
-        "channels.process_inbound",
-        str(result.tenant_id),
-        str(result.conversation_id),
-        str(result.message_id),
-    )
+    try:
+        await enqueue(
+            "channels.process_inbound",
+            str(result.tenant_id),
+            str(result.conversation_id),
+            str(result.message_id),
+        )
+    except Exception:
+        log.error("twilio.enqueue_failed", tenant_id=str(result.tenant_id))
+        sid = params.get("MessageSid") or params.get("SmsSid") or ""
+        await service.release_inbound(session, channel.tenant.id, sid)
+        raise AppError("cola_no_disponible", "Cola no disponible, reintenta", 503) from None
     return twiml()
 
 
@@ -87,7 +99,9 @@ async def message_status(
         token = await service.auth_token_for(session, channel.tenant.id)
         if not _signature_ok(request, params, token):
             raise _forbidden()
-        await service.apply_status(session, channel.tenant.id, params)
+        res = await service.apply_status(session, channel.tenant.id, params)
+        if res.retry:
+            return twiml(status=503)
         return twiml()
     # Mensajes de la cuenta de la agencia (outreach): token de la plataforma.
     platform = get_settings().twilio_auth_token.get_secret_value()

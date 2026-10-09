@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import uuid
 from dataclasses import dataclass, field
 from datetime import timedelta
@@ -191,8 +192,6 @@ def _finish(result: TurnResult, tctx: ToolContext) -> TurnResult:
 
 def _user_phone_digits(tctx: ToolContext, text: str) -> set[str]:
     """Digitos que el propio cliente escribio: no son 'datos de terceros' si el bot los repite."""
-    import re
-
     return {re.sub(r"\D", "", m) for m in re.findall(r"\+?\d[\d\s().-]{6,}\d", text)}
 
 
@@ -253,7 +252,8 @@ class ConversationEngine:
                 return []
 
         bc = await load_business_context(session, tenant_id)
-        first_turn = not await self._has_outbound(session, conv)
+        has_outbound, offered = await self._outbound_state(session, conv)
+        first_turn = not has_outbound
         if first_turn:
             try:
                 await assert_within_limit(session, tenant_id, "conversations")
@@ -273,11 +273,24 @@ class ConversationEngine:
             last_user_text=text,
             conversation=conv,
             contact=contact,
-            offered=await self._recent_offered(session, conv),
+            offered=offered,
         )
+        try:
+            llm = self._client()
+        except Exception as exc:  # noqa: BLE001 - IA sin configurar: no perder el mensaje
+            log.error("conversation.llm_unavailable", error=type(exc).__name__)
+            fallback = TurnResult(
+                reply=reply_for(bc.templates, "fallback_reply"),
+                flags=["llm_failure"],
+                handoff_reason="tool_failure",
+            )
+            await open_handoff(session, conv, "tool_failure", _handoff_summary(fallback))
+            inbound.guardrail_flags = {"flags": fallback.flags}
+            await self._persist_reply(session, conv, inbound, fallback.reply, fallback)
+            return [fallback.reply]
         result = await _converse(
             session,
-            self._client(),
+            llm,
             bc,
             tctx,
             user_text=text,
@@ -368,18 +381,6 @@ class ConversationEngine:
         await record_llm_usage(session, conv.tenant_id, result.usage)
         await session.flush()
 
-    async def _has_outbound(self, session: AsyncSession, conv: Conversation) -> bool:
-        row = await session.execute(
-            select(Message.id)
-            .where(
-                Message.tenant_id == conv.tenant_id,
-                Message.conversation_id == conv.id,
-                Message.direction == "out",
-            )
-            .limit(1)
-        )
-        return row.first() is not None
-
     async def _recent_flags(
         self, session: AsyncSession, conv: Conversation, current_id: uuid.UUID
     ) -> tuple[int, int]:
@@ -406,7 +407,10 @@ class ConversationEngine:
             streak += 1
         return injections, streak
 
-    async def _recent_offered(self, session: AsyncSession, conv: Conversation) -> set[str]:
+    async def _outbound_state(
+        self, session: AsyncSession, conv: Conversation
+    ) -> tuple[bool, set[str]]:
+        """``(hay salientes previos, horarios ofrecidos recientemente)`` en una sola consulta."""
         rows = (
             await session.execute(
                 select(Message.llm_usage)
@@ -423,7 +427,7 @@ class ConversationEngine:
         for (meta,) in rows:
             if isinstance(meta, dict):
                 offered.update(str(s) for s in meta.get("offered_slots", []))
-        return offered
+        return bool(rows), offered
 
 
 def _handoff_summary(result: TurnResult) -> str:

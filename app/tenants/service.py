@@ -13,7 +13,7 @@ import uuid
 from dataclasses import dataclass
 from typing import Any
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -45,6 +45,7 @@ from app.tenants.schemas import (
 log = get_logger(__name__)
 
 PAGE_SIZE = 25
+MAX_PAGE = 1000  # tope de paginacion: evita OFFSET gigantes (DoS barato)
 DPA_VERSION = "1.0"
 GENERATE_JOB = "tenants.generate_bot"
 STATUS_TRANSITIONS: dict[str, set[str]] = {
@@ -109,7 +110,7 @@ async def list_tenants(
         stmt = stmt.where(Tenant.niche == niche)
     if status:
         stmt = stmt.where(Tenant.status == status)
-    page = max(page, 1)
+    page = min(max(page, 1), MAX_PAGE)
     stmt = (
         stmt.order_by(Tenant.created_at.desc(), Tenant.id)
         .limit(page_size + 1)
@@ -328,8 +329,8 @@ async def replace_services(
     if len(items) > MAX_SERVICES:
         raise AppError("limit", f"Máximo {MAX_SERVICES} servicios por empresa", 422)
     repo = TenantScopedRepo(session, Service, tenant_id)
-    for old in await repo.list():
-        await repo.delete(old)
+    # Borrado en lote (1 sentencia) en vez de N deletes ORM.
+    await session.execute(delete(Service).where(Service.tenant_id == tenant_id))
     created = [await repo.add(Service(**it.model_dump(), sort=i)) for i, it in enumerate(items)]
     await log_event(
         session,
@@ -607,6 +608,14 @@ async def start_generation(
     if not consent:
         raise AppError("consent_required", "Debes autorizar el uso de datos del negocio", 422)
     if tenant.status not in {"draft", "review"}:
+        raise ConflictError("Esta empresa ya tiene un bot generado o está en proceso")
+    # Reclamo atomico: dos clics/peticiones concurrentes no encolan dos generaciones.
+    claimed = await session.execute(
+        update(Tenant)
+        .where(Tenant.id == tenant.id, Tenant.status.in_(("draft", "review")))
+        .values(status="building")
+    )
+    if claimed.rowcount == 0:
         raise ConflictError("Esta empresa ya tiene un bot generado o está en proceso")
     tenant.status = "building"
     tenant.dpa_version = DPA_VERSION

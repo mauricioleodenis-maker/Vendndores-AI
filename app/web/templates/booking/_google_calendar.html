@@ -1,20 +1,23 @@
 {% from "partials/macros.html" import csrf with context %}
 <div class="card" id="google-calendar">
-  <h3>Google Calendar</h3>
+  <div class="card-header"><h2>Google Calendar</h2>
+    {% if gcal.configured and gcal.status == 'active' %}<span class="badge badge-ok badge-dot">Conectado</span>
+    {% elif gcal.status in ('needs_reauth', 'error') %}<span class="badge badge-warn badge-dot">Requiere reconectar</span>
+    {% else %}<span class="badge badge-neutral">Sin conectar</span>{% endif %}
+  </div>
   {% if not gcal.configured %}
-  <p class="muted">Google Calendar no está configurado en el servidor (faltan las credenciales OAuth).</p>
+  <p class="muted">Google Calendar no está configurado en el servidor (faltan las credenciales OAuth). Pide al equipo técnico que las active.</p>
   {% elif gcal.status == 'active' %}
-  <p><span class="badge badge-ok">Conectado</span>
-    {% if gcal.email %}<span class="muted">{{ gcal.email }}</span>{% endif %}</p>
-  <p class="muted">Las citas del bot se crean en tu calendario y los eventos ocupados bloquean horarios.</p>
+  {% if gcal.email %}<p>Cuenta: <strong>{{ gcal.email }}</strong></p>{% endif %}
+  <p class="muted">Las citas del bot se crean en tu calendario y los eventos ocupados bloquean esos horarios.</p>
   <form method="post" action="/admin/negocios/{{ tenant.id }}/calendario/google/disconnect" data-confirm="¿Desconectar Google Calendar? Las citas ya creadas se conservan.">
-    {{ csrf() }}<button class="btn btn-ghost" type="submit">Desconectar</button>
+    {{ csrf() }}<button class="btn btn-danger" type="submit">Desconectar</button>
   </form>
   {% else %}
   {% if gcal.status in ('needs_reauth', 'error') %}
-  <p><span class="badge badge-warn">Requiere reconectar</span> <span class="muted">Mientras tanto se usa el calendario interno.</span></p>
+  <p class="muted">Mientras tanto se usa el calendario interno de la plataforma. Vuelve a conectar y acepta todos los permisos.</p>
   {% else %}
-  <p class="muted">Sin conectar: se usa el calendario interno de la plataforma.</p>
+  <p class="muted">Sin conectar: se usa el calendario interno de la plataforma. Conecta Google para evitar choques con tu agenda personal.</p>
   {% endif %}
   <form method="post" action="/admin/negocios/{{ tenant.id }}/calendario/google/connect">
     {{ csrf() }}<button class="btn btn-primary" type="submit">Conectar Google Calendar</button>

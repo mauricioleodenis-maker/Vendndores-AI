@@ -74,3 +74,17 @@ async def test_instagram_best_effort(web) -> None:
     web.add("https://instagram.com/w", '<meta property="og:title" content="Solo titulo">')
     page = await fetch_instagram_profile("https://instagram.com/w")
     assert page is not None and page.text == "Solo titulo"
+
+
+async def test_instagram_sin_esquema_y_redireccion_fuera_de_dominio(web) -> None:
+    from app.core.http import FetchResult
+
+    async def fake(url, **_):
+        return FetchResult(
+            "https://evil.example/x", 200, "text/html", "<meta property='og:title' content='t'>"
+        )
+
+    from app.scraping import service as svc
+
+    svc.safe_fetch = fake  # type: ignore[assignment]
+    assert await svc.fetch_instagram_profile("instagram.com/negocio") is None

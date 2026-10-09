@@ -17,7 +17,8 @@ log = get_logger(__name__)
 @register_job("privacy.purge_retention")
 async def purge_retention_job(ctx: dict[str, Any]) -> int:
     async with get_sessionmaker()() as session:
-        await backfill_purge_after(session)
+        while await backfill_purge_after(session):
+            await session.commit()
         purged = await purge_expired_messages(session)
         await session.commit()
     log.info("privacy.purged", messages=purged)

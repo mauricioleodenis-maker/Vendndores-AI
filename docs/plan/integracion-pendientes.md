@@ -253,3 +253,47 @@ AAD `make_aad(tabla, tenant_id, columna)`. `tenant_secrets` guarda `ciphertext/n
 - HECHO: migración `0001` verificada contra los modelos (autogenerate sin diferencias) y `upgrade head` en SQLite OK.
 - HECHO: humo e2e en `tests/integration/test_e2e_smoke.py` (wizard -> build_bot FakeLLM -> publicar -> Twilio firmado -> cita; CSV -> score -> bot demo).
 - PENDIENTE (no bloqueante): `listing.move_stage` aún no delega en `pipeline.transition_stage`; notificación al staff en handoff; plantillas Twilio aprobadas; RLS Postgres; descarga de media; ruteo `DEMO-<slug>` por WhatsApp; `purge_expired_demos_job`.
+
+## Mejoras (plans+niches)
+- `subscriptions`: falta índice único parcial `(tenant_id) WHERE status != 'cancelled'` para garantizar una sola suscripción vigente por tenant a nivel BD (el servicio ya serializa con `FOR UPDATE` sobre el tenant en Postgres).
+
+## Mejoras (tenants)
+- BD: añadir índice `lower(tenants.name)`/`pg_trgm` si la búsqueda por nombre/ciudad en `/admin/negocios` crece (hoy `LIKE '%q%'` con scan); índice parcial `tenants(created_at desc) WHERE deleted_at IS NULL`.
+- `tenant_secrets.last4` expone todo el valor si el secreto mide <=4 caracteres; considerar guardar vacío para secretos cortos.
+- Flash por query string (`?ok=`/`?error=`) permite mensajes falsificables en un enlace; migrar a cookie de sesión firmada o `HX-Trigger` toast.
+
+## Mejoras (scraping)
+- El modulo scraping no tiene UI propia (no existe `app/web/templates/scraping/`); el estado del scraping se muestra desde factory (`scrape_error`). Sugerencia para factory/UI: mostrar el conteo de `kb_documents` nuevos y un toast si `scrape_error` no es None.
+- `kb_documents` ya tiene unique (tenant_id, content_hash); sin indices adicionales necesarios.
+
+### factory (revision haiku-factory)
+- CRITICO (fuera de modulo): `app/conversation/context.py:155-158` debe filtrar `Service.needs_review.is_(False)` y `app/booking/*` igual; hoy los cambios de borrador (descartar/editar/regenerar) en las tablas `services`/`faqs` llegan al bot en vivo antes de publicar. Solucion de fondo: catalogo de borrador ligado a `bot_config_id` o runtime leyendo `BotConfig.config` publicado.
+- `app/factory/router.py::regenerate` mantiene la sesion abierta durante scraping + LLM; requiere dividir en fases con sesiones cortas (cambia `get_session` en `app/core/deps.py`).
+- Pendiente: `app/web/static/factory.css` (ahora redundante con `app.css`: `.fb-grid`, `.fb-item`, `.fb-chat`) puede simplificarse; no se edito por no ser del modulo.
+
+## Mejoras (ai+conversation)
+- UI: `app/web/templates/conversation/` no tiene plantillas; las vistas de conversaciones viven en `app/web/templates/dashboard/conversacion*.html` (otro modulo). Deben usar `bubble()`, `.chat`, `badge()` y `empty_state()` del sistema de diseno, y mostrar toast (`HX-Trigger`) al tomar/devolver una conversacion.
+- `context.py` mantiene servicios con `needs_review` (precio oculto por `price_text`, descripcion omitida en `get_business_info`); el catalogo de borrador sigue sin separarse del publicado (ver factory).
+- Rate limit por contacto (30 msg/h) responde en silencio (solo flag `rate_limited` + log): considerar aviso al operador. Concurrencia: dos mensajes simultaneos de una conversacion pueden duplicar el handoff (anadir unique parcial `handoffs(conversation_id) WHERE status IN ('open','claimed')`).
+- Indices existentes (`ix_messages_tenant_conv_created`) cubren las consultas del motor; sin indices nuevos.
+
+### channels (fortificación)
+- Pendiente (decisión de producto): hoy el motor responde en el primer turno junto con el aviso de privacidad (hallazgo haiku-channels #2); bloquear hasta el SI cambiaría el flujo MAESTRO §4 B6.
+- BORRAR MIS DATOS responde con enlace a /privacidad (sin borrado automático por falta de verificación de identidad); integrar `dsar.erase_contact` con confirmación en privacy.
+- Sin límite de mensajes por contacto/plan (`entitlements._LIMIT_KEYS` sin `messages`) y envío HTTP dentro de la transacción del job: pasar a outbox.
+- Índice parcial único de conversaciones abiertas (carrera en get_or_create_conversation) en app/db/models/conversations.py.
+- channels no tiene UI propia (templates/channels vacío); no hay pantallas que migrar al sistema de diseño.
+
+## Mejoras (privacy)
+- Retención: `Conversation.summary`, `Handoff.summary` y `Appointment.notes_enc` no se purgan por `purge_after`; definir política.
+- Erasure: no cancela el evento de Google Calendar (`Appointment.google_event_id`); requiere job en booking.
+- `Consent`: añadir índice único parcial `(tenant_id, contact_id, purpose) WHERE revoked_at IS NULL` (migración, módulo db) para evitar duplicados concurrentes.
+- `app/channels/jobs.py:206-211`: no poner `opt_out_source=None` antes de `apply_optin`; llamar directo a `apply_optin`.
+- Cron `privacy.purge_retention` corre 08:30 UTC (03:30 Bogotá); ajustar zona en worker si se desea.
+- DSAR: owner/admin accede a cualquier tenant por diseño; evaluar rol `dpo`.
+- `/privacidad` muestra placeholders legales ([NIT], [CORREO_DPO]) hasta que se complete la configuración.
+
+## Mejoras
+
+- booking: `app/web/static/app.js` no autoenvía selects; el selector de empresa de Citas/Horarios ya no usa `onchange` inline (CSP) y muestra botón "Cambiar empresa" (solo si hay >1 empresa). Opcional: soportar `data-autosubmit` en app.js.
+- booking (DB): considerar índice `appointments(tenant_id, starts_at)` y `time_off(tenant_id, ends_at)` si no existen (consultas de agenda diaria/semanal y disponibilidad).

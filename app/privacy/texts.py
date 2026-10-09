@@ -59,6 +59,7 @@ def privacy_notice(
     template = _NOTICES.get(purpose)
     if template is None:
         raise ValueError(f"Finalidad desconocida: {purpose}")
+    negocio = negocio.strip()[:60] or "el negocio"
     return template.format(
         negocio=negocio, agencia=agencia, url=url or "nuestra página de privacidad"
     )

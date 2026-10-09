@@ -55,10 +55,11 @@ async def list_public_plans(session: AsyncSession) -> list[Plan]:
 
 
 async def get_plan(session: AsyncSession, code: str) -> Plan:
-    await ensure_catalog(session)
-    plan = (
-        await session.execute(select(Plan).where(Plan.code == code, Plan.is_active.is_(True)))
-    ).scalar_one_or_none()
+    stmt = select(Plan).where(Plan.code == code, Plan.is_active.is_(True))
+    plan = (await session.execute(stmt)).scalar_one_or_none()
+    if plan is None:  # solo si falta se comprueba la siembra (evita una consulta por llamada)
+        await ensure_catalog(session)
+        plan = (await session.execute(stmt)).scalar_one_or_none()
     if plan is None:
         raise NotFoundError("Plan no encontrado")
     return plan
@@ -84,7 +85,10 @@ async def quote_for(
 
 
 async def _require_tenant(session: AsyncSession, tenant_id: uuid.UUID) -> Tenant:
-    tenant = await session.get(Tenant, tenant_id)
+    # FOR UPDATE serializa altas concurrentes de suscripcion del mismo tenant (no-op en SQLite)
+    tenant = (
+        await session.execute(select(Tenant).where(Tenant.id == tenant_id).with_for_update())
+    ).scalar_one_or_none()
     if tenant is None or tenant.deleted_at is not None:
         raise NotFoundError("Empresa no encontrada")
     return tenant

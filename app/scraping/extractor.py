@@ -16,6 +16,7 @@ from bs4 import BeautifulSoup, Comment, Tag
 
 MAX_TEXT_CHARS = 20_000
 MAX_TITLE_CHARS = 300
+MAX_LINKS = 300
 _DROP_TAGS = (
     "script", "style", "noscript", "template", "iframe", "svg", "canvas", "object", "embed",
     "nav", "footer", "form", "head",
@@ -91,8 +92,7 @@ def _soup(html: str) -> BeautifulSoup:
     return BeautifulSoup(html, "html.parser")
 
 
-def extract_title(html: str) -> str:
-    soup = _soup(html)
+def _title_of(soup: BeautifulSoup) -> str:
     node = soup.find("title")
     title = node.get_text(" ", strip=True) if node else ""
     if not title:
@@ -101,9 +101,12 @@ def extract_title(html: str) -> str:
     return sanitize_text(_WS.sub(" ", title))[:MAX_TITLE_CHARS]
 
 
-def html_to_text(html: str, *, max_chars: int = MAX_TEXT_CHARS) -> str:
-    """HTML -> texto limpio: sin scripts/estilos/nav, comentarios ni contenido oculto."""
-    soup = _soup(html)
+def extract_title(html: str) -> str:
+    return _title_of(_soup(html))
+
+
+def _text_of(soup: BeautifulSoup, max_chars: int) -> str:
+    """Destructivo: usar despues de extraer titulo/enlaces del mismo soup."""
     for c in soup.find_all(string=lambda s: isinstance(s, Comment)):
         c.extract()
     for tag in soup.find_all(_DROP_TAGS):
@@ -118,6 +121,21 @@ def html_to_text(html: str, *, max_chars: int = MAX_TEXT_CHARS) -> str:
         blk.insert_before("\n")
         blk.insert_after("\n")
     return sanitize_text(_clean(soup.get_text()))[:max_chars]
+
+
+def html_to_text(html: str, *, max_chars: int = MAX_TEXT_CHARS) -> str:
+    """HTML -> texto limpio: sin scripts/estilos/nav, comentarios ni contenido oculto."""
+    return _text_of(_soup(html), max_chars)
+
+
+def parse_page(
+    html: str, *, max_chars: int = MAX_TEXT_CHARS
+) -> tuple[str, str, list[tuple[str, str]]]:
+    """(titulo, texto, enlaces) con un solo parseo del HTML (CPU-bound: llamar via to_thread)."""
+    soup = _soup(html)
+    title = _title_of(soup)
+    links = _links_of(soup)
+    return title, _text_of(soup, max_chars), links
 
 
 def extract_jsonld(html: str) -> list[dict[str, Any]]:
@@ -160,14 +178,20 @@ def extract_hints(text: str) -> ContactHints:
     )
 
 
-def extract_links(html: str) -> list[tuple[str, str]]:
-    """(href, texto_ancla) de los <a href> visibles."""
+def _links_of(soup: BeautifulSoup) -> list[tuple[str, str]]:
     links: list[tuple[str, str]] = []
-    for a in _soup(html).find_all("a", href=True):
+    for a in soup.find_all("a", href=True):
         href = str(a["href"]).strip()
         if href and not href.lower().startswith(("javascript:", "mailto:", "tel:", "data:", "#")):
-            links.append((href, a.get_text(" ", strip=True)[:100]))
+            links.append((href[:2000], a.get_text(" ", strip=True)[:100]))
+            if len(links) >= MAX_LINKS:
+                break
     return links
+
+
+def extract_links(html: str) -> list[tuple[str, str]]:
+    """(href, texto_ancla) de los <a href> (acotado a ``MAX_LINKS``)."""
+    return _links_of(_soup(html))
 
 
 def extract_meta(html: str) -> dict[str, str]:

@@ -1,19 +1,20 @@
-<div id="chat-prueba">
-  <div class="fb-chat" role="log" aria-live="polite">
+<div id="chat-prueba" aria-busy="false">
+  <div class="chat fb-chat" role="log" aria-live="polite">
     {% for m in messages %}
-    <div class="fb-msg {{ m.role }}"><strong>{{ 'Cliente' if m.role == 'user' else 'Bot' }}:</strong> {{ m.content }}</div>
+    <div class="fb-msg bubble {{ 'bubble-in user' if m.role == 'user' else 'bubble-out assistant' }}"><strong>{{ 'Cliente' if m.role == 'user' else 'Bot' }}:</strong> {{ m.content }}</div>
     {% else %}
     <p class="muted">Escribe un mensaje como si fueras un cliente. No se envía nada por WhatsApp ni se agenda en un calendario real.</p>
     {% endfor %}
   </div>
-  {% if error %}<div class="alert alert-error" role="alert">{{ error }}</div>{% endif %}
-  <form hx-post="/admin/negocios/{{ tenant.id }}/bot/{{ bot.id }}/probar" hx-target="#chat-prueba" hx-swap="outerHTML">
+  {% if error %}<div class="alert alert-error" role="alert" data-toast="{{ error }}" data-toast-kind="error">{{ error }}</div>{% endif %}
+  <form class="chat-input" hx-post="/admin/negocios/{{ tenant.id }}/bot/{{ bot.id }}/probar" hx-target="#chat-prueba" hx-swap="outerHTML" hx-indicator="#chat-loading" hx-disabled-elt="find button">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <input type="hidden" name="history" value="{{ history_json }}">
     <div class="field">
       <label for="chat-text">Mensaje de prueba</label>
-      <input id="chat-text" name="text" maxlength="1000" required autocomplete="off">
+      <input id="chat-text" name="text" maxlength="1000" required autocomplete="off" placeholder="Ej: ¿Cuánto cuesta una limpieza?">
     </div>
     <button class="btn btn-primary" type="submit">Enviar</button>
+    <span class="htmx-indicator inline" id="chat-loading" role="status"><span class="spinner"></span> El bot está respondiendo…</span>
   </form>
 </div>

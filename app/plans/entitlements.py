@@ -86,21 +86,12 @@ async def get_counter(
 
 
 async def _latest_subscription(session: AsyncSession, tenant_id: uuid.UUID) -> Subscription | None:
-    live = (
-        await session.execute(
-            select(Subscription)
-            .where(Subscription.tenant_id == tenant_id, Subscription.status != "cancelled")
-            .order_by(Subscription.created_at.desc())
-            .limit(1)
-        )
-    ).scalar_one_or_none()
-    if live is not None:
-        return live
+    """Vigente mas reciente; si no hay, la ultima cancelada (una sola consulta)."""
     return (
         await session.execute(
             select(Subscription)
             .where(Subscription.tenant_id == tenant_id)
-            .order_by(Subscription.created_at.desc())
+            .order_by((Subscription.status == "cancelled").asc(), Subscription.created_at.desc())
             .limit(1)
         )
     ).scalar_one_or_none()

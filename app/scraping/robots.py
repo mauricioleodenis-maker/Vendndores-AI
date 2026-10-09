@@ -17,6 +17,15 @@ class RobotsPolicy:
             parser.parse(text.splitlines())
             self._parser = parser
 
+    def crawl_delay(self) -> float | None:
+        if self._parser is None:
+            return None
+        try:
+            delay = self._parser.crawl_delay(_AGENT)
+        except (ValueError, TypeError):
+            return None
+        return float(delay) if delay is not None else None
+
     def allowed(self, url: str) -> bool:
         return True if self._parser is None else self._parser.can_fetch(_AGENT, url)
 

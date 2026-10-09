@@ -55,7 +55,7 @@ async def test_list_and_filters(
     r = await c.get("/admin/negocios?q=ruedas&niche=taller&status=active", headers=H)
     assert "Taller Ruedas" in r.text and "Dental Uno" not in r.text and "<html" not in r.text
     r = await c.get("/admin/negocios?q=zzz")
-    assert "Aún no tienes empresas" in r.text
+    assert "Sin resultados" in r.text
 
 
 async def test_wizard_full_flow(
@@ -65,7 +65,7 @@ async def test_wizard_full_flow(
 ) -> None:
     c = authenticated_client
     page = await c.get("/admin/negocios/nuevo")
-    assert "1. Datos del negocio" in page.text and "<html" in page.text
+    assert "Datos del negocio" in page.text and "<html" in page.text
     tid = await _make_via_wizard(c)
 
     row = await c.get("/admin/negocios/nuevo/servicio-fila", headers=H)
@@ -348,3 +348,36 @@ async def test_api(authenticated_client: httpx.AsyncClient) -> None:
     assert len(lst["items"]) == 1 and lst["has_more"] is False
     assert (await c.post("/api/negocios", json={"name": "x", "niche": "mal"})).status_code == 422
     assert (await c.get("/api/negocios/00000000-0000-0000-0000-000000000000")).status_code == 404
+
+
+async def test_wizard_blocked_for_active_tenant(
+    authenticated_client: httpx.AsyncClient, make_tenant: Callable[..., Any], session: AsyncSession
+) -> None:
+    """Regresion: el asistente no debe reemplazar servicios de una empresa ya activa."""
+    c = authenticated_client
+    t = await make_tenant(name="Activa SA", niche="taller")
+    session.add(Service(tenant_id=t.id, name="Original", duration_min=30, sort=0))
+    await session.commit()
+    r = await c.post(f"/admin/negocios/{t.id}/paso2", data={"service_name": "Pirata"}, headers=H)
+    assert r.status_code == 409
+    names = (await session.execute(select(Service.name).where(Service.tenant_id == t.id))).scalars()
+    assert list(names) == ["Original"]
+    r = await c.get(f"/admin/negocios/{t.id}/wizard?paso=2")
+    assert r.status_code in (200, 303)
+
+
+async def test_no_inline_handlers_in_detail(
+    authenticated_client: httpx.AsyncClient, make_tenant: Callable[..., Any]
+) -> None:
+    """CSP: ni onclick ni style inline en la ficha."""
+    t = await make_tenant(name="CSP SA", niche="taller")
+    for tab in ("servicios", "faqs", "canales", "datos"):
+        html = (await authenticated_client.get(f"/admin/negocios/{t.id}?tab={tab}")).text
+        assert "onclick=" not in html and 'style="' not in html
+
+
+async def test_api_list_ignores_bad_filters_and_huge_page(
+    authenticated_client: httpx.AsyncClient,
+) -> None:
+    r = await authenticated_client.get("/api/negocios?niche=zzz&status=zzz&page=99999999")
+    assert r.status_code == 200 and r.json()["items"] == []

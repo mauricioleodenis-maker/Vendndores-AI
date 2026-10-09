@@ -183,7 +183,7 @@ async def test_live_retries_then_fails(
         route = mock.post(url__regex=r".*Messages.json").mock(
             side_effect=[
                 httpx.ConnectError("x"),
-                httpx.Response(503, text="no json"),
+                httpx.Response(429, text="no json"),
                 httpx.Response(201, json={"sid": "SM9", "status": "queued"}),
             ]
         )
@@ -207,3 +207,22 @@ async def test_live_not_configured(
         session, tenant_id=tenant.id, to_e164=CUSTOMER, body="hola"
     )
     assert not res.ok and res.error == "twilio_no_configurado"
+
+
+async def test_read_timeout_and_5xx_not_retried(
+    session: AsyncSession, live: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    with respx.mock() as mock:
+        route = mock.post(url__regex=r".*Messages.json").mock(side_effect=[httpx.ReadTimeout("x")])
+        res = await sender.send_whatsapp_template(
+            session, tenant_id=None, to_e164=CUSTOMER, content_sid="HX", variables={}
+        )
+        assert not res.ok and route.call_count == 1
+    with respx.mock() as mock:
+        route2 = mock.post(url__regex=r".*Messages.json").mock(
+            return_value=httpx.Response(503, text="x")
+        )
+        res2 = await sender.send_whatsapp_template(
+            session, tenant_id=None, to_e164=CUSTOMER, content_sid="HX", variables={}
+        )
+    assert not res2.ok and route2.call_count == 1

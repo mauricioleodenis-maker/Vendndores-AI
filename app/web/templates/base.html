@@ -12,13 +12,15 @@
   <script src="/static/app.js" defer></script>
 </head>
 <body>
+<a class="skip-link" href="#main">Saltar al contenido</a>
 {% if user %}
 <div class="shell">
   <header class="topbar">
-    <button type="button" class="menu-toggle" data-menu-toggle aria-label="Abrir menú" aria-expanded="false">Menú</button>
+    <button type="button" class="menu-toggle" data-menu-toggle aria-label="Abrir menú" aria-controls="sidebar" aria-expanded="false">&#9776; Menú</button>
     <a class="brand" href="/admin/inicio">{{ app_name }}</a>
     <span class="who">{{ user.full_name or user.email }}</span>
   </header>
+  <div class="sidebar-backdrop" data-menu-close aria-hidden="true"></div>
   <nav class="sidebar" id="sidebar" aria-label="Navegación principal">
     <a class="brand brand-side" href="/admin/inicio">{{ app_name }}</a>
     <ul>
@@ -51,5 +53,6 @@
 </main>
 {% endif %}
 <div id="htmx-indicator" class="htmx-indicator" aria-hidden="true">Cargando…</div>
+<div id="toast-region" class="toast-region" role="status" aria-live="polite"></div>
 </body>
 </html>

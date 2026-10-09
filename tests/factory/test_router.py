@@ -262,3 +262,37 @@ async def test_regenerate_uses_llm_dependency(
     fake_llm.queue(tool_response({"x": 1}), tool_response({"x": 2}))
     r = await authenticated_client.post(_url(tenant, "/regenerar"))
     assert r.status_code == 303 and "error=" in r.headers["location"]
+
+
+async def test_sandbox_generic_error_is_shown_not_500(
+    authenticated_client: httpx.AsyncClient,
+    session: AsyncSession,
+    tenant: Tenant,
+    owner_input: FactoryInput,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def boom(*a: Any, **k: Any) -> str:
+        raise RuntimeError("secret-internal-detail")
+
+    monkeypatch.setattr("app.conversation.engine.sandbox_reply", boom)
+    bot = await _draft(session, tenant, owner_input)
+    r = await authenticated_client.post(
+        _url(tenant, f"/{bot.id}/probar"), data={"text": "hola", "history": "[]"}, headers=HX
+    )
+    assert r.status_code == 200 and "No pudimos obtener respuesta" in r.text
+    assert "secret-internal-detail" not in r.text
+
+
+async def test_non_numeric_duration_is_flash_not_422_json(
+    authenticated_client: httpx.AsyncClient,
+    session: AsyncSession,
+    tenant: Tenant,
+    owner_input: FactoryInput,
+) -> None:
+    await _draft(session, tenant, owner_input)
+    svc = (await review.list_services(session, tenant.id))[0]
+    r = await authenticated_client.post(
+        _url(tenant, f"/servicios/{svc.id}"),
+        data={"name": "Valido", "price": "1000", "duration_min": "abc"},
+    )
+    assert r.status_code == 303 and "error=" in r.headers["location"]

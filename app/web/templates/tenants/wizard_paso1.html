@@ -1,6 +1,6 @@
 {% from "partials/macros.html" import csrf with context %}
 {% include "tenants/_steps_bar.html" %}
-<form hx-post="/admin/negocios/nuevo/paso1" hx-target="#wizard" hx-swap="innerHTML" method="post" action="/admin/negocios/nuevo/paso1">
+<form class="stack" hx-post="/admin/negocios/nuevo/paso1" hx-target="#wizard" hx-swap="innerHTML" method="post" action="/admin/negocios/nuevo/paso1">
   {{ csrf() }}
   {% if tenant_id %}<input type="hidden" name="tenant_id" value="{{ tenant_id }}">{% elif tenant %}<input type="hidden" name="tenant_id" value="{{ tenant.id }}">{% endif %}
   {% set err = errors %}
@@ -13,6 +13,8 @@
     <span id="v-{{ name }}" role="status">{% if err.get(name) %}<small class="error">{{ err[name] }}</small>{% endif %}</span>
   </div>
   {% endmacro %}
+  <p class="muted">Cuéntanos lo básico. Lo demás lo completamos en los siguientes pasos.</p>
+  <div class="form-grid">
   {{ txt('name', 'Nombre del negocio', required=True, live=True) }}
   <div class="field{% if err.get('niche') %} has-error{% endif %}">
     <label for="f-niche">Nicho <span aria-hidden="true">*</span></label>
@@ -28,5 +30,6 @@
   {{ txt('owner_name', 'Nombre del dueño o encargado') }}
   {{ txt('website_url', 'Página web', live=True, help='Si la tiene, la IA leerá el sitio para precargar servicios y preguntas.') }}
   {{ txt('instagram_url', 'Instagram', live=True, help='Enlace o @usuario') }}
-  <button class="btn btn-primary" type="submit">Siguiente</button>
+  </div>
+  <div class="btn-row"><a class="btn btn-ghost" href="/admin/negocios">Cancelar</a><button class="btn btn-primary" type="submit">Siguiente</button></div>
 </form>

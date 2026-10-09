@@ -2,26 +2,29 @@
 {% from "partials/macros.html" import empty_state, csrf %}
 {% block title %}Horario de atención{% endblock %}
 {% block content %}
-<h1>Horario de atención</h1>
+<div class="page-header">
+  <h1>Horario de atención</h1>
+  {% if tenant %}<div class="page-actions"><a class="btn btn-ghost" href="/admin/citas?tenant_id={{ tenant.id }}">&larr; Volver a citas</a></div>{% endif %}
+</div>
 {% if not tenant %}
 {{ empty_state('Sin empresas', 'Crea una empresa primero.', '/admin/negocios/nuevo', 'Nueva empresa') }}
 {% else %}
 {% set action = '/admin/citas/horarios' %}
 {% include "booking/_selector.html" %}
-<p class="muted">Horas en zona {{ tenant.timezone }}. Deja vacío un día para marcarlo cerrado. Los festivos de Colombia se excluyen automáticamente.</p>
+<p class="muted">Horas en zona {{ tenant.timezone }}. Deja un día vacío para marcarlo como cerrado. Los festivos de Colombia se excluyen automáticamente.</p>
 <form method="post" action="/admin/citas/horarios" class="card">
   {{ csrf() }}<input type="hidden" name="tenant_id" value="{{ tenant.id }}">
   <div class="table-wrap">
-  <table>
+  <table class="cards">
     <thead><tr><th>Día</th><th>Tramo 1</th><th>Tramo 2 (opcional)</th></tr></thead>
     <tbody>
     {% for d in days %}
       <tr>
-        <th scope="row">{{ d.name }}</th>
+        <th scope="row" data-label="Día">{{ d.name }}</th>
         {% for w in d.windows %}
-        <td>
+        <td class="nowrap" data-label="Tramo {{ loop.index }}">
           <input type="time" name="d{{ d.index }}_ini{{ loop.index }}" value="{{ w.start_time.strftime('%H:%M') if w else '' }}" aria-label="{{ d.name }} apertura tramo {{ loop.index }}">
-          a
+          <span aria-hidden="true">a</span>
           <input type="time" name="d{{ d.index }}_fin{{ loop.index }}" value="{{ w.end_time.strftime('%H:%M') if w else '' }}" aria-label="{{ d.name }} cierre tramo {{ loop.index }}">
         </td>
         {% endfor %}
@@ -30,32 +33,41 @@
     </tbody>
   </table>
   </div>
-  <button class="btn btn-primary" type="submit">Guardar horario</button>
+  <div class="btn-row"><button class="btn btn-primary" type="submit">Guardar horario</button></div>
 </form>
 
-<h2>Ausencias y cierres</h2>
-{% if time_off %}
-<ul>
-  {% for o in time_off %}
-  <li>
-    {{ o.starts_at.astimezone(tz).strftime('%d/%m/%Y') }} al {{ o.last_day.strftime('%d/%m/%Y') }}
-    {% if o.reason %} - {{ o.reason }}{% endif %}
-    <form method="post" action="/admin/citas/ausencias/{{ o.id }}/eliminar" style="display:inline" data-confirm="¿Eliminar esta ausencia?">
-      {{ csrf() }}<input type="hidden" name="tenant_id" value="{{ tenant.id }}">
-      <button class="btn btn-ghost" type="submit">Eliminar</button>
-    </form>
-  </li>
-  {% endfor %}
-</ul>
-{% else %}
-<p class="muted">Sin ausencias programadas.</p>
-{% endif %}
-<form method="post" action="/admin/citas/ausencias" class="card">
-  {{ csrf() }}<input type="hidden" name="tenant_id" value="{{ tenant.id }}">
-  <label>Desde <input type="date" name="desde" required></label>
-  <label>Hasta (inclusive) <input type="date" name="hasta" required></label>
-  <label>Motivo <input name="motivo" maxlength="200"></label>
-  <button class="btn" type="submit">Agregar ausencia</button>
-</form>
+<div class="card">
+  <div class="card-header"><h2>Ausencias y cierres</h2></div>
+  {% if time_off %}
+  <div class="table-wrap">
+  <table class="cards">
+    <thead><tr><th>Periodo</th><th>Motivo</th><th></th></tr></thead>
+    <tbody>
+    {% for o in time_off %}
+      <tr>
+        <td class="nowrap" data-label="Periodo">{{ o.starts_at.astimezone(tz).strftime('%d/%m/%Y') }} al {{ o.last_day.strftime('%d/%m/%Y') }}</td>
+        <td data-label="Motivo">{{ o.reason or '—' }}</td>
+        <td data-label="Acciones">
+          <form method="post" action="/admin/citas/ausencias/{{ o.id }}/eliminar" class="inline-form" data-confirm="¿Eliminar esta ausencia?">
+            {{ csrf() }}<input type="hidden" name="tenant_id" value="{{ tenant.id }}">
+            <button class="btn btn-ghost btn-sm" type="submit">Eliminar</button>
+          </form>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  {{ empty_state('Sin ausencias programadas', 'Agrega vacaciones o cierres para bloquear esos días.') }}
+  {% endif %}
+  <form method="post" action="/admin/citas/ausencias" class="form-grid">
+    {{ csrf() }}<input type="hidden" name="tenant_id" value="{{ tenant.id }}">
+    <div class="field"><label for="a-desde">Desde <span class="required" aria-hidden="true">*</span></label><input id="a-desde" type="date" name="desde" required></div>
+    <div class="field"><label for="a-hasta">Hasta (inclusive) <span class="required" aria-hidden="true">*</span></label><input id="a-hasta" type="date" name="hasta" required></div>
+    <div class="field span-2"><label for="a-motivo">Motivo</label><input id="a-motivo" name="motivo" maxlength="200" placeholder="Vacaciones, mantenimiento…"></div>
+    <div class="span-2 btn-row"><button class="btn" type="submit">Agregar ausencia</button></div>
+  </form>
+</div>
 {% endif %}
 {% endblock %}

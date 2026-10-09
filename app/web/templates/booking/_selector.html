@@ -1,9 +1,12 @@
-{# Selector de empresa compartido por Citas y Horarios. Requiere: tenants, tenant, action, extra #}
+{# Selector de empresa compartido por Citas y Horarios. Requiere: tenants, tenant, action #}
+{% if tenants|length > 1 %}
 <form class="filters" method="get" action="{{ action }}">
-  <label>Empresa
-    <select name="tenant_id" onchange="this.form.submit()">
+  <div class="field">
+    <label for="sel-tenant">Empresa</label>
+    <select id="sel-tenant" name="tenant_id">
       {% for t in tenants %}<option value="{{ t.id }}" {% if tenant and t.id == tenant.id %}selected{% endif %}>{{ t.name }}</option>{% endfor %}
     </select>
-  </label>
-  <noscript><button class="btn" type="submit">Ver</button></noscript>
+  </div>
+  <button class="btn" type="submit">Cambiar empresa</button>
 </form>
+{% endif %}

@@ -2,15 +2,16 @@
 
 from __future__ import annotations
 
+import asyncio
 import uuid
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai.client import LLMClient
 from app.ai.usage import record_llm_usage
-from app.conversation.guardrails import wrap_user_text
+from app.conversation.guardrails import sanitize_user_text, wrap_user_text
 from app.core.crypto import get_crypto, make_aad, pack_blob, unpack_blob
 from app.core.jobs import register_job
 from app.core.logging import get_logger
@@ -22,6 +23,7 @@ log = get_logger(__name__)
 HISTORY_LIMIT = 12
 SUMMARY_THRESHOLD = 20
 SUMMARY_MAX_CHARS = 2400
+SUMMARY_TIMEOUT_S = 30.0
 
 _SUMMARY_SYSTEM = (
     "Resume SOLO hechos operativos de la conversación: intención del cliente, servicio, fecha "
@@ -105,9 +107,16 @@ async def needs_summary(session: AsyncSession, conversation: Conversation) -> bo
         Message.tenant_id == conversation.tenant_id, Message.conversation_id == conversation.id
     )
     if conversation.summary_upto_message_id:
-        marker = await session.get(Message, conversation.summary_upto_message_id)
-        if marker is not None:
-            stmt = stmt.where(Message.created_at > marker.created_at)
+        # una sola consulta: el marcador se resuelve como subconsulta (sin viaje extra a la DB)
+        marker_ts = (
+            select(Message.created_at)
+            .where(
+                Message.id == conversation.summary_upto_message_id,
+                Message.tenant_id == conversation.tenant_id,
+            )
+            .scalar_subquery()
+        )
+        stmt = stmt.where(or_(marker_ts.is_(None), Message.created_at > marker_ts))
     return int((await session.execute(stmt)).scalar_one()) > SUMMARY_THRESHOLD
 
 
@@ -142,15 +151,27 @@ async def maybe_summarize(
         for m in reversed(rows)
     )
     prior = f"Resumen previo:\n{conversation.summary}\n\n" if conversation.summary else ""
-    resp = await llm.complete(
-        system=_SUMMARY_SYSTEM,
-        messages=[
-            {"role": "user", "content": f"{prior}<conversacion>\n{transcript}\n</conversacion>"}
-        ],
-        max_tokens=700,
-        temperature=0.0,
-    )
-    summary = resp.text.strip()[:SUMMARY_MAX_CHARS]
+    transcript = sanitize_user_text(transcript).replace("<", "(").replace(">", ")")
+    try:
+        resp = await asyncio.wait_for(
+            llm.complete(
+                system=_SUMMARY_SYSTEM,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": f"{prior}<conversacion>\n{transcript}\n</conversacion>",
+                    }
+                ],
+                max_tokens=700,
+                temperature=0.0,
+            ),
+            timeout=SUMMARY_TIMEOUT_S,
+        )
+    except Exception as exc:  # noqa: BLE001 - sin resumen se sigue con la ventana de 12
+        log.warning("memory.summary_failed", error=type(exc).__name__)
+        return False
+    # el resumen se guarda en claro: PII fuera y sin etiquetas propias
+    summary = redact_pii(sanitize_user_text(resp.text))[:SUMMARY_MAX_CHARS]
     if not summary:
         return False
     conversation.summary = summary

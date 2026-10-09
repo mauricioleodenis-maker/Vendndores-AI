@@ -9,7 +9,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import timedelta
 
-from sqlalchemy import select, update
+from sqlalchemy import delete, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -212,6 +212,7 @@ class InboundResult:
     message_id: uuid.UUID | None = None
     conversation_id: uuid.UUID | None = None
     tenant_id: uuid.UUID | None = None
+    missing_sid: bool = False
 
 
 async def persist_inbound(
@@ -220,7 +221,8 @@ async def persist_inbound(
     sid = params.get("MessageSid") or params.get("SmsSid") or ""
     tenant_id = channel.tenant.id
     if not sid:
-        return InboundResult(duplicate=True)
+        log.warning("twilio.inbound_without_sid", tenant_id=str(tenant_id))
+        return InboundResult(duplicate=True, missing_sid=True)
     if not await claim_event(session, kind="inbound", sid=sid, tenant_id=tenant_id, params=params):
         return InboundResult(duplicate=True)
     phone = from_whatsapp(params.get("From", ""))
@@ -256,6 +258,7 @@ async def persist_inbound(
 class StatusResult:
     applied: bool
     opted_out: bool = False
+    retry: bool = False  # el mensaje aun no existe: responder 503 para que Twilio reintente
 
 
 async def apply_status(
@@ -267,16 +270,18 @@ async def apply_status(
     new = TWILIO_STATUS_MAP.get(raw_status)
     if not sid or new is None:
         return StatusResult(False)
-    if not await claim_event(
-        session, kind="status", sid=sid, status_value=raw_status, tenant_id=tenant_id, params=params
-    ):
-        return StatusResult(False)
     msg = (
         await session.execute(
             select(Message).where(Message.tenant_id == tenant_id, Message.provider_sid == sid)
         )
     ).scalar_one_or_none()
     if msg is None:
+        # El SID aun no esta confirmado: no reclamar el evento para que Twilio reintente
+        # (si no, se perderia el estado y una baja 21610).
+        return StatusResult(False, retry=True)
+    if not await claim_event(
+        session, kind="status", sid=sid, status_value=raw_status, tenant_id=tenant_id, params=params
+    ):
         return StatusResult(False)
     error_code = (params.get("ErrorCode") or "")[:20] or None
     if STATUS_RANK.get(new, 0) > STATUS_RANK.get(msg.status, 0):
@@ -319,3 +324,18 @@ async def set_outbound_sent(
         values["status"] = "failed"
         values["error_code"] = error[:20]
     await session.execute(update(Message).where(Message.id == message_id).values(**values))
+
+
+async def release_inbound(session: AsyncSession, tenant_id: uuid.UUID, sid: str) -> None:
+    """Deshace un entrante cuyo encolado fallo, para que el reintento de Twilio lo reprocese."""
+    await session.execute(
+        delete(Message).where(Message.tenant_id == tenant_id, Message.provider_sid == sid[:64])
+    )
+    await session.execute(
+        delete(WebhookEvent).where(
+            WebhookEvent.provider == "twilio",
+            WebhookEvent.kind == "inbound",
+            WebhookEvent.provider_sid == sid[:64],
+        )
+    )
+    await session.commit()

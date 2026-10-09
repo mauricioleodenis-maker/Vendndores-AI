@@ -4,21 +4,24 @@
 {% include "tenants/_generando.html" %}
 {% else %}
 <h2>Revisar y generar</h2>
-<dl class="summary">
+<dl class="detail-list">
   <dt>Negocio</dt><dd>{{ tenant.name }} · {{ tenant.niche | nicho_es }} · {{ tenant.city }}</dd>
   <dt>Web</dt><dd>{{ tenant.website_url or 'Sin web' }}</dd>
   <dt>Servicios</dt>
   <dd>{% if services %}<ul>{% for s in services %}<li>{{ s.name }} · {{ s.price_cop | cop }} · {{ s.duration_min }} min</li>{% endfor %}</ul>{% else %}Ninguno: la IA propondrá según el nicho.{% endif %}</dd>
   <dt>Horarios</dt><dd><ul>{% for label, text in days %}<li>{{ label }}: {{ text }}</li>{% endfor %}</ul></dd>
 </dl>
-<form hx-post="/admin/negocios/{{ tenant.id }}/generar" hx-target="#wizard" hx-swap="innerHTML" method="post" action="/admin/negocios/{{ tenant.id }}/generar">
+<form class="stack" hx-post="/admin/negocios/{{ tenant.id }}/generar" hx-target="#wizard" hx-swap="innerHTML" method="post" action="/admin/negocios/{{ tenant.id }}/generar">
   {{ csrf() }}
   <input type="hidden" name="notes" value="{{ notes }}">
   <div class="field{% if errors.get('consent') %} has-error{% endif %}">
     <label><input type="checkbox" name="consent"> Autorizo el uso de datos del negocio</label>
     {% if errors.get('consent') %}<small class="error">{{ errors['consent'] }}</small>{% endif %}
   </div>
-  <button class="btn btn-ghost" type="button" hx-get="/admin/negocios/{{ tenant.id }}/wizard?paso=2" hx-target="#wizard" hx-swap="innerHTML">Atrás</button>
-  <button class="btn btn-primary" type="submit">Generar bot</button>
+  <p class="muted">Al generar, la IA leerá la web del negocio (si la hay) y propondrá servicios, preguntas frecuentes y reglas. Podrás revisarlo todo antes de activar.</p>
+  <div class="btn-row">
+    <button class="btn btn-ghost" type="button" hx-get="/admin/negocios/{{ tenant.id }}/wizard?paso=2" hx-target="#wizard" hx-swap="innerHTML">Atrás</button>
+    <button class="btn btn-primary" type="submit">Generar bot</button>
+  </div>
 </form>
 {% endif %}

@@ -174,7 +174,17 @@ class InputVerdict:
 
 def sanitize_user_text(text: str) -> str:
     """Neutraliza etiquetas propias y caracteres de control antes de envolver el texto."""
-    return _TAG.sub("", _CTRL.sub("", text)).strip()
+    return _strip_tags(_CTRL.sub("", text)).strip()
+
+
+def _strip_tags(text: str) -> str:
+    """Quita etiquetas propias hasta punto fijo: ``<sys<system>tem>`` no puede reensamblarse."""
+    for _ in range(8):
+        cleaned = _TAG.sub("", text)
+        if cleaned == text:
+            return cleaned
+        text = cleaned
+    return _TAG.sub("", text).replace("<", "(").replace(">", ")")
 
 
 def wrap_user_text(text: str) -> str:
@@ -184,7 +194,7 @@ def wrap_user_text(text: str) -> str:
 def sanitize_config_text(text: str, *, limit: int = 3000) -> str:
     """Sanea texto que viene de la config generada/scrapeada antes de ir al system prompt."""
     lines: list[str] = []
-    for raw in _TAG.sub("", _CTRL.sub("", text)).splitlines():
+    for raw in _strip_tags(_CTRL.sub("", text)).splitlines():
         if _INJECTION.search(fold(raw)):
             continue
         lines.append(raw.strip())
@@ -391,7 +401,15 @@ class OutputVerdict:
 def _phone_allowed(raw: str, allowed: set[str]) -> bool:
     digits = digits_only(raw)
     tail = digits[-10:]
-    return any(a.endswith(tail) or tail.endswith(a[-10:]) for a in allowed if a)
+    for a in allowed:
+        if not a:
+            continue
+        if len(a) < 10:  # numeros cortos (123): solo coincidencia exacta, nunca por sufijo
+            if digits == a:
+                return True
+        elif a.endswith(tail) or tail.endswith(a[-10:]):
+            return True
+    return False
 
 
 def _host(url: str) -> str:
@@ -400,7 +418,7 @@ def _host(url: str) -> str:
 
 def check_output(text: str, ctx: OutputContext) -> OutputVerdict:
     """Valida/repara la respuesta. ``blocked`` => se reemplazo por una respuesta segura."""
-    verdict = OutputVerdict(text=_TAG.sub("", text).strip())
+    verdict = OutputVerdict(text=_strip_tags(text).strip())
     out = verdict.text
     folded = fold(out)
 
@@ -438,9 +456,6 @@ def check_output(text: str, ctx: OutputContext) -> OutputVerdict:
     bad_prices = parse_prices(out) - ctx.allowed_prices
     if bad_prices:
         return block("unknown_price", "price_unknown_reply")
-
-    def _scrub(match: re.Match[str]) -> str:
-        return match.group(0)
 
     for m in list(_EMAIL.finditer(out)):
         if m.group(0).lower() not in ctx.allowed_emails:

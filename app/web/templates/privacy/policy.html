@@ -1,19 +1,32 @@
 {% extends "base.html" %}
+{% from "partials/macros.html" import badge %}
 {% block title %}Política de privacidad{% endblock %}
 {% block content %}{{ self.public() }}{% endblock %}
 {% block public %}
-<article class="policy">
-  <h1>Política de tratamiento de datos personales{% if negocio %} · {{ negocio }}{% endif %}</h1>
-  <p class="notice" role="note"><strong>Borrador para revisión legal.</strong> {{ draft_notice }}</p>
+<article class="policy stack">
+  <header class="page-header">
+    <h1>Política de tratamiento de datos personales{% if negocio %} · {{ negocio }}{% endif %}</h1>
+    <span class="badge badge-neutral">Versión {{ version }}</span>
+  </header>
+  <p class="alert alert-warn notice" role="note"><strong>Borrador para revisión legal.</strong> {{ draft_notice }}</p>
   {% if negocio %}
-  <p>{{ negocio }} es el Responsable del tratamiento de los datos de sus pacientes y clientes; el servicio de asistente virtual es operado por la Agencia como Encargada.</p>
+  <div class="card card-flat">
+    <p>{{ negocio }} es el Responsable del tratamiento de los datos de sus pacientes y clientes; el servicio de asistente virtual es operado por la Agencia como Encargada.</p>
+  </div>
+  {% endif %}
+  {% if sections %}
+  <nav class="card card-flat" aria-label="Contenido de la política">
+    <ol class="stack">
+      {% for title, paragraphs in sections %}<li><a href="#sec-{{ loop.index }}">{{ title }}</a></li>{% endfor %}
+    </ol>
+  </nav>
   {% endif %}
   {% for title, paragraphs in sections %}
-  <section>
-    <h2>{{ loop.index }}. {{ title }}</h2>
+  <section class="card" id="sec-{{ loop.index }}" aria-labelledby="h-{{ loop.index }}">
+    <h2 id="h-{{ loop.index }}">{{ loop.index }}. {{ title }}</h2>
     {% for p in paragraphs %}<p>{{ p }}</p>{% endfor %}
   </section>
   {% endfor %}
-  <p><small>Versión {{ version }} · Ley 1581 de 2012.</small></p>
+  <p class="muted"><small>Versión {{ version }} · Ley 1581 de 2012. Puedes ejercer tus derechos de acceso, rectificación y supresión escribiendo <strong>DERECHOS</strong> a nuestro asistente.</small></p>
 </article>
 {% endblock %}

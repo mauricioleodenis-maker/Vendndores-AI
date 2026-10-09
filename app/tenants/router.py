@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_session, require_role
 from app.core.errors import AppError
+from app.core.logging import get_logger
 from app.db.models.tenants import NICHES, TENANT_STATUSES, Tenant
 from app.db.models.users import User
 from app.tenants import service
@@ -35,6 +36,7 @@ from app.tenants.schemas import (
 )
 from app.web.templating import render
 
+log = get_logger(__name__)
 router = APIRouter(tags=["tenants"])
 api_router = APIRouter(prefix="/api/negocios", tags=["tenants-api"])
 routers = [api_router]
@@ -48,6 +50,7 @@ STEP_TEMPLATES = {
     3: "tenants/wizard_paso3.html",
 }
 MAX_FORM_SERVICES = 60
+WIZARD_STATUSES = frozenset({"draft", "review"})
 
 
 # --------------------------------------------------------------------------- helpers
@@ -126,7 +129,8 @@ async def _niche_defaults(niche: str) -> list[dict[str, Any]]:
         from app.niches.loader import get_niche_template
 
         data = get_niche_template(niche).model_dump()
-    except Exception:
+    except Exception as exc:  # best-effort, pero no en silencio
+        log.warning("niche_defaults_unavailable", niche=niche, error_type=type(exc).__name__)
         return []
     out: list[dict[str, Any]] = []
     for item in data.get("typical_services") or []:
@@ -260,6 +264,8 @@ async def wizard_resume(
     tenant = await service.get_tenant(session, tenant_id)
     if tenant.status == "building":
         return _wizard_page(request, 3, {"tenant": tenant, "generating": True})
+    if tenant.status not in WIZARD_STATUSES:
+        return RedirectResponse(f"/admin/negocios/{tenant.id}", status_code=303)
     if paso == 1:
         values = {f: getattr(tenant, f) or "" for f in TenantIn.model_fields}
         return _wizard_page(
@@ -294,6 +300,8 @@ async def wizard_step2(
     session: AsyncSession = Depends(get_session),
 ) -> Response:
     tenant = await service.get_tenant(session, tenant_id)
+    if tenant.status not in WIZARD_STATUSES:
+        raise AppError("conflict", "Esta empresa ya no se puede editar desde el asistente", 409)
     form = await request.form()
     day_texts = {d: str(form.get(f"hours_{d}", ""))[:100] for d in DAY_KEYS}
     errors: dict[str, str] = {}
@@ -707,7 +715,11 @@ async def api_list(
     session: AsyncSession = Depends(get_session),
 ) -> TenantList:
     rows, more = await service.list_tenants(
-        session, q=q[:100], niche=niche, status=status, page=page
+        session,
+        q=q[:100],
+        niche=niche if niche in NICHES else "",
+        status=status if status in TENANT_STATUSES else "",
+        page=page,
     )
     return TenantList(items=[TenantOut.model_validate(r) for r in rows], has_more=more)
 

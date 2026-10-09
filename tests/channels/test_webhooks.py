@@ -14,6 +14,9 @@ from app.db.models.conversations import Conversation, Message
 from app.db.models.scheduling import WebhookEvent
 from app.db.models.tenants import ChannelAccount
 from tests.channels.conftest import (
+    BIZ_NUMBER as BIZ,
+)
+from tests.channels.conftest import (
     PLATFORM_TOKEN,
     TENANT_TOKEN,
     WA_URL,
@@ -108,7 +111,7 @@ async def test_media_only_and_oversized_body(
 async def test_missing_sid_ignored(client: httpx.AsyncClient, channel: ChannelAccount) -> None:
     p = {k: v for k, v in inbound_params().items() if k != "MessageSid"}
     r = await client.post(PATH, data=p, headers=signed(p))
-    assert r.status_code == 200 and not core_jobs.ENQUEUED
+    assert r.status_code == 400 and not core_jobs.ENQUEUED
 
 
 # --------------------------------------------------------------------------- status
@@ -200,7 +203,8 @@ async def test_status_duplicate_and_unknown_and_bad_status(
         _status("SMout4", "weird"),
     ):
         r = await client.post(STATUS, data=p, headers=signed(p, url=STATUS_URL))
-        assert r.status_code == 200
+        # SID desconocido: 503 para que Twilio reintente cuando el SID se confirme
+        assert r.status_code == (503 if p["MessageSid"] == "SMnone" else 200)
 
 
 async def test_status_bad_signature(
@@ -253,3 +257,40 @@ async def test_signature_uses_query_string(
     p = inbound_params()
     r = await client.post(PATH + "?x=1", data=p, headers=signed(p, url=WA_URL + "?x=1"))
     assert r.status_code == 200
+
+
+async def test_status_before_sid_is_not_claimed(
+    client: httpx.AsyncClient, session: AsyncSession, channel: ChannelAccount
+) -> None:
+    params = {
+        "MessageSid": "SMlate",
+        "MessageStatus": "failed",
+        "ErrorCode": "21610",
+        "From": f"whatsapp:{BIZ}",
+    }
+    url = "http://test/webhooks/twilio/status"
+    r = await client.post("/webhooks/twilio/status", data=params, headers=signed(params, url=url))
+    assert r.status_code == 503
+    assert (await session.execute(select(func.count(WebhookEvent.id)))).scalar_one() == 0
+
+
+async def test_enqueue_failure_releases_inbound_for_retry(
+    client: httpx.AsyncClient,
+    session: AsyncSession,
+    channel: ChannelAccount,
+    monkeypatch: Any,
+) -> None:
+    from app.channels import router as ch_router
+
+    async def boom(*a: Any, **k: Any) -> None:
+        raise RuntimeError("redis caido")
+
+    monkeypatch.setattr(ch_router, "enqueue", boom)
+    params = inbound_params()
+    r = await client.post(PATH, data=params, headers=signed(params))
+    assert r.status_code == 503
+    assert (await session.execute(select(func.count(Message.id)))).scalar_one() == 0
+    monkeypatch.undo()
+    r2 = await client.post(PATH, data=params, headers=signed(params))
+    assert r2.status_code == 200
+    assert (await session.execute(select(func.count(Message.id)))).scalar_one() == 1

@@ -1,51 +1,60 @@
 {% extends "base.html" %}
-{% from "partials/macros.html" import badge, empty_state, csrf %}
+{% from "partials/macros.html" import badge, empty_state, csrf, kpi %}
 {% block title %}Bot de {{ tenant.name }}{% endblock %}
 {% block content %}
 <link rel="stylesheet" href="/static/factory.css">
-<h1>Bot de {{ tenant.name }}</h1>
-<p><a href="/admin/negocios/{{ tenant.id }}">&larr; Volver a la empresa</a></p>
+<div class="page-header">
+  <div>
+    <h1>Bot de {{ tenant.name }}</h1>
+    <p class="muted"><a href="/admin/negocios/{{ tenant.id }}">&larr; Volver a la empresa</a></p>
+  </div>
+</div>
 {% include "partials/flash.html" %}
 
 {% if not bot %}
-  {{ empty_state('Aún no hay un bot', 'Genera el bot desde el asistente «Nueva empresa» o regenera ahora.') }}
-  <form method="post" action="/admin/negocios/{{ tenant.id }}/bot/regenerar">{{ csrf() }}
+  {{ empty_state('Aún no hay un bot', 'Genera el bot desde el asistente «Nueva empresa» o créalo ahora con la información que ya tenemos.') }}
+  <form class="inline-form" method="post" action="/admin/negocios/{{ tenant.id }}/bot/regenerar">{{ csrf() }}
     <button class="btn btn-primary" type="submit">Generar bot</button>
   </form>
 {% else %}
 
 <div class="card">
-  <p>
-    Versión <strong>{{ bot.version }}</strong> {{ badge(bot.status) }}
-    {% if meta.needs_review %}{{ badge('needs_review') }}{% endif %}
-    <span class="muted">· modelo {{ bot.model }}</span>
-  </p>
-  <p>
+  <div class="card-header">
+    <h2>Versión {{ bot.version }} {{ badge(bot.status) }}
+      {% if meta.needs_review %}{{ badge('needs_review') }}{% endif %}</h2>
+    <span class="muted">Modelo {{ bot.model }}</span>
+  </div>
+  <nav class="tabs" aria-label="Versiones del bot">
     {% for ver in versions %}
-      <a class="btn btn-ghost" href="/admin/negocios/{{ tenant.id }}/bot?v={{ ver.version }}">v{{ ver.version }} · {{ ver.status | estado_es }}</a>
-      {% if ver.status == 'archived' and ver.published_at %}
-      <form class="fb-inline" method="post" action="/admin/negocios/{{ tenant.id }}/bot/rollback/{{ ver.version }}">{{ csrf() }}
-        <button class="btn btn-ghost" type="submit">Volver a v{{ ver.version }}</button>
-      </form>
-      {% endif %}
+      <a class="tab {{ 'active' if ver.version == bot.version }}" {% if ver.version == bot.version %}aria-current="page"{% endif %} href="/admin/negocios/{{ tenant.id }}/bot?v={{ ver.version }}">v{{ ver.version }} · {{ ver.status | estado_es }}</a>
     {% endfor %}
-  </p>
+  </nav>
+  {% for ver in versions %}{% if ver.status == 'archived' and ver.published_at %}
+  <form class="inline-form" method="post" action="/admin/negocios/{{ tenant.id }}/bot/rollback/{{ ver.version }}" data-confirm="¿Volver a la versión {{ ver.version }}? Reemplazará el catálogo y el bot publicado actual.">{{ csrf() }}
+    <button class="btn btn-ghost btn-sm" type="submit">Volver a v{{ ver.version }}</button>
+  </form>
+  {% endif %}{% endfor %}
+
   {% if is_draft %}
     {% if blockers %}
     <div class="alert alert-warn" role="status">
       <strong>Antes de publicar:</strong>
       <ul>{% for b in blockers %}<li>{{ b }}</li>{% endfor %}</ul>
     </div>
+    {% else %}
+    <div class="alert alert-ok" role="status">Todo revisado. Ya puedes publicar este bot.</div>
     {% endif %}
-    <form method="post" action="/admin/negocios/{{ tenant.id }}/bot/{{ bot.id }}/publicar">{{ csrf() }}
-      <button class="btn btn-primary" type="submit" {% if blockers %}disabled{% endif %}>Aprobar y publicar</button>
-    </form>
-    <form method="post" action="/admin/negocios/{{ tenant.id }}/bot/regenerar">{{ csrf() }}
-      <button class="btn btn-ghost" type="submit">Regenerar con IA</button>
-    </form>
+    <div class="btn-row">
+      <form class="inline-form" method="post" action="/admin/negocios/{{ tenant.id }}/bot/{{ bot.id }}/publicar" data-confirm="¿Publicar esta versión? Los clientes empezarán a ver estos servicios, precios y horarios.">{{ csrf() }}
+        <button class="btn btn-primary" type="submit" {% if blockers %}disabled{% endif %}>Aprobar y publicar</button>
+      </form>
+      <form class="inline-form" method="post" action="/admin/negocios/{{ tenant.id }}/bot/regenerar" data-confirm="¿Regenerar con IA? Se crea un borrador nuevo y puede tardar un minuto.">{{ csrf() }}
+        <button class="btn btn-ghost" type="submit">Regenerar con IA</button>
+      </form>
+    </div>
   {% else %}
-    <p class="muted">Esta versión no se puede editar.</p>
-    <form method="post" action="/admin/negocios/{{ tenant.id }}/bot/borrador">{{ csrf() }}
+    <p class="muted">Esta versión es de solo lectura. Para cambiarla, crea un borrador.</p>
+    <form class="inline-form" method="post" action="/admin/negocios/{{ tenant.id }}/bot/borrador">{{ csrf() }}
       <button class="btn btn-primary" type="submit">Crear borrador para editar</button>
     </form>
   {% endif %}
@@ -53,10 +62,10 @@
 
 {% if has_injection_flag %}
 <div class="alert alert-warn" role="alert">
-  Se detectó texto sospechoso (posibles órdenes dirigidas a la IA) en las fuentes. Revisa el contenido antes de publicar.
+  Encontramos texto en las fuentes que parece dar instrucciones al bot (por ejemplo «ignora las reglas»). Revísalo antes de publicar para asegurarte de que no cambie cómo responde.
   {% if is_draft and not info.flags_ack %}
-  <form method="post" action="/admin/negocios/{{ tenant.id }}/bot/{{ bot.id }}/alertas">{{ csrf() }}
-    <button class="btn" type="submit">Ya lo revisé</button>
+  <form class="inline-form" method="post" action="/admin/negocios/{{ tenant.id }}/bot/{{ bot.id }}/alertas">{{ csrf() }}
+    <button class="btn btn-sm" type="submit">Ya lo revisé</button>
   </form>
   {% endif %}
 </div>
@@ -71,7 +80,7 @@
     {% for d in docs %}
       <details><summary>{{ d.title or d.source_url or 'Página' }}</summary><pre>{{ d.content[:1500] }}</pre></details>
     {% else %}
-      <p class="muted">Sin información de la web.</p>
+      <p class="muted">Sin información de la web.{% if meta.scrape_error %} No pudimos leer el sitio: {{ meta.scrape_error }}{% endif %}</p>
     {% endfor %}
     {% if meta.review and meta.review.reasons %}
     <h3>Alertas de verificación</h3>
@@ -79,7 +88,7 @@
     {% endif %}
   </section>
 
-  <section aria-labelledby="h-prop">
+  <section aria-labelledby="h-prop" class="stack">
     <h2 id="h-prop">Propuesta de la IA</h2>
 
     {% if cfg.open_questions %}
@@ -89,8 +98,8 @@
       {% for q in cfg.open_questions %}
         <li>{{ q }}
         {% if is_draft %}
-          <form class="fb-inline" method="post" action="/admin/negocios/{{ tenant.id }}/bot/{{ bot.id }}/preguntas/{{ loop.index0 }}">{{ csrf() }}
-            <button class="btn btn-ghost" type="submit">Resuelta</button>
+          <form class="inline-form" method="post" action="/admin/negocios/{{ tenant.id }}/bot/{{ bot.id }}/preguntas/{{ loop.index0 }}">{{ csrf() }}
+            <button class="btn btn-ghost btn-sm" type="submit">Marcar resuelta</button>
           </form>
         {% endif %}</li>
       {% endfor %}
@@ -107,22 +116,28 @@
              {% if s.needs_review %}{{ badge('needs_review') }}{% endif %}</p>
           <div class="fb-row">
             <div class="field"><label for="n-{{ s.id }}">Nombre</label><input id="n-{{ s.id }}" name="name" value="{{ s.name }}" required maxlength="120"></div>
-            <div class="field"><label for="p-{{ s.id }}">Precio COP</label><input id="p-{{ s.id }}" name="price" value="{{ s.price_cop if s.price_cop is not none else '' }}" inputmode="numeric"></div>
+            <div class="field"><label for="p-{{ s.id }}">Precio COP</label><input id="p-{{ s.id }}" name="price" value="{{ s.price_cop if s.price_cop is not none else '' }}" inputmode="numeric" aria-describedby="ph-{{ s.id }}"><small class="help" id="ph-{{ s.id }}">Solo números. Ej: 80000</small></div>
             <div class="field"><label for="pn-{{ s.id }}">Nota de precio</label><input id="pn-{{ s.id }}" name="price_note" value="{{ s.price_note }}" maxlength="160"></div>
-            <div class="field"><label for="d-{{ s.id }}">Minutos</label><input id="d-{{ s.id }}" name="duration_min" type="number" min="5" max="480" value="{{ s.duration_min }}"></div>
+            <div class="field"><label for="d-{{ s.id }}">Minutos</label><input id="d-{{ s.id }}" name="duration_min" type="number" min="5" max="480" value="{{ s.duration_min }}" aria-describedby="dh-{{ s.id }}"><small class="help" id="dh-{{ s.id }}">Entre 5 y 480</small></div>
           </div>
           <div class="field"><label for="ds-{{ s.id }}">Descripción</label><input id="ds-{{ s.id }}" name="description" value="{{ s.description }}" maxlength="300"></div>
-          <button class="btn btn-primary" type="submit">{{ 'Confirmar' if s.needs_review else 'Guardar' }}</button>
-          <button class="btn btn-ghost" type="submit" formaction="/admin/negocios/{{ tenant.id }}/bot/descartar/service/{{ s.id }}">Descartar</button>
+          <div class="btn-row">
+            <button class="btn btn-primary btn-sm" type="submit">{{ 'Confirmar' if s.needs_review else 'Guardar' }}</button>
+          </div>
+        </form>
+        <form class="inline-form" method="post" action="/admin/negocios/{{ tenant.id }}/bot/descartar/service/{{ s.id }}" data-confirm="¿Descartar este elemento? Dejará de verse en el bot.">{{ csrf() }}
+          <button class="btn btn-danger btn-sm" type="submit">Descartar</button>
         </form>
         {% else %}
-          <p class="muted">Sin servicios.</p>
+          {{ empty_state('Sin servicios', 'Regenera el bot o crea servicios desde la ficha de la empresa.') }}
         {% endfor %}
       {% else %}
-        <div class="table-wrap"><table>
-          <thead><tr><th>Servicio</th><th>Minutos</th><th>Precio</th></tr></thead>
+        <div class="table-wrap"><table class="cards">
+          <thead><tr><th>Servicio</th><th class="num">Minutos</th><th class="num">Precio</th></tr></thead>
           <tbody>{% for s in snapshot_services %}
-            <tr><td>{{ s.name }}</td><td>{{ s.duration_min }}</td><td>{% if s.price_cop is not none %}${{ s.price_cop | string }} COP{% else %}{{ s.price_note or 'Consultar' }}{% endif %}</td></tr>
+            <tr><td data-label="Servicio">{{ s.name }}</td><td class="num" data-label="Minutos">{{ s.duration_min }}</td><td class="num nowrap" data-label="Precio">{% if s.price_cop is not none %}${{ "{:,}".format(s.price_cop) | replace(",", ".") }} COP{% else %}{{ s.price_note or 'Consultar' }}{% endif %}</td></tr>
+          {% else %}
+            <tr><td colspan="3" class="muted">Sin servicios en esta versión.</td></tr>
           {% endfor %}</tbody>
         </table></div>
       {% endif %}
@@ -137,14 +152,18 @@
              {% if f.needs_review %}{{ badge('needs_review') }}{% endif %}</p>
           <div class="field"><label for="q-{{ f.id }}">Pregunta</label><input id="q-{{ f.id }}" name="question" value="{{ f.question }}" required maxlength="200"></div>
           <div class="field"><label for="a-{{ f.id }}">Respuesta</label><textarea id="a-{{ f.id }}" name="answer" required maxlength="600" rows="3">{{ f.answer }}</textarea></div>
-          <button class="btn btn-primary" type="submit">{{ 'Confirmar' if f.needs_review else 'Guardar' }}</button>
-          <button class="btn btn-ghost" type="submit" formaction="/admin/negocios/{{ tenant.id }}/bot/descartar/faq/{{ f.id }}">Descartar</button>
+          <div class="btn-row">
+            <button class="btn btn-primary btn-sm" type="submit">{{ 'Confirmar' if f.needs_review else 'Guardar' }}</button>
+          </div>
+        </form>
+        <form class="inline-form" method="post" action="/admin/negocios/{{ tenant.id }}/bot/descartar/faq/{{ f.id }}" data-confirm="¿Descartar este elemento? Dejará de verse en el bot.">{{ csrf() }}
+          <button class="btn btn-danger btn-sm" type="submit">Descartar</button>
         </form>
         {% else %}
-          <p class="muted">Sin preguntas frecuentes.</p>
+          {{ empty_state('Sin preguntas frecuentes', 'Regenera el bot para proponer preguntas nuevas.') }}
         {% endfor %}
       {% else %}
-        <dl>{% for f in snapshot_faqs %}<dt>{{ f.question }}</dt><dd>{{ f.answer }}</dd>{% endfor %}</dl>
+        <dl class="detail-list">{% for f in snapshot_faqs %}<dt>{{ f.question }}</dt><dd>{{ f.answer }}</dd>{% else %}<dd class="muted">Sin preguntas frecuentes.</dd>{% endfor %}</dl>
       {% endif %}
     </div>
 
@@ -157,7 +176,8 @@
           <div class="field"><label for="h-{{ key }}">{{ label }}</label><input id="h-{{ key }}" name="{{ key }}" value="{{ value }}" placeholder="09:00-12:00, 14:00-18:00"></div>
         {% endfor %}
         </div>
-        <button class="btn btn-primary" type="submit">Confirmar horarios</button>
+        <p class="help">Déjalo vacío si ese día no se atiende. Máximo 3 franjas por día.</p>
+        <button class="btn btn-primary btn-sm" type="submit">Confirmar horarios</button>
       </form>
       {% else %}
         <ul>{% for key, label, value in days %}<li>{{ label }}: {{ value or 'Cerrado' }}</li>{% endfor %}</ul>
@@ -180,7 +200,7 @@
               <option value="none" {{ 'selected' if cfg.tone.emoji_level == 'none' }}>Ninguno</option>
             </select></div>
         </div>
-        <button class="btn" type="submit">Guardar tono</button>
+        <button class="btn btn-sm" type="submit">Guardar tono</button>
       </form>
       {% else %}
         <p>Trato: {{ 'usted' if cfg.tone.address_form == 'usted' else 'tú' }} · Emojis: {{ 'ninguno' if cfg.tone.emoji_level == 'none' else 'pocos' }}</p>

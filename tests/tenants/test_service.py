@@ -228,3 +228,19 @@ async def test_tenant_model_slug_helper() -> None:
     assert service.slugify("  ¡Hola Mundo! ") == "hola-mundo"
     assert service.slugify("###") == "empresa"
     assert isinstance(Tenant.__tablename__, str)
+
+
+async def test_start_generation_claim_is_atomic(
+    session: AsyncSession, owner_user: Any, fake_build_bot: list[Any]
+) -> None:
+    """Regresion: si otra peticion ya paso a ``building``, no se encola de nuevo."""
+    from sqlalchemy import update
+
+    from app.db.models.tenants import Tenant
+
+    t = await service.create_tenant(session, _data(), actor=owner_user)
+    await session.execute(update(Tenant).where(Tenant.id == t.id).values(status="building"))
+    before = len(ENQUEUED)
+    with pytest.raises(ConflictError):
+        await service.start_generation(session, t, actor=owner_user, consent=True)
+    assert len(ENQUEUED) == before

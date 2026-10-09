@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.ai.client import LLMClient, get_llm
 from app.core.deps import get_session, require_role
 from app.core.errors import AppError, NotFoundError
+from app.core.logging import get_logger
 from app.core.rate_limit import enforce
 from app.db.models.bots import BotConfig
 from app.db.models.tenants import Tenant
@@ -24,6 +25,7 @@ from app.factory.grounding import fold
 from app.factory.schemas import DAY_KEYS, FactoryInput
 from app.web.templating import render
 
+log = get_logger(__name__)
 router = APIRouter(tags=["factory"])
 Admin = Depends(require_role("admin"))
 
@@ -71,6 +73,13 @@ def _parse_price(raw: str) -> int | None:
     return int(clean)
 
 
+def _parse_int(raw: str) -> int:
+    clean = (raw or "").strip()
+    if not clean.isdigit() or len(clean) > 4:
+        raise AppError("invalid_duration", "La duración debe ser un número de minutos", 422)
+    return int(clean)
+
+
 def _source_key(ref: str) -> str:
     return "web" if ref.startswith("web") else ref if ref in SOURCE_LABELS else "owner"
 
@@ -78,7 +87,7 @@ def _source_key(ref: str) -> str:
 async def _page_context(
     session: AsyncSession, tenant: Tenant, version: int | None
 ) -> dict[str, Any]:
-    versions = await review.list_versions(session, tenant.id)
+    versions = await review.list_version_summaries(session, tenant.id)
     selected: BotConfig | None = None
     if version is not None:
         selected = next((v for v in versions if v.version == version), None)
@@ -89,14 +98,15 @@ async def _page_context(
     ctx: dict[str, Any] = {"tenant": tenant, "versions": versions, "bot": selected}
     if selected is None:
         return ctx
+    # La lista va sin JSON pesado; solo la version elegida se carga completa.
+    selected = await review.load_full(session, tenant.id, selected.id)
+    ctx["bot"] = selected
     cfg = review.parsed_config(selected)
     refs = {fold(s.name): _source_key(s.source_ref) for s in cfg.services}
     is_draft = selected.status == "draft"
     services = await review.list_services(session, tenant.id) if is_draft else []
     faqs = await review.list_faqs(session, tenant.id) if is_draft else []
-    from app.factory.service import load_kb
-
-    docs = await load_kb(session, tenant.id)
+    docs = await service.load_kb_preview(session, tenant.id)
     ctx.update(
         cfg=cfg,
         is_draft=is_draft,
@@ -159,7 +169,7 @@ async def edit_service(
     description: str = Form(""),
     price: str = Form(""),
     price_note: str = Form(""),
-    duration_min: int = Form(30),
+    duration_min: str = Form("30"),
     user: User = Admin,
     session: AsyncSession = Depends(get_session),
 ) -> Response:
@@ -169,7 +179,7 @@ async def edit_service(
         await review.update_service(
             session, tenant_id, service_id, name=name, description=description,
             price_cop=_parse_price(price), price_note=price_note,
-            duration_min=duration_min, actor=user,
+            duration_min=_parse_int(duration_min), actor=user,
         )  # fmt: skip
 
     return await _run(tenant_id, act, "Servicio confirmado")
@@ -394,6 +404,9 @@ async def sandbox_chat(
             error = "El chat de prueba aún no está disponible."
         except AppError as exc:
             error = exc.message
+        except Exception as exc:  # noqa: BLE001 - LLM/red: nunca un 500 mudo en HTMX
+            log.warning("sandbox_chat_failed", tenant_id=str(tenant_id), error=type(exc).__name__)
+            error = "No pudimos obtener respuesta del bot. Intenta de nuevo en unos segundos."
     return render(
         request,
         "factory/_chat.html",

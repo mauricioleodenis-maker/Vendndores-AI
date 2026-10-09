@@ -30,6 +30,7 @@ _RETRYABLE = (
     anthropic.APIConnectionError,
     anthropic.APITimeoutError,
     anthropic.InternalServerError,
+    anthropic.OverloadedError,  # 529: sobrecarga transitoria del proveedor
 )
 
 

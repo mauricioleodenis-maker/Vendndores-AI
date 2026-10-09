@@ -11,7 +11,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.http import FetchError, safe_fetch
 from app.db.models.catalog import KbDocument
-from app.scraping.crawler import ScrapedPage, crawl_business_site, registrable_domain
+from app.scraping.crawler import (
+    ScrapedPage,
+    crawl_business_site,
+    normalize_start_url,
+    registrable_domain,
+)
 from app.scraping.extractor import extract_meta, sanitize_text
 
 _INSTAGRAM_HOSTS = frozenset({"instagram.com"})
@@ -24,17 +29,20 @@ def content_hash(text: str) -> str:
 
 async def fetch_instagram_profile(url: str) -> ScrapedPage | None:
     """Metadata publica (og:title/og:description) del perfil. Best-effort: ``None`` si falla."""
+    url = normalize_start_url(url)
     try:
-        host = urlsplit(url.strip()).hostname or ""
+        host = urlsplit(url).hostname or ""
     except ValueError:
         return None
     if registrable_domain(host) not in _INSTAGRAM_HOSTS:
         return None
     try:
-        res = await safe_fetch(url.strip(), max_bytes=500_000)
+        res = await safe_fetch(url, max_bytes=500_000)
     except FetchError:
         return None
-    if res.status >= 400:
+    if res.status >= 400 or registrable_domain(urlsplit(res.url).hostname or "") not in (
+        _INSTAGRAM_HOSTS
+    ):
         return None
     meta = extract_meta(res.text)
     title = meta.get("og:title", "")
@@ -50,18 +58,20 @@ async def store_pages(
 ) -> list[KbDocument]:
     """Guarda paginas nuevas; omite las que ya existen (mismo tenant y hash). No hace commit."""
     created: list[KbDocument] = []
-    seen: set[str] = set()
+    unique: dict[str, ScrapedPage] = {}
     for page in pages:
-        digest = content_hash(page.text)
-        if digest in seen:
-            continue
-        seen.add(digest)
-        exists = await session.scalar(
-            select(KbDocument.id).where(
-                KbDocument.tenant_id == tenant_id, KbDocument.content_hash == digest
+        unique.setdefault(content_hash(page.text), page)
+    if not unique:
+        return created
+    existing = set(
+        await session.scalars(
+            select(KbDocument.content_hash).where(
+                KbDocument.tenant_id == tenant_id, KbDocument.content_hash.in_(list(unique))
             )
         )
-        if exists:
+    )
+    for digest, page in unique.items():
+        if digest in existing:
             continue
         doc = KbDocument(
             tenant_id=tenant_id,

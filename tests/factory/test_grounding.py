@@ -89,3 +89,17 @@ def test_verify_grounding_clean() -> None:
     )
     assert not report.needs_review
     assert report.as_dict()["service_ids"] == []
+
+
+def test_extract_amounts_ignores_address_and_phone_fragments() -> None:
+    amounts = extract_amounts("Calle 150 # 12-30, Tel 300 123 4567, abrimos 8 y 17")
+    assert 150 not in amounts and 300 not in amounts and 12 not in amounts
+    assert 150 in extract_amounts("Corte 150 COP")
+    assert 150 in extract_amounts("Corte $150")
+
+
+def test_faq_amount_over_1000_without_source_is_flagged() -> None:
+    cfg = GeneratedBotConfig.model_validate(valid_config())
+    cfg.faqs[0] = cfg.faqs[0].model_copy(update={"answer": "La consulta cuesta $4.000 hoy."})
+    report = verify_grounding(cfg, owner_text="", owner_prices={}, source_text="")
+    assert 0 in report.faq_indexes

@@ -35,22 +35,25 @@ TWILIO_API = "https://api.twilio.com/2010-04-01"
 WINDOW = timedelta(hours=24)
 REQUEST_TIMEOUT_S = 10.0
 MAX_ATTEMPTS = 3
-RETRY_STATUSES = frozenset({429, 500, 502, 503, 504})
+# Solo 429 se reintenta: un 5xx no garantiza que Twilio no haya aceptado el mensaje y
+# ``POST /Messages`` no es idempotente (evita WhatsApp duplicados al paciente).
+RETRY_STATUSES = frozenset({429})
+_SAFE_RETRY_ERRORS = (httpx.ConnectError, httpx.ConnectTimeout)
 
 # Codigos de error de Twilio -> motivo interno legible (panel admin).
 FAILURE_REASONS: dict[str, str] = {
     "63016": "Fuera de la ventana de 24 h: requiere plantilla aprobada",
     "63003": "Canal de WhatsApp no encontrado o mal configurado",
     "63007": "Remitente de WhatsApp no encontrado o mal configurado",
-    "63018": "Limite de envios alcanzado (reintentar mas tarde)",
-    "20429": "Limite de solicitudes alcanzado (reintentar mas tarde)",
-    "63038": "Limite diario de mensajes del remitente alcanzado",
+    "63018": "Límite de envíos alcanzado (reintentar más tarde)",
+    "20429": "Límite de solicitudes alcanzado (reintentar más tarde)",
+    "63038": "Límite diario de mensajes del remitente alcanzado",
     "63024": "El destinatario no tiene WhatsApp",
-    "21211": "Numero de destino invalido",
+    "21211": "Número de destino inválido",
     "21610": "El destinatario se dio de baja (STOP)",
-    "21614": "El numero no es movil",
-    "21608": "Numero no verificado (cuenta de prueba)",
-    "63049": "Mensaje de marketing bloqueado por politica del destinatario",
+    "21614": "El número no es móvil",
+    "21608": "Número no verificado (cuenta de prueba)",
+    "63049": "Mensaje de marketing bloqueado por política del destinatario",
 }
 
 
@@ -200,6 +203,9 @@ async def _post_message(creds: TwilioCreds, data: dict[str, str]) -> SendResult:
             except httpx.HTTPError as exc:
                 last_error = type(exc).__name__
                 log.warning("twilio.send_network_error", error=last_error, attempt=attempt)
+                if not isinstance(exc, _SAFE_RETRY_ERRORS):
+                    # La peticion pudo llegar a Twilio (p. ej. ReadTimeout): reintentar duplicaria.
+                    return SendResult(ok=False, status="failed", error=last_error)
             else:
                 if resp.status_code in (200, 201):
                     body = resp.json()
@@ -266,7 +272,7 @@ async def send_whatsapp_text(
 ) -> SendResult:
     """Texto libre; solo dentro de la ventana de 24 h. ``bypass_suppression`` es exclusivo de la
     confirmacion de baja (STOP)."""
-    if not bypass_suppression and await is_suppressed(session, to_e164):
+    if not bypass_suppression and await is_suppressed(session, to_e164, tenant_id=tenant_id):
         return SendResult(ok=False, status="suppressed", error="suprimido")
     if not await _window_open_for(session, tenant_id, to_e164):
         return SendResult(ok=False, status="failed", error="63016")

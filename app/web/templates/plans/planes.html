@@ -2,11 +2,11 @@
 {% from "partials/macros.html" import empty_state %}
 {% block title %}Planes{% endblock %}
 {% block content %}
-<h1>Planes</h1>
+<div class="page-header"><h1>Planes y ofertas</h1></div>
 {% if plans %}
-<div class="kpis">
+<div class="grid-3">
   {% for p in plans %}
-  <section class="kpi" aria-labelledby="plan-{{ p.code }}">
+  <section class="card" aria-labelledby="plan-{{ p.code }}">
     <h2 id="plan-{{ p.code }}">{{ p.name }}</h2>
     <p class="muted">{{ p.description }}</p>
     <p class="value">{{ p.monthly_fee_cop | cop }}<small class="muted"> /mes</small></p>
@@ -21,15 +21,15 @@
 <h2>Ofertas</h2>
 {% if offers %}
 <div class="table-wrap">
-<table>
+<table class="cards">
   <thead><tr><th>Oferta</th><th>Condiciones</th><th>Cupos</th><th>Estado</th></tr></thead>
   <tbody>
   {% for o in offers %}
     <tr>
-      <td>{{ o.name }}</td>
-      <td class="muted">{{ o.conditions }}</td>
-      <td>{% if o.remaining is none %}Sin límite{% else %}Quedan {{ o.remaining }} de {{ o.max_redemptions }}{% endif %}</td>
-      <td>{% if o.is_active and (o.remaining is none or o.remaining > 0) %}<span class="badge badge-ok">Disponible</span>{% else %}<span class="badge badge-neutral">Agotada</span>{% endif %}</td>
+      <td data-label="Oferta">{{ o.name }}</td>
+      <td class="muted" data-label="Condiciones">{{ o.conditions }}</td>
+      <td data-label="Cupos">{% if o.remaining is none %}Sin límite{% else %}Quedan {{ o.remaining }} de {{ o.max_redemptions }}{% endif %}</td>
+      <td data-label="Estado">{% if o.is_active and (o.remaining is none or o.remaining > 0) %}<span class="badge badge-ok">Disponible</span>{% else %}<span class="badge badge-neutral">Agotada</span>{% endif %}</td>
     </tr>
   {% endfor %}
   </tbody>
@@ -40,19 +40,18 @@
 {% endif %}
 
 <h2>Cotizador</h2>
-<form class="filters" hx-get="/admin/planes/cotizar" hx-target="#cotizacion" hx-swap="outerHTML" hx-trigger="change">
-  <label>Plan
-    <select name="plan">
+<form class="card form-grid" hx-get="/admin/planes/cotizar" hx-target="#cotizacion" hx-swap="outerHTML" hx-trigger="change" hx-indicator="#ld-cot">
+  <div class="field"><label for="f-plan">Plan</label>
+    <select id="f-plan" name="plan">
       {% for p in plans %}<option value="{{ p.code }}"{% if p.code == selected_plan %} selected{% endif %}>{{ p.name }}</option>{% endfor %}
-    </select>
-  </label>
-  <label>Oferta
-    <select name="offer">
+    </select></div>
+  <div class="field"><label for="f-offer">Oferta</label>
+    <select id="f-offer" name="offer">
       <option value="">Sin oferta</option>
       {% for o in offers if o.is_active %}<option value="{{ o.code }}">{{ o.name }}</option>{% endfor %}
-    </select>
-  </label>
-  <label><span><input type="checkbox" name="iva" value="1"> Incluir IVA (19%)</span></label>
+    </select></div>
+  <div class="field-check span-2"><input type="checkbox" id="f-iva" name="iva" value="1"><label for="f-iva">Incluir IVA (19%)</label>
+    <span class="htmx-indicator inline" id="ld-cot">Calculando…</span></div>
 </form>
 {% include "plans/_cotizacion.html" %}
 

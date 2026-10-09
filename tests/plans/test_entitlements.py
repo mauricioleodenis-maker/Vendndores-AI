@@ -142,3 +142,24 @@ def test_entitlements_helpers_without_db() -> None:
     assert ent.usage_pct("conversations") is None
     assert ent.limit("x") is None  # bool no cuenta como tope
     assert ent.has_feature("export_csv") and not ent.has_feature("voice")
+
+
+async def test_cancelled_only_reports_inactive_and_live_wins(
+    session: AsyncSession, tenant: Any
+) -> None:
+    await service.create_subscription(session, tenant.id, "premium")
+    await service.set_status(session, tenant.id, "cancelled")
+    ent = await get_entitlements(session, tenant.id)
+    assert not ent.active and ent.status == "cancelled"
+    await service.create_subscription(session, tenant.id, "basico")
+    ent = await get_entitlements(session, tenant.id)
+    assert ent.active and ent.plan_code == "basico"
+
+
+async def test_get_plan_seeds_lazily_and_unknown_is_404(session: AsyncSession) -> None:
+    from app.core.errors import NotFoundError
+
+    plan = await service.get_plan(session, "basico")
+    assert plan.code == "basico"
+    with pytest.raises(NotFoundError):
+        await service.get_plan(session, "no-existe")

@@ -41,6 +41,16 @@ CONSENT_REPLY = (
     "Gracias. Usaremos tus datos solo para gestionar tu atención. "
     "Para ejercer tus derechos escribe *DERECHOS* o visita {url}."
 )
+RIGHTS_REPLY = (
+    "Puedes ejercer tus derechos (conocer, actualizar, corregir o borrar tus datos) en {url}. "
+    "Si prefieres que un asesor te ayude, escríbenos y te contactamos."
+)
+ERASE_REPLY = (
+    "Recibimos tu solicitud de borrado. Para proteger tu información debemos verificar tu "
+    "identidad: completa la solicitud en {url} o responde con tu nombre completo y un asesor "
+    "la gestionará."
+)
+ENGINE_FALLBACK_REPLY = "Un momento, te comunicamos con el equipo para ayudarte."
 MEDIA_REPLY = (
     "Por ahora solo puedo leer mensajes de texto. ¿Me cuentas por escrito en qué te puedo ayudar?"
 )
@@ -206,28 +216,43 @@ async def process(
         if privacy.is_optin_message(text):
             contact.opted_out = False
             contact.opt_out_source = None
-            lift = getattr(privacy, "apply_optin", None)
-            if lift is not None:
-                await lift(session, phone_e164=phone, tenant_id=tenant_id, evidence="keyword")
+            contact.opted_out_at = None
+            contact.opt_out_keyword = None
+            await privacy.apply_optin(
+                session, phone_e164=phone, tenant_id=tenant_id, evidence="keyword"
+            )
         else:
             msg.processed_at = utcnow()
             return 0
 
+    url = get_settings().public_base_url.rstrip("/") + "/privacidad"
     consent = await _has_consent(session, tenant_id, contact.id)
     notice_sent = await _notice_sent(session, conv)
     if not consent and notice_sent and _is_yes(text):
         msg.processed_at = utcnow()
         await privacy.record_consent(session, tenant_id, contact.id, CONSENT_PURPOSE, "whatsapp:SI")
-        url = get_settings().public_base_url.rstrip("/") + "/privacidad"
         await _deliver(session, conv, phone, CONSENT_REPLY.format(url=url))
+        await record_usage(session, tenant_id, messages_out=1)
+        return 1
+
+    if privacy.is_erase_request(text) or privacy.is_rights_request(text):
+        msg.processed_at = utcnow()
+        reply = ERASE_REPLY if privacy.is_erase_request(text) else RIGHTS_REPLY
+        await _deliver(session, conv, phone, reply.format(url=url))
         await record_usage(session, tenant_id, messages_out=1)
         return 1
 
     if not text.strip():
         msg.processed_at = utcnow()
+        sent = 0
+        if not consent and not notice_sent:
+            tenant = await session.get(Tenant, tenant_id)
+            notice = privacy_notice(tenant.name if tenant else "el negocio")
+            await _deliver(session, conv, phone, notice, template_name=NOTICE_TEMPLATE)
+            sent += 1
         await _deliver(session, conv, phone, MEDIA_REPLY)
-        await record_usage(session, tenant_id, messages_out=1)
-        return 1
+        await record_usage(session, tenant_id, messages_out=sent + 1)
+        return sent + 1
 
     try:
         async with session.begin_nested():
@@ -237,7 +262,10 @@ async def process(
     except Exception as exc:  # noqa: BLE001 - un fallo del motor no debe reintentar en bucle
         log.error("channels.engine_failed", error=type(exc).__name__, tenant_id=str(tenant_id))
         msg.processed_at = utcnow()
-        return 0
+        # No dejar al paciente sin respuesta: aviso de respaldo (el equipo lo ve en el panel).
+        await _deliver(session, conv, phone, ENGINE_FALLBACK_REPLY)
+        await record_usage(session, tenant_id, messages_out=1)
+        return 1
     if not replies:
         return 0
 

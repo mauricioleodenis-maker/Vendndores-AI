@@ -20,7 +20,7 @@ def redact_pii(text: str) -> str:
     """Enmascara correos, telefonos, llaves, documentos de identidad y datos de salud."""
     if not text:
         return text
-    out = redact_text(text)
-    out = _ID_DOC.sub("[documento]", out)
+    out = _ID_DOC.sub("[documento]", text)
+    out = redact_text(out)
     out = _HEALTH.sub(lambda m: f"{m.group(1)} [salud]", out)
     return _LONG_DIGITS.sub("[numero]", out)

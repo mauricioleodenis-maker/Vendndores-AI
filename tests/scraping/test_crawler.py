@@ -5,7 +5,7 @@ from collections.abc import Callable
 import pytest
 
 from app.core.http import FetchError, UnsafeURLError
-from app.scraping import crawl_business_site
+from app.scraping import crawl_business_site, crawler
 from app.scraping.crawler import normalize_start_url, registrable_domain, score_link
 from app.scraping.robots import RobotsPolicy
 
@@ -128,3 +128,29 @@ async def test_max_pages_clamped(web, page_html: Callable[..., str]) -> None:
         web.add(f"https://negocio.co/p{i}", page_html(f"P{i}", f"{BODY} {i}"))
     assert len(await crawl_business_site("https://negocio.co", max_pages=999)) == 20
     assert len(await crawl_business_site("https://negocio.co", max_pages=0)) == 1
+
+
+def test_registrable_domain_ip_y_hosting_compartido() -> None:
+    assert crawler.registrable_domain("8.8.3.4") != crawler.registrable_domain("9.9.3.4")
+    assert crawler.registrable_domain("a.github.io") != crawler.registrable_domain("b.github.io")
+    assert crawler.registrable_domain("www.negocio.com") == "negocio.com"
+
+
+async def test_no_sale_a_subdominio_de_hosting_compartido(web, page_html) -> None:
+    web.add("https://a.github.io", page_html("A", "x" * 40, ("https://b.github.io/p|Contacto",)))
+    web.add("https://b.github.io/p", page_html("B", "y" * 40))
+    pages = await crawler.crawl_business_site("https://a.github.io")
+    assert [p.title for p in pages] == ["A"]
+
+
+async def test_limita_cola_y_respeta_deadline(web, page_html, monkeypatch) -> None:
+    links = tuple(f"/p{i}|Pagina {i}" for i in range(400))
+    web.add("https://x.com", page_html("Home", "z" * 40, links))
+    monkeypatch.setattr(crawler, "CRAWL_DEADLINE_SECONDS", -1)
+    pages = await crawler.crawl_business_site("https://x.com", max_pages=5)
+    assert len(pages) <= 1
+
+
+async def test_html_anidado_no_rompe_el_crawl(web) -> None:
+    web.add("https://x.com", "<div>" * 20000 + "texto suficiente para pasar el minimo")
+    assert isinstance(await crawler.crawl_business_site("https://x.com"), list)

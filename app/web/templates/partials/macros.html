@@ -30,4 +30,23 @@
 </nav>
 {%- endmacro %}
 
+{% macro kpi(label, value, tone='', hint='') -%}
+<div class="kpi{% if tone %} kpi-{{ tone }}{% endif %}"><div class="value">{{ value }}</div><div class="label">{{ label }}</div>{% if hint %}<div class="muted">{{ hint }}</div>{% endif %}</div>
+{%- endmacro %}
+
+{% macro score(value, band='') -%}
+{%- set b = band or ('hot' if value >= 70 else ('warm' if value >= 40 else 'cold')) -%}
+<span class="score score-{{ b }}"><progress class="score-bar" max="100" value="{{ [[value, 0]|max, 100]|min }}" aria-hidden="true"></progress>{{ value }}</span>
+{%- endmacro %}
+
+{% macro stepper(steps, current) -%}
+<ol class="stepper" aria-label="Pasos">
+  {% for s in steps %}<li class="step{% if loop.index < current %} done{% elif loop.index == current %} current{% endif %}"{% if loop.index == current %} aria-current="step"{% endif %}>{{ s }}</li>{% endfor %}
+</ol>
+{%- endmacro %}
+
+{% macro bubble(text, direction='in', meta='') -%}
+<div class="bubble bubble-{{ direction }}">{{ text }}{% if meta %}<span class="bubble-meta">{{ meta }}</span>{% endif %}</div>
+{%- endmacro %}
+
 {% macro csrf() -%}<input type="hidden" name="csrf_token" value="{{ csrf_token }}">{%- endmacro %}

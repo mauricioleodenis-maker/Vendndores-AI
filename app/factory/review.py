@@ -14,11 +14,13 @@ from typing import Any
 from pydantic import ValidationError
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import defer
 
 from app.audit.service import log_event
 from app.core.errors import AppError, ConflictError, NotFoundError
 from app.db.models.bots import BotConfig
 from app.db.models.catalog import Faq, Service
+from app.db.models.tenants import Tenant
 from app.factory.grounding import fold
 from app.factory.prompts import render_system_prompt
 from app.factory.schemas import (
@@ -79,10 +81,59 @@ async def published_bot(session: AsyncSession, tenant_id: uuid.UUID) -> BotConfi
 
 
 async def next_version(session: AsyncSession, tenant_id: uuid.UUID) -> int:
+    # Serializa creadores concurrentes de versiones del mismo tenant (no-op en SQLite)
+    await session.execute(select(Tenant.id).where(Tenant.id == tenant_id).with_for_update())
     top = await session.scalar(
         select(func.max(BotConfig.version)).where(BotConfig.tenant_id == tenant_id)
     )
     return int(top or 0) + 1
+
+
+async def load_full(session: AsyncSession, tenant_id: uuid.UUID, bot_id: uuid.UUID) -> BotConfig:
+    """Carga la version completa (recarga columnas diferidas por ``list_version_summaries``)."""
+    stmt = (
+        select(BotConfig)
+        .where(BotConfig.id == bot_id, BotConfig.tenant_id == tenant_id)
+        .execution_options(populate_existing=True)
+    )
+    bot = (await session.execute(stmt)).scalar_one_or_none()
+    if bot is None:
+        raise NotFoundError("Versión del bot no encontrada")
+    return bot
+
+
+async def list_version_summaries(session: AsyncSession, tenant_id: uuid.UUID) -> list[BotConfig]:
+    """Versiones sin cargar JSON pesado (config, prompt, meta): solo para listados."""
+    stmt = (
+        select(BotConfig)
+        .options(
+            defer(BotConfig.config),
+            defer(BotConfig.system_prompt),
+            defer(BotConfig.generation_meta),
+            defer(BotConfig.source_inputs),
+            defer(BotConfig.booking_rules),
+            defer(BotConfig.guardrails),
+            defer(BotConfig.templates),
+        )
+        .where(BotConfig.tenant_id == tenant_id)
+        .order_by(BotConfig.version.desc())
+    )
+    return list((await session.execute(stmt)).scalars())
+
+
+def rollback_blockers(bot: BotConfig, cfg: GeneratedBotConfig) -> list[str]:
+    """Pendientes de revision de la version destino de un rollback."""
+    out: list[str] = []
+    info = review_info(bot)
+    if cfg.open_questions:
+        out.append(
+            f"Esa versión tiene {len(cfg.open_questions)} pregunta(s) abiertas sin resolver."
+        )
+    if any(f.type == "prompt_injection_suspected" for f in cfg.flags) and not info.get("flags_ack"):
+        out.append("Esa versión tiene una alerta de posible inyección sin revisar.")
+    if info.get("hours_ungrounded") and not info.get("hours_confirmed"):
+        out.append("Los horarios de esa versión no fueron confirmados.")
+    return out
 
 
 async def list_services(session: AsyncSession, tenant_id: uuid.UUID) -> list[Service]:
@@ -364,11 +415,21 @@ async def update_service(
     """Edita y marca como confirmado por una persona."""
     if not 2 <= len(name.strip()) <= 120:
         raise AppError("invalid_name", "El nombre debe tener entre 2 y 120 caracteres", 422)
-    if price_cop is not None and not 0 <= price_cop <= 50_000_000:
+    if price_cop is not None and (isinstance(price_cop, bool) or not 0 <= price_cop <= 50_000_000):
         raise AppError("invalid_price", "Precio fuera de rango", 422)
     if not 5 <= duration_min <= 480:
         raise AppError("invalid_duration", "La duración debe estar entre 5 y 480 minutos", 422)
     row = await _service(session, tenant_id, service_id)
+    clash = await session.scalar(
+        select(Service.id).where(
+            Service.tenant_id == tenant_id,
+            Service.id != row.id,
+            Service.is_active.is_(True),
+            func.lower(Service.name) == name.strip().lower(),
+        )
+    )
+    if clash is not None:
+        raise AppError("duplicate_service", "Ya existe un servicio con ese nombre", 422)
     row.name = name.strip()
     row.description = description.strip()[:300]
     row.price_cop = price_cop
