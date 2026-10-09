@@ -1,0 +1,2 @@
+{%- set b = band_for(score) -%}
+<span class="badge badge-{{ 'ok' if b == 'caliente' else ('warn' if b == 'tibio' else 'neutral') }}" title="Calidad: {{ b }}">{{ score }} · {{ {'caliente': 'Caliente', 'tibio': 'Tibio', 'frio': 'Frío'}[b] }}</span>

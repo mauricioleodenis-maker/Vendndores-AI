@@ -104,7 +104,7 @@ def get_rate_limiter() -> RateLimiter:
         if url:
             import redis.asyncio as aioredis
 
-            _limiter = RedisRateLimiter(aioredis.from_url(url, decode_responses=True))
+            _limiter = RedisRateLimiter(aioredis.from_url(url, decode_responses=True))  # type: ignore[no-untyped-call]
         else:
             _limiter = MemoryRateLimiter()
     return _limiter

@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% from "partials/macros.html" import badge, csrf with context %}
+{% block title %}{{ lead.name }}{% endblock %}
+{% block content %}
+<h1>{{ lead.name }}</h1>
+{% include "leads/_tabs.html" %}
+<div class="lead-grid">
+  <section class="card">
+    <h2>Datos</h2>
+    <dl class="lead-dl">
+      <dt>Nicho</dt><dd>{{ lead.niche | nicho_es }}</dd>
+      <dt>Ciudad</dt><dd>{{ lead.city or '-' }}</dd>
+      <dt>Dirección</dt><dd>{{ lead.address or '-' }}</dd>
+      <dt>Teléfono</dt><dd>{{ lead.phone_e164 or '-' }}{% if lead.phone_type %} <span class="muted">({{ {'mobile': 'móvil', 'landline': 'fijo', 'unknown': 'desconocido'}[lead.phone_type] }})</span>{% endif %}</dd>
+      <dt>Web</dt><dd>{% if lead.website %}<a href="{{ lead.website }}" rel="noopener noreferrer nofollow" target="_blank">{{ lead.website_domain or lead.website }}</a>{% else %}-{% endif %}</dd>
+      <dt>Instagram</dt><dd>{{ ('@' ~ lead.instagram_handle) if lead.instagram_handle else '-' }}</dd>
+      <dt>Google</dt><dd>{% if lead.rating is not none %}{{ lead.rating }} ★ ({{ lead.review_count or 0 }} reseñas){% else %}-{% endif %}
+        {% if lead.maps_url and lead.maps_url.startswith('https://') %} · <a href="{{ lead.maps_url }}" rel="noopener noreferrer nofollow" target="_blank">Ver en Google Maps</a>{% endif %}</dd>
+      <dt>Etiquetas</dt><dd>{% for t in lead.tags or [] %}<span class="badge badge-neutral">{{ t }}</span> {% else %}-{% endfor %}</dd>
+    </dl>
+    <p class="muted">Datos de Google Maps. Origen: Google.</p>
+  </section>
+
+  <section class="card">
+    <h2>Puntaje {% with score=lead.score %}{% include "leads/_band.html" %}{% endwith %}</h2>
+    <ul>
+    {% for rule, info in (lead.score_breakdown or {}).items() %}
+      <li>{{ rule | replace('_', ' ') }}: <strong>{{ '%+d' | format(info.points) }}</strong> <span class="muted">{{ info.detail }}</span></li>
+    {% else %}<li class="muted">Sin desglose.</li>{% endfor %}
+    </ul>
+    <h2>Etapa</h2>
+    <p>{{ badge(lead.stage) }} {% if lead.disposition != 'activo' %}{{ badge(lead.disposition) }}{% endif %}</p>
+    <form method="post" action="/admin/leads/{{ lead.id }}/etapa" class="filters">
+      {{ csrf() }}
+      <label>Mover a
+        <select name="stage">{% for s in stages %}<option value="{{ s }}" {% if s == lead.stage %}selected{% endif %}>{{ s | estado_es }}</option>{% endfor %}</select>
+      </label>
+      <button class="btn" type="submit">Cambiar etapa</button>
+    </form>
+  </section>
+</div>
+
+<section class="card">
+  <h2>Agregar nota</h2>
+  <form method="post" action="/admin/leads/{{ lead.id }}/nota">
+    {{ csrf() }}
+    <div class="field">
+      <label for="f-text">Nota</label>
+      <textarea id="f-text" name="text" rows="3" maxlength="2000" required></textarea>
+    </div>
+    <button class="btn btn-primary" type="submit">Guardar nota</button>
+  </form>
+</section>
+
+<section class="card">
+  <h2>Historial</h2>
+  <ol class="timeline">
+  {% for e in events %}
+    <li>
+      <span class="muted">{{ e.ts | fecha_hora }}</span>
+      <strong>{{ event_labels.get(e.kind, e.kind) }}</strong>
+      {% if e.kind == 'stage_changed' %}: {{ e.data.get('from') | estado_es }} → {{ e.data.get('to') | estado_es }}
+      {% elif e.kind == 'note' %}<p>{{ e.data.get('text', '') }}</p>{% endif %}
+    </li>
+  {% else %}<li class="muted">Sin eventos.</li>{% endfor %}
+  </ol>
+</section>
+{% endblock %}

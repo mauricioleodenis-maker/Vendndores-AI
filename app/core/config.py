@@ -24,7 +24,9 @@ class Settings(BaseSettings):
 
     # Seguridad
     secret_key: SecretStr = SecretStr(_DEV_SECRET)
-    master_keys: SecretStr = SecretStr("")  # JSON {"v2": "<b64 32B>", "v1": "..."}; la primera es la activa
+    master_keys: SecretStr = SecretStr(
+        ""
+    )  # JSON {"v2": "<b64 32B>", "v1": "..."}; la primera es la activa
     phone_hash_key: SecretStr = SecretStr("")
     session_ttl_min: int = 480
     session_absolute_ttl_days: int = 7

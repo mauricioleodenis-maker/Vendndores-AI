@@ -1,0 +1,17 @@
+{% if state == 'building' %}
+<div id="progreso" hx-get="/admin/negocios/{{ tenant.id }}/estado" hx-trigger="every 2s" hx-swap="outerHTML" role="status" aria-live="polite">
+  <p><strong>Generando el bot de {{ tenant.name }}…</strong></p>
+  <progress aria-label="Generando"></progress>
+  <p class="muted">Estamos leyendo la web y armando servicios, FAQs y reglas. Puede tardar un minuto.</p>
+</div>
+{% elif bot_url %}
+<div id="progreso" role="status">
+  <div class="alert alert-ok">¡Listo! El bot está en revisión.</div>
+  <a class="btn btn-primary" href="{{ bot_url }}">Revisar bot</a>
+</div>
+{% else %}
+<div id="progreso" role="alert">
+  <div class="alert alert-error">No pudimos generar el bot. Revisa los datos e inténtalo de nuevo.</div>
+  <a class="btn btn-primary" href="/admin/negocios/{{ tenant.id }}/wizard?paso=3">Reintentar</a>
+</div>
+{% endif %}

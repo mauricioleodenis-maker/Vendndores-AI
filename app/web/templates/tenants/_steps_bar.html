@@ -1,0 +1,5 @@
+<ol class="steps" aria-label="Progreso">
+  {% for n, label in [(1, 'Datos del negocio'), (2, 'Servicios y horarios'), (3, 'Revisar y generar')] %}
+  <li {% if n == step %}aria-current="step" class="active"{% endif %}>{{ n }}. {{ label }}</li>
+  {% endfor %}
+</ol>

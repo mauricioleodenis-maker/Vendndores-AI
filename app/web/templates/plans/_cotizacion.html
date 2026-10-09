@@ -1,0 +1,19 @@
+<div id="cotizacion" role="status" aria-live="polite">
+{% if error %}
+  <div class="alert alert-warn">{{ error }}</div>
+{% elif quote %}
+  <table>
+    <tbody>
+      <tr><td>Instalación (lista)</td><td>{{ quote.setup_cop | cop }}</td></tr>
+      <tr><td>Mensualidad (lista)</td><td>{{ quote.monthly_cop | cop }}</td></tr>
+      {% for d in quote.discounts %}
+      <tr><td>{{ d.label }}</td><td>-{{ d.amount_cop | cop }}</td></tr>
+      {% endfor %}
+      <tr><td>Primera factura antes de IVA</td><td>{{ (quote.setup_net_cop + quote.first_month_net_cop) | cop }}</td></tr>
+      {% if quote.include_iva %}<tr><td>IVA (19%)</td><td>{{ quote.iva_cop | cop }}</td></tr>{% endif %}
+      <tr><th scope="row">Total primera factura</th><td><strong>{{ quote.total_first_invoice_cop | cop }}</strong></td></tr>
+      <tr><td>Mensualidad desde el mes 2</td><td>{{ quote.recurring_monthly_cop | cop }}</td></tr>
+    </tbody>
+  </table>
+{% endif %}
+</div>

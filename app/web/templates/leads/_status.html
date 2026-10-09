@@ -1,0 +1,22 @@
+<div id="estado-busqueda" class="card" aria-live="polite"
+  {% if not status.finished %}hx-get="/admin/leads/sources/{{ status.source_id }}/status" hx-trigger="load delay:2s" hx-swap="outerHTML"{% endif %}>
+  <h2>Búsqueda
+    {% if status.status == 'queued' %}<span class="badge badge-neutral">En cola</span>
+    {% elif status.status == 'running' %}<span class="badge badge-info">En curso</span>
+    {% elif status.status == 'done' %}<span class="badge badge-ok">Terminada</span>
+    {% elif status.status == 'partial' %}<span class="badge badge-warn">Parcial</span>
+    {% else %}<span class="badge badge-danger">Fallida</span>{% endif %}
+  </h2>
+  {% if status.error %}<div class="alert alert-warn" role="alert">{{ status.error }}</div>{% endif %}
+  {% if status.finished %}
+  <ul>
+    <li>Lugares encontrados: {{ status.found or 0 }}</li>
+    <li>Leads nuevos: {{ status.created or 0 }} · Fusionados con existentes: {{ status.merged or 0 }}</li>
+    <li>Sin teléfono ni web (omitidos): {{ status.skipped_no_phone or 0 }}</li>
+    <li>Solicitudes a Google: {{ status.requests or 0 }} (≈ US$ {{ '%.2f' | format(status.cost_usd or 0) }})</li>
+  </ul>
+  <a class="btn btn-primary" href="/admin/leads">Ver leads</a>
+  {% else %}
+  <p class="muted">Buscando en Google… esta página se actualiza sola.</p>
+  {% endif %}
+</div>

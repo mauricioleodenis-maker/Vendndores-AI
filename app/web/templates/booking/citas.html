@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% from "partials/macros.html" import badge, empty_state, csrf %}
+{% block title %}Citas{% endblock %}
+{% block content %}
+<h1>Citas</h1>
+{% if not tenant %}
+{{ empty_state('Sin empresas', 'Crea una empresa para empezar a agendar citas.', '/admin/negocios/nuevo', 'Nueva empresa') }}
+{% else %}
+{% set action = '/admin/citas' %}
+{% include "booking/_selector.html" %}
+<p><a class="btn btn-ghost" href="/admin/citas/horarios?tenant_id={{ tenant.id }}">Horario de atención</a></p>
+
+<nav class="week" aria-label="Semana">
+  <a class="btn btn-ghost" href="/admin/citas?tenant_id={{ tenant.id }}&dia={{ prev_day.isoformat() }}">&larr; Día anterior</a>
+  {% for d in week %}
+  <a class="btn {% if d.selected %}btn-primary{% else %}btn-ghost{% endif %}" href="/admin/citas?tenant_id={{ tenant.id }}&dia={{ d.date.isoformat() }}" {% if d.selected %}aria-current="date"{% endif %}>
+    {{ d.label }} {{ d.date.day }}{% if d.count %} ({{ d.count }}){% endif %}{% if d.holiday %} *{% endif %}
+  </a>
+  {% endfor %}
+  <a class="btn btn-ghost" href="/admin/citas?tenant_id={{ tenant.id }}&dia={{ next_day.isoformat() }}">Día siguiente &rarr;</a>
+</nav>
+
+<h2>{{ day | fecha }}{% if holiday %} <span class="badge badge-warn">Festivo: {{ holiday }}</span>{% endif %}</h2>
+{% if rows %}
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Hora</th><th>Servicio</th><th>Cliente</th><th>Estado</th><th>Origen</th><th></th></tr></thead>
+  <tbody>
+  {% for r in rows %}
+    <tr>
+      <td>{{ r.starts_at.astimezone(tz).strftime('%H:%M') }} - {{ r.ends_at.astimezone(tz).strftime('%H:%M') }}</td>
+      <td>{{ r.service }}</td>
+      <td>{{ r.contact }}</td>
+      <td>{{ badge(r.status) }}{% if r.sync_status == 'pending_push' or r.sync_status == 'failed' %} <span class="badge badge-warn">Sin sincronizar</span>{% endif %}</td>
+      <td>{{ 'Manual' if r.source == 'manual' else 'Bot' }}</td>
+      <td>
+        {% if r.can_cancel %}
+        <form method="post" action="/admin/citas/{{ r.id }}/cancelar" data-confirm="¿Cancelar esta cita?">
+          {{ csrf() }}<input type="hidden" name="tenant_id" value="{{ tenant.id }}">
+          <input name="motivo" maxlength="300" placeholder="Motivo (opcional)" aria-label="Motivo de cancelación">
+          <button class="btn btn-ghost" type="submit">Cancelar</button>
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}
+{{ empty_state('Sin citas', 'No hay citas para este día.') }}
+{% endif %}
+
+<h2>Nueva cita manual</h2>
+{% if services %}
+<form method="post" action="/admin/citas/nueva" class="card">
+  {{ csrf() }}<input type="hidden" name="tenant_id" value="{{ tenant.id }}">
+  <label>Servicio
+    <select name="service_id" required>{% for s in services %}<option value="{{ s.id }}">{{ s.name }} ({{ s.duration_min }} min)</option>{% endfor %}</select>
+  </label>
+  <label>Fecha <input type="date" name="fecha" value="{{ day.isoformat() }}" required></label>
+  <label>Hora <input type="time" name="hora" required></label>
+  <label>Teléfono del cliente <input name="telefono" inputmode="tel" placeholder="300 123 4567" maxlength="30" required></label>
+  <label>Nombre <input name="nombre" maxlength="120"></label>
+  <button class="btn btn-primary" type="submit">Crear cita</button>
+</form>
+{% else %}
+{{ empty_state('Sin servicios', 'Agrega un servicio activo a la empresa para poder agendar.') }}
+{% endif %}
+{% endif %}
+{% endblock %}

@@ -52,7 +52,12 @@ def _set_session_cookie(response: Response, token: str) -> None:
 
 
 def _login_page(
-    request: Request, *, error: str | None = None, email: str = "", next_url: str = "", status: int = 200
+    request: Request,
+    *,
+    error: str | None = None,
+    email: str = "",
+    next_url: str = "",
+    status: int = 200,
 ) -> Response:
     token = new_csrf_token()
     resp = render(

@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% from "partials/macros.html" import badge, empty_state, pager %}
+{% block title %}Leads{% endblock %}
+{% block content %}
+<h1>Leads</h1>
+{% include "leads/_tabs.html" %}
+{% with action="/admin/leads", show_stage=True %}{% include "leads/_filters.html" %}{% endwith %}
+<p class="muted"><a href="{{ export_url }}">Exportar CSV</a></p>
+{% if leads %}
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Negocio</th><th>Nicho / ciudad</th><th>Teléfono</th><th>Reseñas</th><th>Puntaje</th><th>Etapa</th></tr></thead>
+  <tbody>
+  {% for l in leads %}
+    <tr>
+      <td><a href="/admin/leads/{{ l.id }}">{{ l.name }}</a>
+        {% if l.disposition != 'activo' %} {{ badge(l.disposition) }}{% endif %}</td>
+      <td>{{ l.niche | nicho_es }}<br><span class="muted">{{ l.city }}</span></td>
+      <td>{{ l.phone_e164 or '-' }}</td>
+      <td>{% if l.rating is not none %}{{ l.rating }} ★{% else %}-{% endif %} <span class="muted">({{ l.review_count or 0 }})</span></td>
+      <td>{% with score=l.score %}{% include "leads/_band.html" %}{% endwith %}</td>
+      <td>{{ badge(l.stage) }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{{ pager(base_url, f.page, has_more) }}
+{% else %}
+{{ empty_state('Sin leads', 'Busca negocios en Google o importa un CSV para empezar.', '/admin/leads/buscar', 'Buscar en Google') }}
+{% endif %}
+{% endblock %}

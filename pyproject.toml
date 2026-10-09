@@ -68,10 +68,10 @@ extend-exclude = ["alembic/versions"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "S", "ASYNC", "SIM"]
-ignore = ["S101", "B008"]
+ignore = ["S101", "B008", "ASYNC109", "UP046", "UP047"]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["S105", "S106", "S101", "S311"]
+"tests/**" = ["S105", "S106", "S101", "S311", "S104", "E501", "SIM105", "B007", "B017"]
 
 [tool.mypy]
 python_version = "3.12"

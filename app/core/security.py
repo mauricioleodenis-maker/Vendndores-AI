@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import hmac
 import re
@@ -36,10 +37,8 @@ def hash_password(password: str) -> str:
 def verify_password(password_hash: str | None, password: str) -> bool:
     """Verifica en tiempo uniforme; si no hay hash gasta el mismo trabajo con uno ficticio."""
     if password_hash is None:
-        try:
+        with contextlib.suppress(VerificationError, InvalidHashError):
             _hasher.verify(_DUMMY_HASH, password)
-        except (VerificationError, InvalidHashError):
-            pass
         return False
     try:
         return _hasher.verify(password_hash, password)

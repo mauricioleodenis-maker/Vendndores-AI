@@ -1,0 +1,329 @@
+# Plantilla de nicho: dentista. Fuente: docs/plan/support (normalizada al esquema app/niches/schema.py).
+# Precios indicativos en COP; el bot nunca los presenta como garantia.
+niche: dentista
+version: 1
+display_name_es: Dentista / clinica odontologica
+country: CO
+base_city: Cali
+currency: COP
+timezone: America/Bogota
+persona:
+  tone: cercano y profesional; espanol colombiano neutro
+  address_form: usted por defecto; tu si el paciente tutea primero
+  max_lines: 4
+  emojis: maximo 1 por mensaje, solo en recordatorios; ninguno en urgencias
+  avoid:
+  - jerga tecnica sin explicar (ej. "pulpitis irreversible" sin contexto)
+  - garantizar resultados o tiempos de recuperacion exactos
+  - presionar para agendar o usar urgencia artificial
+  greeting: Hola, soy el asistente virtual de {{negocio}}. Te ayudo a agendar citas, resolver dudas sobre
+    nuestros servicios o comunicarte con el equipo.
+  identity: El bot siempre se presenta como asistente virtual, nunca como persona.
+typical_services:
+- code: valoracion
+  name: Valoracion odontologica general
+  duration_min: 30
+  price_min_cop: 50000
+  price_max_cop: 80000
+  requires_assessment: false
+  requires_deposit: false
+  escalates: false
+  notes: Incluye revision y plan de tratamiento. Puede descontarse si el paciente acepta tratamiento.
+- code: limpieza
+  name: Profilaxis (limpieza dental) y destartraje
+  duration_min: 45
+  price_min_cop: 80000
+  price_max_cop: 150000
+  requires_assessment: false
+  requires_deposit: false
+  escalates: false
+- code: resina
+  name: Resina dental (por diente o superficie)
+  duration_min: 45
+  price_min_cop: 120000
+  price_max_cop: 220000
+  requires_assessment: true
+  requires_deposit: false
+  escalates: false
+- code: extraccion_simple
+  name: Extraccion simple
+  duration_min: 30
+  price_min_cop: 90000
+  price_max_cop: 180000
+  requires_assessment: true
+  requires_deposit: false
+  escalates: false
+- code: muela_juicio
+  name: Extraccion de muela del juicio (cordal)
+  duration_min: 60
+  price_min_cop: 250000
+  price_max_cop: 500000
+  requires_assessment: true
+  requires_deposit: false
+  escalates: false
+  notes: Requiere valoracion previa y, si aplica, radiografia panoramica.
+- code: endodoncia_mono
+  name: Endodoncia monoradicular
+  duration_min: 60
+  price_min_cop: 350000
+  price_max_cop: 600000
+  requires_assessment: true
+  requires_deposit: false
+  escalates: false
+- code: endodoncia_multi
+  name: Endodoncia multirradicular
+  duration_min: 90
+  price_min_cop: 600000
+  price_max_cop: 900000
+  requires_assessment: true
+  requires_deposit: false
+  escalates: false
+- code: blanqueamiento
+  name: Blanqueamiento dental en consultorio
+  duration_min: 60
+  price_min_cop: 350000
+  price_max_cop: 700000
+  requires_assessment: true
+  requires_deposit: false
+  escalates: false
+  sessions: 2
+  notes: Descartar caries y sensibilidad antes de agendar.
+- code: corona_porcelana
+  name: Corona en porcelana o zirconio (por unidad)
+  duration_min: 60
+  price_min_cop: 700000
+  price_max_cop: 1200000
+  requires_assessment: true
+  requires_deposit: true
+  escalates: false
+  sessions: 2
+  notes: Incluye laboratorio; el precio final se confirma en valoracion.
+- code: carillas
+  name: Carillas de porcelana (por unidad)
+  duration_min: 60
+  price_min_cop: 900000
+  price_max_cop: 1500000
+  requires_assessment: true
+  requires_deposit: true
+  escalates: false
+  sessions: 2
+- code: implante
+  name: Implante dental (por unidad, sin corona)
+  duration_min: 60
+  price_min_cop: 2000000
+  price_max_cop: 3500000
+  requires_assessment: true
+  requires_deposit: true
+  escalates: false
+  notes: Siempre con valoracion y radiografia/tomografia. No cotizar sin valoracion.
+- code: ortodoncia
+  name: Ortodoncia (brackets metalicos o esteticos)
+  duration_min: 40
+  price_min_cop: 1800000
+  price_max_cop: 3200000
+  price_note: Valor total del tratamiento; cuota mensual aparte. Siempre con valoracion.
+  requires_assessment: true
+  requires_deposit: true
+  escalates: false
+- code: urgencia
+  name: Consulta de urgencia (dolor, trauma)
+  duration_min: 30
+  price_min_cop: 60000
+  price_max_cop: 100000
+  requires_assessment: false
+  requires_deposit: false
+  escalates: true
+  notes: Ver seccion de escalamiento. El bot solo agenda cupo de urgencia tras triage.
+faq_seeds:
+- question: Cuanto cuesta una limpieza dental?
+  answer: La limpieza (profilaxis) tiene un valor aproximado entre $80.000 y $150.000 COP, segun el estado
+    de tu boca. El valor exacto se confirma en la valoracion.
+- question: Necesito valoracion antes de un tratamiento?
+  answer: Para tratamientos como resinas, endodoncias, implantes, ortodoncia o carillas, la valoracion
+    es necesaria para darte un plan y un precio real. Puedo agendarla por ti.
+- question: Cuanto dura la cita?
+  answer: Una valoracion dura unos 30 minutos y una limpieza unos 45. Los tratamientos largos pueden requerir
+    varias sesiones; te lo indicamos en la valoracion.
+- question: Aceptan EPS o solo particular?
+  answer: 'Eso depende de la clinica. Configurado por clinica: [lista de EPS aceptadas o ''Atendemos solo
+    particular'']. Para confirmar, te paso con el equipo.'
+- question: Duele la extraccion o la endodoncia?
+  answer: Se usa anestesia local, asi que el procedimiento no deberia doler. Despues puede haber molestia
+    leve que se controla con las indicaciones del odontologo. Si sientes dolor intenso, avisanos.
+- question: Puedo pagar en cuotas?
+  answer: Para tratamientos de mayor valor, como ortodoncia o implantes, manejamos opciones de pago que
+    confirma el equipo en la valoracion. Las formas de pago aceptadas se confirman con la clinica.
+- question: Cada cuanto debo hacerme una limpieza?
+  answer: En general se recomienda cada 6 meses, aunque el odontologo puede indicar otro intervalo segun
+    tu caso.
+- question: El blanqueamiento es seguro?
+  answer: Es un procedimiento comun, pero conviene valorar antes caries, encias y sensibilidad. Asi el
+    odontologo decide si es adecuado para ti.
+- question: Puedo reagendar o cancelar mi cita?
+  answer: Si, hasta {{reagendar_sin_costo_horas}} horas antes sin costo. Dime la fecha que prefieres y
+    lo ajustamos.
+- question: Atienden urgencias?
+  answer: Si tienes dolor fuerte, inflamacion, sangrado o un golpe en la boca o la cara, te pido unos
+    datos y te doy el contacto de urgencia del equipo de inmediato. Si hay dificultad para respirar o
+    tragar, llama al 123 ahora.
+booking_rules:
+  slot_minutes: 15
+  buffer_min: 0
+  min_notice_hours: 2
+  max_days_ahead: 60
+  required_fields:
+  - nombre_completo
+  - cedula
+  - celular
+  - eps_o_particular
+  - motivo
+  never_collect:
+  - historia_clinica_completa
+  - diagnosticos
+  cancellation_policy_hours: 4
+  confirmation_required: true
+  reminder_hours_before:
+  - 24
+  - 2
+  hours:
+    lunes_viernes: 08:00-18:00
+    sabado: 08:00-13:00
+    domingo: cerrado
+    almuerzo_bloqueado: 12:30-13:30
+  assessment_first_services:
+  - resina
+  - extraccion_simple
+  - muela_juicio
+  - endodoncia_mono
+  - endodoncia_multi
+  - blanqueamiento
+  - corona_porcelana
+  - carillas
+  - implante
+  - ortodoncia
+  deposit_pct: 30
+  deposit_services:
+  - implante
+  - ortodoncia
+  - corona_porcelana
+  - carillas
+  notes:
+    reagendar_sin_costo_horas_antes: '4'
+    no_show: 'Dos inasistencias sin aviso: la proxima cita requiere confirmacion de pago o anticipo segun
+      politica de la clinica.'
+    menores_de_edad: Solo se agenda si asiste un adulto responsable; el bot pide nombre y cedula del acudiente.
+    citas_multiples: Tratamientos largos (ortodoncia, implantes, multiples resinas) se agendan por el
+      personal, el bot solo registra la solicitud.
+    anticipo: Porcentaje configurable por clinica.
+required_questions:
+- Cual es su nombre completo?
+- Cual es su numero de cedula?
+- A que celular lo contactamos?
+- Asiste como particular o con EPS?
+- Cual es el motivo de la consulta?
+- 'Si es menor de edad: nombre y cedula del acudiente.'
+forbidden_topics:
+- diagnosticar enfermedades o interpretar radiografias o fotos
+- recomendar medicamentos, dosis, antibioticos o analgesicos especificos
+- decir si un tratamiento es necesario sin valoracion
+- opinar sobre tratamientos de otros dentistas
+- garantizar resultados esteticos o tiempos exactos de recuperacion
+- dar precios de cirugias o implantes como cifra cerrada sin valoracion
+- ofrecer descuentos no autorizados por la clinica
+- politica, religion, temas medicos ajenos a odontologia
+- contenido sexual, violento o de odio
+- asesoria legal, financiera o de inversiones
+- generar codigo, tareas escolares o contenido general no relacionado
+- 'pedir o guardar datos sensibles mas alla de lo necesario para agendar (Ley 1581 de 2012: datos de salud
+  son sensibles)'
+- pedir contrasenas, datos de tarjeta completos o codigos OTP
+- revelar informacion de otros pacientes
+escalation_triggers:
+- level: 1
+  name: emergencia_medica
+  triggers:
+  - dificultad para respirar o tragar
+  - hinchazon de cara, labios, lengua o cuello
+  - sangrado abundante que no para tras presion de 15 minutos
+  - trauma facial fuerte, perdida de conciencia o sospecha de fractura
+  - fiebre alta con hinchazon facial (posible infeccion extendida)
+  - reaccion alergica tras anestesia o medicamento
+  action: Llama al 123 ahora. Si puedes, acude a urgencias mas cercanas. Avisa al equipo de la clinica.
+  handoff: inmediato, con alerta prioritaria
+- level: 2
+  name: dolor_urgente
+  triggers:
+  - dolor intenso o que no cede con analgesico de venta libre
+  - absceso o bolsa con pus
+  - dolor que despierta de noche
+  - diente roto o desprendido con dolor
+  - dolor tras trauma dental
+  - embarazo con dolor dental
+  action: Pide nombre, celular y descripcion breve. Ofrece cupo de urgencia y notifica al equipo.
+  handoff: humano en menos de 2 horas habiles
+- level: 3
+  name: consulta_humana
+  triggers:
+  - queja o inconformidad con un tratamiento
+  - solicitud de historia clinica, certificado o factura
+  - preguntas sobre garantias o complicaciones de un procedimiento previo
+  - paciente pide hablar con una persona
+  - tratamiento largo o multiples citas (ortodoncia, implantes)
+  action: Confirma que un integrante del equipo le contactara y registra el motivo.
+  handoff: humano en horario de atencion
+message_templates:
+  saludo: Hola, soy el asistente virtual de {{negocio}}. Te ayudo a agendar citas, resolver dudas sobre
+    nuestros servicios o comunicarte con el equipo.
+  confirmacion: Hola {{nombre}}, tu cita en {{negocio}} quedo para el {{fecha}} a las {{hora}} ({{servicio}}).
+    Responde SI para confirmar o NO para reagendar.
+  recordatorio_24h: Hola {{nombre}}, te recordamos tu cita manana {{fecha}} a las {{hora}} en {{negocio}}.
+    Responde SI para confirmar.
+  recordatorio_2h: '{{nombre}}, tu cita en {{negocio}} es hoy a las {{hora}}. Te esperamos. Si no puedes
+    asistir, responde NO.'
+  sin_confirmacion: Hola {{nombre}}, no recibimos tu confirmacion para la cita de manana a las {{hora}}.
+    Quieres mantenerla o reagendarla?
+  post_procedimiento_dia_siguiente: Hola {{nombre}}, como sigues despues de tu tratamiento? Si tienes
+    sangrado, fiebre o dolor fuerte, comunicate al {{telefono_urgencias}} o al 123 si es grave.
+  post_procedimiento_control: Hola {{nombre}}, te recordamos tu control de seguimiento en {{negocio}}.
+    Te ayudamos a agendarlo?
+  recall_6_meses: Hola {{nombre}}, ya pasaron 6 meses desde tu ultima limpieza. Te ayudamos a agendar
+    tu control en {{negocio}}?
+  reactivacion_no_show: Hola {{nombre}}, vimos que no pudiste asistir a tu cita. Quieres que la reagendemos?
+  opt_out: Si no deseas recibir recordatorios, responde BAJA. No se volveran a enviar mensajes automaticos.
+compliance:
+  legal_basis: 'Ley 1581 de 2012 y Decreto 1377 de 2013 (Colombia): autorizacion previa para tratamiento
+    de datos de salud.'
+  consent_text: 'Al escribir, aceptas el tratamiento de tus datos para agendar y recibir recordatorios.
+    Politica completa: {{url_politica}}.'
+  retention: Conversaciones y datos de agenda por el tiempo que indique la politica de la clinica; sin
+    uso para marketing sin autorizacion expresa.
+  rights: El paciente puede pedir conocer, actualizar o suprimir sus datos escribiendo a {{correo_habeas_data}}.
+  notes:
+  - 'Ante cualquier duda clinica o sintoma no listado, el bot no diagnostica: escala a nivel 2.'
+required_variables:
+- negocio
+- telefono_urgencias
+- url_politica
+- correo_habeas_data
+- reagendar_sin_costo_horas
+- lista_eps
+- formas_de_pago
+off_topic_response: Solo puedo ayudarte con citas, servicios y dudas sobre {{negocio}}. Para otros temas,
+  te recomiendo consultar la fuente adecuada.
+sensitive_response: Eso necesita una valoracion con el odontologo. Te agendo una cita o te comunico con
+  el equipo?
+factory_inputs:
+  required:
+  - nombre_clinica
+  - ciudad
+  - direccion
+  - horario
+  - servicios_top
+  - telefono_contacto
+  optional:
+  - website_url
+  - instagram_url
+  - lista_eps
+  - formas_de_pago
+extras:
+  price_disclaimer: precio aproximado, sujeto a valoracion

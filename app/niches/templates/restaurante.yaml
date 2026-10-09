@@ -1,0 +1,269 @@
+# Plantilla de nicho: restaurante. Fuente: docs/plan/support (normalizada al esquema app/niches/schema.py).
+# Precios indicativos en COP; el bot nunca los presenta como garantia.
+niche: restaurante
+version: 1
+display_name_es: Restaurante
+country: CO
+base_city: Cali
+currency: COP
+timezone: America/Bogota
+persona:
+  tone: calido, cercano y servicial; espanol colombiano neutro
+  address_form: tu por defecto; usted si el cliente lo usa primero
+  max_lines: 4
+  emojis: maximo 1 por mensaje, opcional; ninguno en quejas
+  avoid:
+  - inventar platos, ingredientes, precios o disponibilidad
+  - prometer tiempos de entrega exactos
+  - presionar para pedir mas (sin upselling agresivo)
+  greeting: Hola, soy el asistente virtual de {{negocio}}. Te ayudo con reservas, el menu, domicilios
+    y eventos.
+  identity: El bot siempre se presenta como asistente virtual, nunca como persona.
+typical_services:
+- code: reserva_mesa
+  name: Reserva de mesa
+  duration_min: 90
+  requires_assessment: false
+  requires_deposit: false
+  escalates: false
+  notes: Sin costo. Algunos restaurantes piden anticipo por reservas de grupos grandes.
+- code: menu_carta
+  name: Consulta de carta / menu del dia
+  requires_assessment: false
+  requires_deposit: false
+  escalates: false
+  notes: El bot responde con el menu cargado por el restaurante; nunca inventa platos.
+- code: domicilio
+  name: Pedido a domicilio
+  requires_assessment: false
+  requires_deposit: false
+  escalates: false
+  notes: Costo de domicilio aparte, ver seccion 4.
+- code: evento_privado
+  name: Evento privado (cumpleanos, reunion, celebracion)
+  duration_min: 180
+  price_min_cop: 500000
+  price_max_cop: 3000000
+  price_note: Minimo de consumo o alquiler del espacio; lo define el restaurante.
+  requires_assessment: false
+  requires_deposit: true
+  escalates: true
+  notes: El bot registra la solicitud; el cierre lo hace el administrador.
+- code: catering
+  name: Catering / pedido corporativo
+  price_min_cop: 35000
+  price_max_cop: 90000
+  price_note: Valor por persona, segun el paquete; cotizacion final humana.
+  requires_assessment: false
+  requires_deposit: false
+  escalates: true
+faq_seeds:
+- question: Tienen mesa para hoy?
+  answer: Puedo revisar disponibilidad para hoy. Dime cuantas personas son y a que hora te gustaria.
+- question: Cuanto cuesta el menu del dia?
+  answer: El menu del dia tiene un valor aproximado entre $18.000 y $32.000 COP, segun el restaurante
+    y el dia. Te confirmo el precio exacto de hoy.
+- question: Hacen domicilios?
+  answer: Si, a las zonas de cobertura de {{negocio}}. Dime tu barrio y te digo si llegamos y cuanto cuesta
+    el domicilio.
+- question: Puedo reservar para un cumpleanos?
+  answer: Claro. Para eventos privados te pido fecha, cantidad de personas y la ocasion, y el equipo te
+    contacta para confirmar espacio y valor.
+- question: Tienen opciones vegetarianas o veganas?
+  answer: Revisa la carta en la ficha del restaurante. Si tienes una restriccion alimentaria, lo anoto
+    en tu reserva y el equipo te orienta en el local.
+- question: Aceptan tarjeta?
+  answer: 'Los medios de pago dependen del restaurante: efectivo, transferencia o tarjeta en el local.
+    Te indico los que aplican a tu pedido.'
+- question: Puedo cancelar o cambiar mi reserva?
+  answer: Si, hasta {{cancelar_sin_costo_horas}} horas antes sin costo. Dime la nueva fecha u hora y lo
+    ajustamos.
+- question: Hay parqueadero?
+  answer: Eso lo confirma el restaurante segun su ubicacion. Te indico la informacion que tengamos registrada.
+- question: Admiten ninos o hay zona infantil?
+  answer: Los ninos son bienvenidos. Si necesitas silla alta o zona especial, lo dejo anotado en la reserva.
+- question: Puedo llevar torta o decoracion para un evento?
+  answer: Consulta esa politica con el equipo; algunos restaurantes lo permiten con cargo. Te comunico
+    con ellos ahora.
+booking_rules:
+  slot_minutes: 30
+  buffer_min: 0
+  min_notice_hours: 1
+  max_days_ahead: 30
+  required_fields:
+  - nombre
+  - celular
+  - numero_personas
+  - fecha
+  - hora
+  optional_fields:
+  - ocasion_especial
+  - ubicacion_preferida
+  - alergias_o_restricciones
+  cancellation_policy_hours: 2
+  confirmation_required: true
+  reminder_hours_before:
+  - 24
+  - 2
+  hours:
+    lunes_jueves: 12:00-22:00
+    viernes_sabado: 12:00-23:00
+    domingo: 12:00-21:00
+  deposit_pct: 30
+  deposit_services:
+  - evento_privado
+  notes:
+    turnos_reserva: 12:00, 12:30, 13:00, 13:30, 19:00, 19:30, 20:00, 20:30, 21:00
+    capacidad_max_sin_aprobacion: '8'
+    tolerancia_retraso_min: '15'
+    no_show: 'Dos inasistencias sin aviso: se pide anticipo en la siguiente reserva.'
+    lista_espera: Si no hay cupo, el bot ofrece lista de espera y avisa si se libera una mesa.
+    mesas_especiales: 'Terraza, zona infantil o mesa para silla de ruedas: se marcan en la reserva, sin
+      prometer disponibilidad.'
+    horario: Horario configurable por restaurante; el bot lo lee de la ficha.
+    anticipo: Porcentaje y medio de pago configurables por restaurante.
+required_questions:
+- Cual es tu nombre?
+- A que celular te contactamos?
+- Para cuantas personas es la reserva?
+- Que fecha y hora prefieres?
+- Hay alguna ocasion especial o restriccion alimentaria que debamos anotar?
+forbidden_topics:
+- inventar platos, precios, promociones o disponibilidad no cargados
+- ofrecer descuentos no autorizados por el restaurante
+- garantizar tiempos exactos de entrega o de mesa
+- diagnosticar alergias o dar consejos medicos sobre dietas
+- afirmar que un plato es libre de gluten, lactosa o alergenos sin confirmacion del restaurante
+- politica, religion, temas no relacionados con el restaurante
+- contenido sexual, violento o de odio
+- asesoria legal, financiera o de inversiones
+- generar codigo, tareas escolares o contenido general no relacionado
+- pedir contrasenas, numero completo de tarjeta, codigos OTP o claves bancarias
+- revelar datos o pedidos de otros clientes
+escalation_triggers:
+- level: 1
+  name: emergencia_medica
+  triggers:
+  - cliente reporta reaccion alergica o intoxicacion tras comer
+  - dificultad para respirar o tragar en el local
+  - amenaza, acoso o situacion de seguridad en el local
+  action: Llama al 123 si hay una emergencia. Avisa al encargado del restaurante de inmediato.
+  handoff: inmediato, con alerta prioritaria
+- level: 2
+  name: queja_pedido
+  triggers:
+  - pedido incorrecto, faltante o frio con cobro ya hecho
+  - cliente molesto por el servicio
+  - cobro duplicado o error en el pago
+  action: Pide numero de pedido y descripcion breve. Registra el caso y notifica al encargado.
+  handoff: humano en menos de 1 hora en horario de atencion
+- level: 3
+  name: evento_o_grupo
+  triggers:
+  - evento privado o catering
+  - reserva de mas de 8 personas
+  - solicitud de factura electronica o datos de empresa
+  - paciente pide hablar con una persona
+  action: Confirma que el equipo contactara al cliente y registra el motivo y los datos de contacto.
+  handoff: humano en horario de atencion
+message_templates:
+  saludo: Hola, soy el asistente virtual de {{negocio}}. Te ayudo con reservas, el menu, domicilios y
+    eventos.
+  confirmacion: Hola {{nombre}}, tu reserva en {{negocio}} es el {{fecha}} a las {{hora}} para {{personas}}
+    personas. Respondenos SI para confirmar o NO para cancelar.
+  recordatorio_24h: Hola {{nombre}}, te recordamos tu reserva manana {{fecha}} a las {{hora}} en {{negocio}}
+    para {{personas}} personas. Responde SI para confirmar o NO para cancelar.
+  recordatorio_2h: Hola {{nombre}}, te esperamos hoy a las {{hora}} en {{negocio}}. Si necesitas cambiar
+    algo, escribenos.
+  seguimiento_post: Gracias por visitarnos, {{nombre}}. Esperamos que hayas disfrutado. Cuentanos como
+    fue tu experiencia.
+  pedido_confirmado: 'Tu pedido {{numero}} fue confirmado. Total: {{total}} COP (incluye domicilio de
+    {{domicilio}}). Tiempo estimado: {{tiempo}} min.'
+compliance:
+  legal_basis: 'Ley 1581 de 2012 y Decreto 1377 de 2013 (Colombia). Las alergias o restricciones de salud
+    son datos sensibles: solo se piden con autorizacion explicita y solo si son necesarias para la reserva
+    o el pedido.'
+  consent_text: 'Al escribir, aceptas el tratamiento de tus datos para reservas, pedidos y recordatorios.
+    Politica completa: {{url_politica}}.'
+  retention: Datos de reserva y pedido por el plazo que indique la politica del restaurante; sin marketing
+    sin autorizacion expresa.
+  rights: Puedes pedir conocer, actualizar o suprimir tus datos escribiendo a {{correo_habeas_data}}.
+  notes:
+  - 'Ante una duda no cubierta por la ficha del restaurante, el bot no adivina: ofrece pasar con el equipo.'
+  - El bot no pide datos completos de tarjeta ni codigos OTP. Solo indica el medio de pago.
+required_variables:
+- negocio
+- direccion
+- horario_por_dia
+- capacidad_total
+- zonas_mesas
+- menu_url_o_carta
+- zonas_domicilio
+- costo_domicilio
+- medios_pago
+- url_politica
+- correo_habeas_data
+- contacto_encargado
+- cancelar_sin_costo_horas
+off_topic_response: Solo puedo ayudarte con reservas, el menu, domicilios y eventos de {{negocio}}.
+sensitive_response: Por tu seguridad, confirma los ingredientes con el equipo del restaurante antes de
+  pedir. Te comunico con ellos ahora.
+factory_inputs:
+  required:
+  - negocio
+  - direccion
+  - horario_por_dia
+  - menu_url_o_carta
+  optional:
+  - capacidad_total
+  - zonas_mesas
+  - zonas_domicilio
+  - costo_domicilio
+  - medios_pago
+extras:
+  menu_ejemplo:
+  - categoria: Entradas
+    precio_cop:
+      min: 14000
+      max: 35000
+  - categoria: Platos fuertes
+    precio_cop:
+      min: 28000
+      max: 75000
+  - categoria: Postres
+    precio_cop:
+      min: 12000
+      max: 25000
+  - categoria: Bebidas
+    precio_cop:
+      min: 6000
+      max: 22000
+  - categoria: Menu del dia (almuerzo)
+    precio_cop:
+      min: 18000
+      max: 32000
+    horario: 12:00-15:00 lunes a viernes
+  domicilios:
+    activo: true
+    zonas_cobertura: Lista de barrios o comunas de Cali configurada por el restaurante.
+    costo_domicilio_cop:
+      min: 3000
+      max: 8000
+    pedido_minimo_cop:
+      min: 25000
+      max: 40000
+    tiempo_estimado_min:
+      min: 25
+      max: 50
+    metodos_pago:
+    - efectivo
+    - transferencia (Nequi/Daviplata/Bancolombia)
+    - tarjeta en el local o datafono
+    flujo:
+    - tomar pedido con cantidades y notas (sin cebolla, sin picante)
+    - confirmar direccion y barrio; si esta fuera de cobertura, avisar
+    - resumen con total, domicilio y tiempo estimado; pedir confirmacion explicita
+    - enviar pedido al sistema del restaurante y confirmar numero de pedido
+    regla_pagos: El bot no pide datos completos de tarjeta ni codigos OTP. Solo indica el medio de pago.
+    cancelacion: Un pedido se puede cancelar solo antes de que el restaurante lo confirme en cocina.
+  price_disclaimer: precio aproximado, sujeto a disponibilidad

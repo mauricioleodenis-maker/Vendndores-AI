@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Política de privacidad{% endblock %}
+{% block content %}{{ self.public() }}{% endblock %}
+{% block public %}
+<article class="policy">
+  <h1>Política de tratamiento de datos personales{% if negocio %} · {{ negocio }}{% endif %}</h1>
+  <p class="notice" role="note"><strong>Borrador para revisión legal.</strong> {{ draft_notice }}</p>
+  {% if negocio %}
+  <p>{{ negocio }} es el Responsable del tratamiento de los datos de sus pacientes y clientes; el servicio de asistente virtual es operado por la Agencia como Encargada.</p>
+  {% endif %}
+  {% for title, paragraphs in sections %}
+  <section>
+    <h2>{{ loop.index }}. {{ title }}</h2>
+    {% for p in paragraphs %}<p>{{ p }}</p>{% endfor %}
+  </section>
+  {% endfor %}
+  <p><small>Versión {{ version }} · Ley 1581 de 2012.</small></p>
+</article>
+{% endblock %}

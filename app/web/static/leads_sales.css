@@ -1,0 +1,7 @@
+.ls-chat{max-height:24rem;overflow:auto;display:flex;flex-direction:column;gap:.4rem;margin-bottom:.75rem}
+.ls-msg{padding:.5rem .75rem;border-radius:12px;max-width:85%;overflow-wrap:anywhere}
+.ls-msg.user{align-self:flex-end;background:var(--primary);color:var(--primary-text)}
+.ls-msg.assistant{align-self:flex-start;background:var(--neutral-bg)}
+.ls-demo{max-width:40rem;margin:0 auto;padding:var(--gutter)}
+.ls-actions{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center}
+.ls-link{overflow-wrap:anywhere}

@@ -1,0 +1,71 @@
+{% from "partials/macros.html" import badge %}
+<section id="ventas-{{ lead.id }}" class="card" aria-label="Acciones de ventas">
+  <link rel="stylesheet" href="/static/leads_sales.css">
+  <h3>Ventas · {{ lead.name }}</h3>
+  <p>Etapa: {{ badge(lead.stage) }}</p>
+  {% if message %}<div class="alert alert-ok" role="status">{{ message }}</div>{% endif %}
+  {% if error %}<div class="alert alert-error" role="alert">{{ error }}</div>{% endif %}
+
+  <h4>Prueba secreta</h4>
+  {% if not test %}
+  <form hx-post="/admin/leads/{{ lead.id }}/ventas/prueba" hx-target="#ventas-{{ lead.id }}" hx-swap="outerHTML" method="post" action="/admin/leads/{{ lead.id }}/ventas/prueba">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <div class="field"><label for="ps-scenario">Escenario</label>
+      <select id="ps-scenario" name="scenario">{% for s in scenarios %}<option value="{{ s }}">{{ s | capitalize }}</option>{% endfor %}</select></div>
+    <div class="field"><label for="ps-msg">Mensaje enviado (vacío = guion sugerido)</label>
+      <textarea id="ps-msg" name="message_text" maxlength="1000" placeholder="{{ script }}"></textarea>
+      <small class="help">Escribe como un cliente real, una sola vez, sin datos de salud.</small></div>
+    <button class="btn btn-ghost" type="submit">Registrar prueba secreta</button>
+  </form>
+  {% elif test.first_reply_at is none and test.outcome is none %}
+  <p class="muted">Enviada; esperando respuesta (se marca «sin respuesta» a las 24 h).</p>
+  <form hx-post="/admin/leads/{{ lead.id }}/ventas/respuesta" hx-target="#ventas-{{ lead.id }}" hx-swap="outerHTML" method="post" action="/admin/leads/{{ lead.id }}/ventas/respuesta">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <div class="field"><label for="ps-at">Hora de la primera respuesta</label>
+      <input id="ps-at" name="first_reply_at" type="datetime-local" required></div>
+    <div class="field"><label for="ps-ex">Extracto de la respuesta</label>
+      <input id="ps-ex" name="excerpt" maxlength="280"></div>
+    <button class="btn btn-ghost" type="submit">Registrar respuesta</button>
+  </form>
+  {% else %}
+  <p>Resultado: {{ badge(test.outcome or 'sin_respuesta') }}
+    {% if test.response_seconds is not none %}· {{ (test.response_seconds / 60) | round(0, 'ceil') | int }} min{% endif %}
+    {% if test.after_hours %}· fuera de horario{% endif %}</p>
+  {% endif %}
+
+  <h4>Demo</h4>
+  {% if demo %}
+  <div class="alert alert-ok">
+    <p class="ls-link">Enlace web: <a href="{{ demo.demo_link }}" rel="noopener">{{ demo.demo_link }}</a></p>
+    {% if demo.whatsapp_link %}<p class="ls-link">WhatsApp: <a href="{{ demo.whatsapp_link }}" rel="noopener">{{ demo.whatsapp_link }}</a></p>{% endif %}
+    <p class="muted">Vence el {{ demo.expires_at.strftime('%d/%m/%Y') }}. No se contacta al negocio automáticamente.</p>
+  </div>
+  {% endif %}
+  {% if lead.converted_tenant_id %}
+  <p class="muted">Este lead ya es cliente.</p>
+  {% else %}
+  <form class="ls-actions" hx-post="/admin/leads/{{ lead.id }}/ventas/demo" hx-target="#ventas-{{ lead.id }}" hx-swap="outerHTML" method="post" action="/admin/leads/{{ lead.id }}/ventas/demo">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    {% if needs_niche %}
+    <label for="demo-niche">Tipo de negocio</label>
+    <select id="demo-niche" name="niche" required>{% for n in niches %}<option value="{{ n }}">{{ n | replace('_', ' ') | capitalize }}</option>{% endfor %}</select>
+    {% endif %}
+    <button class="btn btn-primary" type="submit">{{ 'Reconstruir demo' if lead.demo_tenant_id else 'Crear demo' }}</button>
+    {% if lead.demo_tenant_id %}<input type="hidden" name="rebuild" value="true">{% endif %}
+  </form>
+  {% endif %}
+
+  {% if converted %}
+  <div class="alert alert-ok">Cliente creado. Plan {{ converted.plan_code }}{% if converted.billing_record_created %}; cobro de instalación pendiente ({{ converted.setup_net_cop | cop }}){% endif %}.</div>
+  {% elif can_convert and user and user.role in ('owner', 'admin') %}
+  <h4>Convertir en cliente</h4>
+  <form class="ls-actions" hx-post="/admin/leads/{{ lead.id }}/ventas/convertir" hx-target="#ventas-{{ lead.id }}" hx-swap="outerHTML" method="post" action="/admin/leads/{{ lead.id }}/ventas/convertir">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label for="cv-plan">Plan</label>
+    <select id="cv-plan" name="plan_code"><option value="basico">Básico</option><option value="pro">Pro</option><option value="premium">Premium</option></select>
+    <label for="cv-offer">Oferta</label>
+    <select id="cv-offer" name="offer_code"><option value="">Ninguna</option><option value="fundador">Fundador</option></select>
+    <button class="btn btn-primary" type="submit">Convertir</button>
+  </form>
+  {% endif %}
+</section>

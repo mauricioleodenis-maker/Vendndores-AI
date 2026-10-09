@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% from "partials/macros.html" import csrf with context %}
+{% block title %}Leads · Kanban{% endblock %}
+{% block content %}
+<h1>Leads</h1>
+{% include "leads/_tabs.html" %}
+{% with action="/admin/leads/kanban", show_stage=False %}{% include "leads/_filters.html" %}{% endwith %}
+<div class="kanban">
+  {% for stage in stages %}
+  {% set col = columns[stage] %}
+  <section class="kanban-col" aria-labelledby="col-{{ stage }}">
+    <h2 id="col-{{ stage }}">{{ stage | estado_es }} <span class="muted">({{ col.total }})</span></h2>
+    {% for l in col.leads %}
+    <article class="kanban-card">
+      <a href="/admin/leads/{{ l.id }}"><strong>{{ l.name }}</strong></a>
+      <div class="muted">{{ l.niche | nicho_es }} · {{ l.city }}</div>
+      <div>{% with score=l.score %}{% include "leads/_band.html" %}{% endwith %}</div>
+      <form method="post" action="/admin/leads/{{ l.id }}/etapa" hx-post="/admin/leads/{{ l.id }}/etapa" hx-trigger="change">
+        {{ csrf() }}
+        <label class="sr-only" for="st-{{ l.id }}">Mover {{ l.name }} a</label>
+        <select id="st-{{ l.id }}" name="stage">
+          {% for s in stages %}<option value="{{ s }}" {% if s == l.stage %}selected{% endif %}>{{ s | estado_es }}</option>{% endfor %}
+        </select>
+        <noscript><button class="btn" type="submit">Mover</button></noscript>
+      </form>
+    </article>
+    {% else %}
+    <p class="muted">Sin leads.</p>
+    {% endfor %}
+    {% if col.total > limit %}<p class="muted">Mostrando {{ limit }} de {{ col.total }}. Usa la tabla para ver el resto.</p>{% endif %}
+  </section>
+  {% endfor %}
+</div>
+{% endblock %}

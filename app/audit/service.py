@@ -51,7 +51,9 @@ def sanitize_diff(diff: Any) -> Any:
 
 
 def _canonical(payload: dict[str, Any]) -> str:
-    return json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str, ensure_ascii=True)
+    return json.dumps(
+        payload, sort_keys=True, separators=(",", ":"), default=str, ensure_ascii=True
+    )
 
 
 def compute_hash(prev_hash: str, payload: dict[str, Any]) -> str:
@@ -131,7 +133,9 @@ async def log_event(
     return entry
 
 
-async def verify_chain(session: AsyncSession, *, limit: int | None = None) -> tuple[bool, int | None]:
+async def verify_chain(
+    session: AsyncSession, *, limit: int | None = None
+) -> tuple[bool, int | None]:
     """Recalcula la cadena. Devuelve ``(ok, id_primer_registro_alterado)``."""
     stmt = select(AuditLog).order_by(AuditLog.id)
     if limit:

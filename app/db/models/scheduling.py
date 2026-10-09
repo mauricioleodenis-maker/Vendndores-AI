@@ -9,7 +9,16 @@ from typing import Any
 from sqlalchemy import ForeignKey, Index, Integer, String, Text, UniqueConstraint, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db.base import Base, JSONType, TenantMixin, TimestampMixin, UTCDateTime, enum_check, utcnow, uuid_pk
+from app.db.base import (
+    Base,
+    JSONType,
+    TenantMixin,
+    TimestampMixin,
+    UTCDateTime,
+    enum_check,
+    utcnow,
+    uuid_pk,
+)
 
 SCHEDULED_KINDS = (
     "reminder_24h",

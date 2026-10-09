@@ -229,7 +229,11 @@ async def change_password(
         raise AppError("weak_password", str(exc), 422) from exc
     await revoke_user_sessions(session, user.id, except_id=keep_session_id)
     await log_event(
-        session, actor=user, action="user.password_change", entity_type="user", entity_id=str(user.id)
+        session,
+        actor=user,
+        action="user.password_change",
+        entity_type="user",
+        entity_id=str(user.id),
     )
 
 

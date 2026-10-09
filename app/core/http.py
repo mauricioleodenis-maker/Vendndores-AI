@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import ipaddress
+import re
 import socket
 from collections.abc import Iterable
 from dataclasses import dataclass
@@ -27,6 +28,7 @@ DEFAULT_ALLOWED_TYPES: tuple[str, ...] = (
     "text/xml",
     "application/xml",
 )
+_NUMERIC_HOST = re.compile(r"(?:(?:0x[0-9a-f]+|\d+)\.)*(?:0x[0-9a-f]+|\d+)")
 ALLOWED_PORTS = frozenset({80, 443})
 USER_AGENT = "VendedoresAI-Bot/1.0"
 _REDIRECT_STATUSES = frozenset({301, 302, 303, 307, 308})
@@ -89,6 +91,9 @@ async def resolve_public_ips(host: str, port: int) -> list[str]:
         literal = ipaddress.ip_address(lowered.strip("[]"))
     except ValueError:
         literal = None
+    if literal is None and _NUMERIC_HOST.fullmatch(lowered):
+        # Formas ambiguas de IPv4 (0x7f000001, 2130706433, 127.1): inet_aton las acepta.
+        raise UnsafeURLError("Host numerico no permitido")
     if literal is not None:
         ips = [str(literal)]
     else:
@@ -144,7 +149,11 @@ class _ValidatingBackend(httpcore.AsyncNetworkBackend):
     ):
         ips = await resolve_public_ips(host, port)
         return await self._inner.connect_tcp(
-            ips[0], port, timeout=timeout, local_address=local_address, socket_options=socket_options
+            ips[0],
+            port,
+            timeout=timeout,
+            local_address=local_address,
+            socket_options=socket_options,
         )
 
     async def connect_unix_socket(self, *args, **kwargs):  # type: ignore[no-untyped-def]
@@ -156,7 +165,7 @@ class _ValidatingBackend(httpcore.AsyncNetworkBackend):
 
 def _build_client(timeout: float) -> httpx.AsyncClient:
     transport = httpx.AsyncHTTPTransport(retries=0)
-    transport._pool = httpcore.AsyncConnectionPool(  # type: ignore[attr-defined]
+    transport._pool = httpcore.AsyncConnectionPool(
         network_backend=_ValidatingBackend(), max_connections=4, http2=False
     )
     return httpx.AsyncClient(

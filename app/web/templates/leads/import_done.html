@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}Importación terminada{% endblock %}
+{% block content %}
+<h1>Importación terminada</h1>
+{% include "leads/_tabs.html" %}
+<div class="alert alert-ok" role="status">Se crearon {{ summary.created }} leads nuevos y se fusionaron {{ summary.merged }} con existentes.</div>
+<p class="muted">Omitidos: {{ summary.skipped_no_phone }} sin contacto, {{ summary.skipped_closed }} cerrados, {{ summary.invalid }} inválidos.</p>
+<a class="btn btn-primary" href="/admin/leads">Ver leads</a>
+{% endblock %}

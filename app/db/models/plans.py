@@ -20,7 +20,15 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db.base import Base, JSONType, TenantMixin, TimestampMixin, UTCDateTime, enum_check, uuid_pk
+from app.db.base import (
+    Base,
+    JSONType,
+    TenantMixin,
+    TimestampMixin,
+    UTCDateTime,
+    enum_check,
+    uuid_pk,
+)
 
 OFFER_DISCOUNT_TYPES = ("setup_pct", "monthly_pct", "monthly_fixed_months_free")
 SUBSCRIPTION_STATUSES = ("trial", "active", "past_due", "cancelled")
@@ -72,7 +80,9 @@ class Subscription(TimestampMixin, TenantMixin, Base):
     )
 
     id: Mapped[uuid.UUID] = uuid_pk()
-    plan_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("plans.id", ondelete="RESTRICT"), nullable=False)
+    plan_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("plans.id", ondelete="RESTRICT"), nullable=False
+    )
     offer_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid, ForeignKey("offers.id", ondelete="RESTRICT"), nullable=True
     )

@@ -1,0 +1,32 @@
+{% from "partials/macros.html" import csrf %}
+{% include "tenants/_steps_bar.html" %}
+<form hx-post="/admin/negocios/nuevo/paso1" hx-target="#wizard" hx-swap="innerHTML" method="post" action="/admin/negocios/nuevo/paso1">
+  {{ csrf() }}
+  {% if tenant_id %}<input type="hidden" name="tenant_id" value="{{ tenant_id }}">{% elif tenant %}<input type="hidden" name="tenant_id" value="{{ tenant.id }}">{% endif %}
+  {% set err = errors %}
+  {% macro txt(name, label, required=False, help=None, live=False, ph='') %}
+  <div class="field{% if err.get(name) %} has-error{% endif %}">
+    <label for="f-{{ name }}">{{ label }}{% if required %} <span aria-hidden="true">*</span>{% endif %}</label>
+    <input id="f-{{ name }}" name="{{ name }}" value="{{ values.get(name, '') }}" placeholder="{{ ph }}" {% if required %}required{% endif %}
+      {% if live %}hx-post="/admin/negocios/validar-campo" hx-trigger="change" hx-target="#v-{{ name }}" hx-vals='{"field": "{{ name }}"}' hx-include="this" hx-params="value,field" hx-swap="innerHTML"{% endif %}>
+    {% if help %}<small class="help">{{ help }}</small>{% endif %}
+    <span id="v-{{ name }}" role="status">{% if err.get(name) %}<small class="error">{{ err[name] }}</small>{% endif %}</span>
+  </div>
+  {% endmacro %}
+  {{ txt('name', 'Nombre del negocio', required=True, live=True) }}
+  <div class="field{% if err.get('niche') %} has-error{% endif %}">
+    <label for="f-niche">Nicho <span aria-hidden="true">*</span></label>
+    <select id="f-niche" name="niche" required>
+      <option value="">Elige un nicho</option>
+      {% for n in niches %}<option value="{{ n }}" {% if values.get('niche') == n %}selected{% endif %}>{{ n | nicho_es }}</option>{% endfor %}
+    </select>
+    {% if err.get('niche') %}<small class="error">{{ err['niche'] }}</small>{% endif %}
+  </div>
+  {{ txt('city', 'Ciudad', ph='Cali') }}
+  {{ txt('address', 'Dirección') }}
+  {{ txt('phone_contact', 'Teléfono de contacto', live=True, help='Con indicativo, p. ej. +573001234567') }}
+  {{ txt('owner_name', 'Nombre del dueño o encargado') }}
+  {{ txt('website_url', 'Página web', live=True, help='Si la tiene, la IA leerá el sitio para precargar servicios y preguntas.') }}
+  {{ txt('instagram_url', 'Instagram', live=True, help='Enlace o @usuario') }}
+  <button class="btn btn-primary" type="submit">Siguiente</button>
+</form>

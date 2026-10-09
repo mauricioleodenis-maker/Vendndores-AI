@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import uuid
-from typing import Any, Generic, TypeVar
+from typing import Any, Generic, TypeVar, cast
 
 from sqlalchemy import Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,9 +13,9 @@ from app.db.base import TenantMixin
 T = TypeVar("T", bound=TenantMixin)
 
 
-def tenant_select(model: type[T], tenant_id: uuid.UUID) -> Select[tuple[T]]:
+def tenant_select(model: type[T], tenant_id: uuid.UUID) -> Select[Any]:
     """``select(model)`` ya filtrado por tenant."""
-    return select(model).where(model.tenant_id == tenant_id)  # type: ignore[arg-type]
+    return select(model).where(model.tenant_id == tenant_id)
 
 
 class TenantScopedRepo(Generic[T]):
@@ -28,12 +28,12 @@ class TenantScopedRepo(Generic[T]):
         self.model = model
         self.tenant_id = tenant_id
 
-    def _select(self) -> Select[tuple[T]]:
-        return select(self.model).where(self.model.tenant_id == self.tenant_id)  # type: ignore[arg-type]
+    def _select(self) -> Select[Any]:
+        return select(self.model).where(self.model.tenant_id == self.tenant_id)
 
     async def get(self, obj_id: Any) -> T | None:
         stmt = self._select().where(self.model.id == obj_id)  # type: ignore[attr-defined]
-        return (await self.session.execute(stmt)).scalar_one_or_none()
+        return cast("T | None", (await self.session.execute(stmt)).scalar_one_or_none())
 
     async def list(
         self,
@@ -44,16 +44,20 @@ class TenantScopedRepo(Generic[T]):
     ) -> list[T]:
         stmt = self._select().where(*where)
         if order_by is not None:
-            stmt = stmt.order_by(*order_by) if isinstance(order_by, list | tuple) else stmt.order_by(order_by)
+            stmt = (
+                stmt.order_by(*order_by)
+                if isinstance(order_by, list | tuple)
+                else stmt.order_by(order_by)
+            )
         if limit is not None:
             stmt = stmt.limit(limit).offset(offset)
-        return list((await self.session.execute(stmt)).scalars().all())
+        return cast("list[T]", list((await self.session.execute(stmt)).scalars().all()))
 
     async def count(self, *where: Any) -> int:
         stmt = (
             select(func.count())
             .select_from(self.model)
-            .where(self.model.tenant_id == self.tenant_id, *where)  # type: ignore[arg-type]
+            .where(self.model.tenant_id == self.tenant_id, *where)
         )
         return int((await self.session.execute(stmt)).scalar_one())
 
@@ -61,13 +65,13 @@ class TenantScopedRepo(Generic[T]):
         existing = getattr(obj, "tenant_id", None)
         if existing is not None and existing != self.tenant_id:
             raise PermissionError("Objeto de otro tenant")
-        obj.tenant_id = self.tenant_id  # type: ignore[assignment]
+        obj.tenant_id = self.tenant_id
         self.session.add(obj)
         await self.session.flush()
         return obj
 
     async def delete(self, obj: T) -> None:
-        if obj.tenant_id != self.tenant_id:  # type: ignore[comparison-overlap]
+        if obj.tenant_id != self.tenant_id:
             raise PermissionError("Objeto de otro tenant")
         await self.session.delete(obj)
         await self.session.flush()

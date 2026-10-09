@@ -1,0 +1,10 @@
+{% if errors %}
+<div class="alert alert-error" role="alert"><ul>{% for e in errors %}<li>{{ e }}</li>{% endfor %}</ul></div>
+{% elif estimate %}
+<div class="card">
+  <h2>Estimado de costo</h2>
+  <p>Hasta <strong>{{ estimate.max_requests }}</strong> solicitudes a Google, costo máximo aproximado <strong>US$ {{ '%.2f' | format(estimate.max_cost_usd) }}</strong>. No se hizo ninguna llamada.</p>
+  <h3>Consultas ({{ estimate.queries | length }})</h3>
+  <ul>{% for q in estimate.queries %}<li>{{ q }}</li>{% endfor %}</ul>
+</div>
+{% endif %}

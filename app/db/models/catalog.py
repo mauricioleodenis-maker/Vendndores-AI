@@ -8,7 +8,7 @@ from datetime import datetime
 from sqlalchemy import Boolean, Index, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db.base import Base, TenantMixin, TimestampMixin, UTCDateTime, enum_check, uuid_pk, utcnow
+from app.db.base import Base, TenantMixin, TimestampMixin, UTCDateTime, enum_check, utcnow, uuid_pk
 
 
 class Service(TimestampMixin, TenantMixin, Base):
@@ -52,4 +52,3 @@ class KbDocument(TimestampMixin, TenantMixin, Base):
     content: Mapped[str] = mapped_column(Text, nullable=False)
     content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     fetched_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
-

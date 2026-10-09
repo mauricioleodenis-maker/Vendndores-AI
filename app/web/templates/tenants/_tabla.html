@@ -1,0 +1,24 @@
+{% from "partials/macros.html" import badge, pager, empty_state %}
+<div id="tabla-negocios">
+{% if tenants %}
+<div class="table-wrap">
+<table class="cards">
+  <thead><tr><th>Empresa</th><th>Nicho</th><th>Ciudad</th><th>Estado</th><th></th></tr></thead>
+  <tbody>
+  {% for t in tenants %}
+    <tr>
+      <td data-label="Empresa"><a href="/admin/negocios/{{ t.id }}">{{ t.name }}</a></td>
+      <td data-label="Nicho">{{ t.niche | nicho_es }}</td>
+      <td data-label="Ciudad">{{ t.city or '-' }}</td>
+      <td data-label="Estado">{{ badge(t.status) }}</td>
+      <td><a class="btn btn-ghost" href="/admin/negocios/{{ t.id }}">Abrir</a></td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{{ pager(base_url, page, has_more) }}
+{% else %}
+{{ empty_state('Aún no tienes empresas', 'Crea la primera en 3 pasos.', '/admin/negocios/nuevo', 'Nueva empresa') }}
+{% endif %}
+</div>

@@ -22,7 +22,15 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db.base import Base, JSONType, TenantMixin, TimestampMixin, UTCDateTime, enum_check, uuid_pk
+from app.db.base import (
+    Base,
+    JSONType,
+    TenantMixin,
+    TimestampMixin,
+    UTCDateTime,
+    enum_check,
+    uuid_pk,
+)
 
 APPOINTMENT_STATUSES = ("pending", "confirmed", "cancelled", "no_show", "done")
 ACTIVE_APPOINTMENT_SQL = "status IN ('pending', 'confirmed')"

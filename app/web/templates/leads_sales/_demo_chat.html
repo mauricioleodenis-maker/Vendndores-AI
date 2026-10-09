@@ -1,0 +1,20 @@
+<section id="demo-chat" aria-labelledby="demo-titulo">
+  <h1 id="demo-titulo">Demostración de {{ business_name }}</h1>
+  <div class="alert alert-info" role="note">{{ notice }}</div>
+  <div class="ls-chat" role="log" aria-live="polite">
+    {% for m in history %}
+    <div class="ls-msg {{ m.role }}"><strong>{{ 'Tú' if m.role == 'user' else 'Asistente' }}:</strong> {{ m.content }}</div>
+    {% else %}
+    <p class="muted">Escribe un mensaje como si fueras un cliente del negocio.</p>
+    {% endfor %}
+  </div>
+  {% if error %}<div class="alert alert-warn" role="alert">{{ error }}</div>{% endif %}
+  <form method="post" action="/demo/{{ token }}/mensaje" hx-post="/demo/{{ token }}/mensaje" hx-target="#demo-chat" hx-swap="outerHTML">
+    <input type="hidden" name="history" value="{{ history_json }}">
+    <div class="field">
+      <label for="demo-text">Tu mensaje</label>
+      <input id="demo-text" name="text" maxlength="500" required autocomplete="off">
+    </div>
+    <button class="btn btn-primary" type="submit">Enviar</button>
+  </form>
+</section>

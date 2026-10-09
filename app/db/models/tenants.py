@@ -109,7 +109,9 @@ class ChannelAccount(TimestampMixin, TenantMixin, Base):
     phone_e164: Mapped[str] = mapped_column(String(20), unique=True, nullable=False)
     twilio_messaging_service_sid: Mapped[str | None] = mapped_column(String(40), nullable=True)
     twilio_subaccount_sid: Mapped[str | None] = mapped_column(String(40), nullable=True)
-    whatsapp_sender_status: Mapped[str | None] = mapped_column(String(20), nullable=True, default="sandbox")
+    whatsapp_sender_status: Mapped[str | None] = mapped_column(
+        String(20), nullable=True, default="sandbox"
+    )
     voice_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="active")
     webhook_token_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)

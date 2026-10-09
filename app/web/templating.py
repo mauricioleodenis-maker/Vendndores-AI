@@ -41,6 +41,4 @@ def render(
         "current_path": request.url.path,
     }
     ctx.update(context or {})
-    return templates.TemplateResponse(
-        request, name, ctx, status_code=status_code, headers=headers
-    )
+    return templates.TemplateResponse(request, name, ctx, status_code=status_code, headers=headers)

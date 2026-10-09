@@ -60,7 +60,9 @@ class Campaign(TimestampMixin, Base):
     __tablename__ = "campaigns"
     __table_args__ = (
         enum_check("status", CAMPAIGN_STATUSES),
-        enum_check("stage_target", ("nuevo", "prueba_secreta", "contactado", "demo"), nullable=True),
+        enum_check(
+            "stage_target", ("nuevo", "prueba_secreta", "contactado", "demo"), nullable=True
+        ),
     )
 
     id: Mapped[uuid.UUID] = uuid_pk()

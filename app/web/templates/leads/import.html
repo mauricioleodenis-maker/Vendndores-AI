@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% from "partials/macros.html" import csrf with context %}
+{% block title %}Importar CSV{% endblock %}
+{% block content %}
+<h1>Leads</h1>
+{% include "leads/_tabs.html" %}
+<form class="card" method="post" action="/admin/leads/importar" enctype="multipart/form-data">
+  {{ csrf() }}
+  <h2>Importar CSV de Google Maps</h2>
+  <p class="muted">Acepta exportes del scraper de Maps (español o inglés, coma o punto y coma). Máx. 5 MB y 5.000 filas. Verás una vista previa antes de guardar.</p>
+  <div class="field">
+    <label for="f-file">Archivo .csv</label>
+    <input id="f-file" type="file" name="file" accept=".csv,text/csv" required>
+  </div>
+  <div class="field">
+    <label for="f-niche">Nicho</label>
+    <select id="f-niche" name="niche">
+      {% for n in niche_choices %}<option value="{{ n }}" {% if n == form.niche %}selected{% endif %}>{{ n | nicho_es }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="field">
+    <label for="f-city">Ciudad por defecto</label>
+    <input id="f-city" name="city" value="{{ form.city }}" maxlength="100" required>
+    <small class="help">Se usa cuando la fila no trae ciudad.</small>
+  </div>
+  <button class="btn btn-primary" type="submit">Ver vista previa</button>
+</form>
+{% endblock %}

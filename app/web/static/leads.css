@@ -1,0 +1,16 @@
+/* Leads: kanban, pestañas, detalle. */
+.lead-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.kanban { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(250px, 1fr); gap: 12px; overflow-x: auto; padding-bottom: 12px; }
+.kanban-col { background: var(--neutral-bg); border-radius: var(--radius); padding: 10px; min-width: 250px; }
+.kanban-col h2 { font-size: 1rem; margin: 0 0 8px; }
+.kanban-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px; margin-bottom: 8px; display: grid; gap: 4px; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.lead-grid { display: grid; gap: 16px; }
+@media (min-width: 900px) { .lead-grid { grid-template-columns: 1fr 1fr; } }
+.lead-dl { display: grid; grid-template-columns: max-content 1fr; gap: 6px 14px; margin: 0; }
+.lead-dl dt { color: var(--muted); }
+.lead-dl dd { margin: 0; overflow-wrap: anywhere; }
+.timeline { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+.timeline li { border-left: 3px solid var(--border); padding-left: 10px; }
+.mapping { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); margin-bottom: 12px; }
+.mapping label { display: grid; gap: 4px; font-size: .85rem; }

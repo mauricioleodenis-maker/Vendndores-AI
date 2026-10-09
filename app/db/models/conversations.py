@@ -19,7 +19,16 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db.base import Base, JSONType, TenantMixin, TimestampMixin, UTCDateTime, enum_check, utcnow, uuid_pk
+from app.db.base import (
+    Base,
+    JSONType,
+    TenantMixin,
+    TimestampMixin,
+    UTCDateTime,
+    enum_check,
+    utcnow,
+    uuid_pk,
+)
 
 CONVERSATION_STATUSES = ("open", "handoff", "closed")
 MESSAGE_STATUSES = ("received", "queued", "sent", "delivered", "read", "failed", "undelivered")

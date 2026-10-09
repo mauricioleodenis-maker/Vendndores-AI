@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block title %}Google Calendar · {{ tenant.name }}{% endblock %}
+{% block content %}
+<h1>Google Calendar</h1>
+<p class="muted"><a href="/admin/negocios/{{ tenant.id }}">&larr; {{ tenant.name }}</a></p>
+{% include "partials/flash.html" %}
+{% include "booking/_google_calendar.html" %}
+{% endblock %}

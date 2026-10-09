@@ -35,6 +35,22 @@ JOB_PACKAGES: tuple[str, ...] = (
     "audit",
 )
 
+# Modulos que registran jobs fuera de ``jobs.py`` (se importan para poblar JOB_REGISTRY).
+EXTRA_JOB_MODULES: tuple[str, ...] = (
+    "app.tenants.service",
+    "app.conversation.memory",
+)
+
+# Cron esperados por el plan (recordatorios, retencion, prueba secreta, campanas, facturacion).
+# Cada duenio los declara en su ``jobs.py``; aqui solo se avisa si falta alguno.
+EXPECTED_CRON_NAMES: tuple[str, ...] = (
+    "reminders.enqueue_due",
+    "privacy.purge_retention",
+    "leads.secret_shop_timeout",
+    "outreach.dispatch",
+    "billing.generate_monthly_records",
+)
+
 log = get_logger(__name__)
 
 
@@ -49,13 +65,36 @@ def load_job_modules() -> list[CronJob]:
                 continue
             raise
         crons.extend(getattr(module, "CRON_JOBS", []))
-    return crons
+    for modname in EXTRA_JOB_MODULES:
+        try:
+            importlib.import_module(modname)
+        except ModuleNotFoundError as exc:
+            if not modname.startswith(exc.name or "\0"):
+                raise
+    return _dedupe_crons(crons)
+
+
+def _dedupe_crons(crons: list[CronJob]) -> list[CronJob]:
+    seen: dict[str, CronJob] = {}
+    for job in crons:
+        seen.setdefault(job.name, job)
+    return list(seen.values())
+
+
+def missing_expected_crons(crons: list[CronJob]) -> list[str]:
+    names = {c.name for c in crons}
+    return [n for n in EXPECTED_CRON_NAMES if n not in names]
 
 
 async def startup(ctx: dict[str, Any]) -> None:
     configure_logging()
     configure_database(make_engine())
-    log.info("worker_started", jobs=sorted(JOB_REGISTRY))
+    log.info(
+        "worker_started",
+        jobs=sorted(JOB_REGISTRY),
+        crons=sorted(c.name for c in _crons),
+        missing_crons=missing_expected_crons(_crons),
+    )
 
 
 async def shutdown(ctx: dict[str, Any]) -> None:

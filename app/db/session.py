@@ -7,7 +7,12 @@ from contextlib import asynccontextmanager
 from typing import Any
 
 from sqlalchemy import event
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 from sqlalchemy.pool import StaticPool
 
 from app.core.config import get_settings

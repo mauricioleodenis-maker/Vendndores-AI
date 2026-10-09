@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import re
 import sys
+from collections.abc import MutableMapping
 from typing import Any
 
 import structlog
@@ -49,7 +50,9 @@ def _redact_value(key: str, value: Any) -> Any:
     return value
 
 
-def redact_processor(_logger: Any, _method: str, event_dict: dict[str, Any]) -> dict[str, Any]:
+def redact_processor(
+    _logger: Any, _method: str, event_dict: MutableMapping[str, Any]
+) -> MutableMapping[str, Any]:
     for key in list(event_dict):
         if key in {"event", "level", "timestamp", "logger"}:
             if key == "event" and isinstance(event_dict[key], str):

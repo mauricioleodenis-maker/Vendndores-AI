@@ -1,0 +1,5 @@
+<div class="service-row" role="group" aria-label="Servicio">
+  <label>Servicio <input name="service_name" value="{{ s.get('name', '') }}" maxlength="200"></label>
+  <label>Precio COP <input name="service_price" inputmode="numeric" value="{{ s.get('price_cop') if s.get('price_cop') is not none else '' }}" placeholder="Sin precio"></label>
+  <label>Duración (min) <input name="service_duration" inputmode="numeric" value="{{ s.get('duration_min', 30) }}"></label>
+</div>

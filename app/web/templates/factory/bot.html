@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+{% from "partials/macros.html" import badge, empty_state, csrf %}
+{% block title %}Bot de {{ tenant.name }}{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="/static/factory.css">
+<h1>Bot de {{ tenant.name }}</h1>
+<p><a href="/admin/negocios/{{ tenant.id }}">&larr; Volver a la empresa</a></p>
+{% include "partials/flash.html" %}
+
+{% if not bot %}
+  {{ empty_state('Aún no hay un bot', 'Genera el bot desde el asistente «Nueva empresa» o regenera ahora.') }}
+  <form method="post" action="/admin/negocios/{{ tenant.id }}/bot/regenerar">{{ csrf() }}
+    <button class="btn btn-primary" type="submit">Generar bot</button>
+  </form>
+{% else %}
+
+<div class="card">
+  <p>
+    Versión <strong>{{ bot.version }}</strong> {{ badge(bot.status) }}
+    {% if meta.needs_review %}{{ badge('needs_review') }}{% endif %}
+    <span class="muted">· modelo {{ bot.model }}</span>
+  </p>
+  <p>
+    {% for ver in versions %}
+      <a class="btn btn-ghost" href="/admin/negocios/{{ tenant.id }}/bot?v={{ ver.version }}">v{{ ver.version }} · {{ ver.status | estado_es }}</a>
+      {% if ver.status == 'archived' and ver.published_at %}
+      <form class="fb-inline" method="post" action="/admin/negocios/{{ tenant.id }}/bot/rollback/{{ ver.version }}">{{ csrf() }}
+        <button class="btn btn-ghost" type="submit">Volver a v{{ ver.version }}</button>
+      </form>
+      {% endif %}
+    {% endfor %}
+  </p>
+  {% if is_draft %}
+    {% if blockers %}
+    <div class="alert alert-warn" role="status">
+      <strong>Antes de publicar:</strong>
+      <ul>{% for b in blockers %}<li>{{ b }}</li>{% endfor %}</ul>
+    </div>
+    {% endif %}
+    <form method="post" action="/admin/negocios/{{ tenant.id }}/bot/{{ bot.id }}/publicar">{{ csrf() }}
+      <button class="btn btn-primary" type="submit" {% if blockers %}disabled{% endif %}>Aprobar y publicar</button>
+    </form>
+    <form method="post" action="/admin/negocios/{{ tenant.id }}/bot/regenerar">{{ csrf() }}
+      <button class="btn btn-ghost" type="submit">Regenerar con IA</button>
+    </form>
+  {% else %}
+    <p class="muted">Esta versión no se puede editar.</p>
+    <form method="post" action="/admin/negocios/{{ tenant.id }}/bot/borrador">{{ csrf() }}
+      <button class="btn btn-primary" type="submit">Crear borrador para editar</button>
+    </form>
+  {% endif %}
+</div>
+
+{% if has_injection_flag %}
+<div class="alert alert-warn" role="alert">
+  Se detectó texto sospechoso (posibles órdenes dirigidas a la IA) en las fuentes. Revisa el contenido antes de publicar.
+  {% if is_draft and not info.flags_ack %}
+  <form method="post" action="/admin/negocios/{{ tenant.id }}/bot/{{ bot.id }}/alertas">{{ csrf() }}
+    <button class="btn" type="submit">Ya lo revisé</button>
+  </form>
+  {% endif %}
+</div>
+{% endif %}
+
+<div class="fb-grid">
+  <section aria-labelledby="h-fuentes" class="card fb-source">
+    <h2 id="h-fuentes">Fuentes</h2>
+    <h3>Datos del dueño</h3>
+    <pre>{{ owner | tojson(indent=2) }}</pre>
+    <h3>Texto de la web ({{ docs | length }})</h3>
+    {% for d in docs %}
+      <details><summary>{{ d.title or d.source_url or 'Página' }}</summary><pre>{{ d.content[:1500] }}</pre></details>
+    {% else %}
+      <p class="muted">Sin información de la web.</p>
+    {% endfor %}
+    {% if meta.review and meta.review.reasons %}
+    <h3>Alertas de verificación</h3>
+    <ul>{% for r in meta.review.reasons %}<li>{{ r }}</li>{% endfor %}</ul>
+    {% endif %}
+  </section>
+
+  <section aria-labelledby="h-prop">
+    <h2 id="h-prop">Propuesta de la IA</h2>
+
+    {% if cfg.open_questions %}
+    <div class="card">
+      <h3>Preguntas abiertas</h3>
+      <ul>
+      {% for q in cfg.open_questions %}
+        <li>{{ q }}
+        {% if is_draft %}
+          <form class="fb-inline" method="post" action="/admin/negocios/{{ tenant.id }}/bot/{{ bot.id }}/preguntas/{{ loop.index0 }}">{{ csrf() }}
+            <button class="btn btn-ghost" type="submit">Resuelta</button>
+          </form>
+        {% endif %}</li>
+      {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+
+    <div class="card">
+      <h3>Servicios y precios</h3>
+      {% if is_draft %}
+        {% for s, src in services %}
+        <form class="fb-item {{ 'pending' if s.needs_review }}" method="post" action="/admin/negocios/{{ tenant.id }}/bot/servicios/{{ s.id }}">{{ csrf() }}
+          <p><span class="badge badge-neutral">{{ src }}</span>
+             {% if s.needs_review %}{{ badge('needs_review') }}{% endif %}</p>
+          <div class="fb-row">
+            <div class="field"><label for="n-{{ s.id }}">Nombre</label><input id="n-{{ s.id }}" name="name" value="{{ s.name }}" required maxlength="120"></div>
+            <div class="field"><label for="p-{{ s.id }}">Precio COP</label><input id="p-{{ s.id }}" name="price" value="{{ s.price_cop if s.price_cop is not none else '' }}" inputmode="numeric"></div>
+            <div class="field"><label for="pn-{{ s.id }}">Nota de precio</label><input id="pn-{{ s.id }}" name="price_note" value="{{ s.price_note }}" maxlength="160"></div>
+            <div class="field"><label for="d-{{ s.id }}">Minutos</label><input id="d-{{ s.id }}" name="duration_min" type="number" min="5" max="480" value="{{ s.duration_min }}"></div>
+          </div>
+          <div class="field"><label for="ds-{{ s.id }}">Descripción</label><input id="ds-{{ s.id }}" name="description" value="{{ s.description }}" maxlength="300"></div>
+          <button class="btn btn-primary" type="submit">{{ 'Confirmar' if s.needs_review else 'Guardar' }}</button>
+          <button class="btn btn-ghost" type="submit" formaction="/admin/negocios/{{ tenant.id }}/bot/descartar/service/{{ s.id }}">Descartar</button>
+        </form>
+        {% else %}
+          <p class="muted">Sin servicios.</p>
+        {% endfor %}
+      {% else %}
+        <div class="table-wrap"><table>
+          <thead><tr><th>Servicio</th><th>Minutos</th><th>Precio</th></tr></thead>
+          <tbody>{% for s in snapshot_services %}
+            <tr><td>{{ s.name }}</td><td>{{ s.duration_min }}</td><td>{% if s.price_cop is not none %}${{ s.price_cop | string }} COP{% else %}{{ s.price_note or 'Consultar' }}{% endif %}</td></tr>
+          {% endfor %}</tbody>
+        </table></div>
+      {% endif %}
+    </div>
+
+    <div class="card">
+      <h3>Preguntas frecuentes</h3>
+      {% if is_draft %}
+        {% for f in faqs %}
+        <form class="fb-item {{ 'pending' if f.needs_review }}" method="post" action="/admin/negocios/{{ tenant.id }}/bot/faqs/{{ f.id }}">{{ csrf() }}
+          <p><span class="badge badge-neutral">{{ f.source | estado_es }}</span>
+             {% if f.needs_review %}{{ badge('needs_review') }}{% endif %}</p>
+          <div class="field"><label for="q-{{ f.id }}">Pregunta</label><input id="q-{{ f.id }}" name="question" value="{{ f.question }}" required maxlength="200"></div>
+          <div class="field"><label for="a-{{ f.id }}">Respuesta</label><textarea id="a-{{ f.id }}" name="answer" required maxlength="600" rows="3">{{ f.answer }}</textarea></div>
+          <button class="btn btn-primary" type="submit">{{ 'Confirmar' if f.needs_review else 'Guardar' }}</button>
+          <button class="btn btn-ghost" type="submit" formaction="/admin/negocios/{{ tenant.id }}/bot/descartar/faq/{{ f.id }}">Descartar</button>
+        </form>
+        {% else %}
+          <p class="muted">Sin preguntas frecuentes.</p>
+        {% endfor %}
+      {% else %}
+        <dl>{% for f in snapshot_faqs %}<dt>{{ f.question }}</dt><dd>{{ f.answer }}</dd>{% endfor %}</dl>
+      {% endif %}
+    </div>
+
+    <div class="card">
+      <h3>Horarios {% if info.hours_ungrounded and not info.hours_confirmed %}{{ badge('needs_review') }}{% endif %}</h3>
+      {% if is_draft %}
+      <form method="post" action="/admin/negocios/{{ tenant.id }}/bot/{{ bot.id }}/horarios">{{ csrf() }}
+        <div class="fb-row">
+        {% for key, label, value in days %}
+          <div class="field"><label for="h-{{ key }}">{{ label }}</label><input id="h-{{ key }}" name="{{ key }}" value="{{ value }}" placeholder="09:00-12:00, 14:00-18:00"></div>
+        {% endfor %}
+        </div>
+        <button class="btn btn-primary" type="submit">Confirmar horarios</button>
+      </form>
+      {% else %}
+        <ul>{% for key, label, value in days %}<li>{{ label }}: {{ value or 'Cerrado' }}</li>{% endfor %}</ul>
+      {% endif %}
+    </div>
+
+    <div class="card">
+      <h3>Tono</h3>
+      {% if is_draft %}
+      <form method="post" action="/admin/negocios/{{ tenant.id }}/bot/{{ bot.id }}/tono">{{ csrf() }}
+        <div class="fb-row">
+          <div class="field"><label for="t-reg">Trato</label>
+            <select id="t-reg" name="address_form">
+              <option value="usted" {{ 'selected' if cfg.tone.address_form == 'usted' }}>Usted</option>
+              <option value="tu" {{ 'selected' if cfg.tone.address_form == 'tu' }}>Tú</option>
+            </select></div>
+          <div class="field"><label for="t-emo">Emojis</label>
+            <select id="t-emo" name="emoji_level">
+              <option value="low" {{ 'selected' if cfg.tone.emoji_level == 'low' }}>Pocos</option>
+              <option value="none" {{ 'selected' if cfg.tone.emoji_level == 'none' }}>Ninguno</option>
+            </select></div>
+        </div>
+        <button class="btn" type="submit">Guardar tono</button>
+      </form>
+      {% else %}
+        <p>Trato: {{ 'usted' if cfg.tone.address_form == 'usted' else 'tú' }} · Emojis: {{ 'ninguno' if cfg.tone.emoji_level == 'none' else 'pocos' }}</p>
+      {% endif %}
+    </div>
+
+    <div class="card">
+      <details><summary>Prompt generado (solo lectura)</summary><pre class="fb-source">{{ bot.system_prompt }}</pre></details>
+    </div>
+
+    {% if is_draft %}
+    <div class="card">
+      <h3>Chat de prueba</h3>
+      {% with messages=[], history_json='[]', error='' %}{% include "factory/_chat.html" %}{% endwith %}
+    </div>
+    {% endif %}
+  </section>
+</div>
+{% endif %}
+{% endblock %}

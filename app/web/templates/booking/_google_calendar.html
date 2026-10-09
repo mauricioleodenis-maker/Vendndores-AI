@@ -1,0 +1,23 @@
+{% from "partials/macros.html" import csrf %}
+<div class="card" id="google-calendar">
+  <h3>Google Calendar</h3>
+  {% if not gcal.configured %}
+  <p class="muted">Google Calendar no está configurado en el servidor (faltan las credenciales OAuth).</p>
+  {% elif gcal.status == 'active' %}
+  <p><span class="badge badge-ok">Conectado</span>
+    {% if gcal.email %}<span class="muted">{{ gcal.email }}</span>{% endif %}</p>
+  <p class="muted">Las citas del bot se crean en tu calendario y los eventos ocupados bloquean horarios.</p>
+  <form method="post" action="/admin/negocios/{{ tenant.id }}/calendario/google/disconnect" data-confirm="¿Desconectar Google Calendar? Las citas ya creadas se conservan.">
+    {{ csrf() }}<button class="btn btn-ghost" type="submit">Desconectar</button>
+  </form>
+  {% else %}
+  {% if gcal.status in ('needs_reauth', 'error') %}
+  <p><span class="badge badge-warn">Requiere reconectar</span> <span class="muted">Mientras tanto se usa el calendario interno.</span></p>
+  {% else %}
+  <p class="muted">Sin conectar: se usa el calendario interno de la plataforma.</p>
+  {% endif %}
+  <form method="post" action="/admin/negocios/{{ tenant.id }}/calendario/google/connect">
+    {{ csrf() }}<button class="btn btn-primary" type="submit">Conectar Google Calendar</button>
+  </form>
+  {% endif %}
+</div>

@@ -31,7 +31,9 @@ def make_aad(table: str, tenant_id: object, column: str) -> bytes:
 
 
 class EnvelopeCrypto:
-    def __init__(self, keys: dict[str, bytes], active: str, *, hmac_key: bytes | None = None) -> None:
+    def __init__(
+        self, keys: dict[str, bytes], active: str, *, hmac_key: bytes | None = None
+    ) -> None:
         if active not in keys:
             raise ValueError("La clave activa no esta en el llavero")
         for version, key in keys.items():
@@ -118,3 +120,8 @@ def unpack_blob(data: bytes) -> EncryptedBlob:
     version = data[1 : 1 + n].decode()
     nonce = data[1 + n : 13 + n]
     return EncryptedBlob(data[13 + n :], nonce, version)
+
+
+def phone_hash(phone_e164: str) -> str:
+    """Indice ciego unico de telefonos (contactos, leads, suppression_list) en TODA la app."""
+    return get_crypto().blind_index(phone_e164.strip(), purpose="phone")

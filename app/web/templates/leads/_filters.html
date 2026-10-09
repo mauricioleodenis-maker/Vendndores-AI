@@ -1,0 +1,38 @@
+<form class="filters" method="get" action="{{ action }}">
+  <label>Buscar <input type="search" name="q" value="{{ f.q }}" maxlength="100" placeholder="Nombre, dirección o web"></label>
+  <label>Nicho
+    <select name="niche"><option value="">Todos</option>
+      {% for n in options.niches %}<option value="{{ n }}" {% if n == f.niche %}selected{% endif %}>{{ n | nicho_es }}</option>{% endfor %}
+    </select>
+  </label>
+  <label>Ciudad
+    <select name="city"><option value="">Todas</option>
+      {% for c in options.cities %}<option value="{{ c }}" {% if c|lower == f.city|lower %}selected{% endif %}>{{ c }}</option>{% endfor %}
+    </select>
+  </label>
+  {% if show_stage %}
+  <label>Etapa
+    <select name="stage"><option value="">Todas</option>
+      {% for s in stages %}<option value="{{ s }}" {% if s == f.stage %}selected{% endif %}>{{ s | estado_es }}</option>{% endfor %}
+    </select>
+  </label>
+  {% endif %}
+  <label>Calidad
+    <select name="band"><option value="">Todas</option>
+      <option value="caliente" {% if f.band == 'caliente' %}selected{% endif %}>Caliente (≥ {{ hot }})</option>
+      <option value="tibio" {% if f.band == 'tibio' %}selected{% endif %}>Tibio ({{ warm }}-{{ hot - 1 }})</option>
+      <option value="frio" {% if f.band == 'frio' %}selected{% endif %}>Frío (&lt; {{ warm }})</option>
+    </select>
+  </label>
+  <label>Puntaje mínimo <input type="number" name="min_score" min="0" max="100" value="{{ f.min_score or '' }}"></label>
+  {% if show_stage %}
+  <label>Estado
+    <select name="disposition"><option value="">Todos</option>
+      <option value="activo" {% if f.disposition == 'activo' %}selected{% endif %}>Activo</option>
+      <option value="perdido" {% if f.disposition == 'perdido' %}selected{% endif %}>Perdido</option>
+      <option value="no_contactar" {% if f.disposition == 'no_contactar' %}selected{% endif %}>No contactar</option>
+    </select>
+  </label>
+  {% endif %}
+  <button class="btn btn-primary" type="submit">Filtrar</button>
+</form>

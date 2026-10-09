@@ -9,7 +9,7 @@ from typing import Any
 from sqlalchemy import Index, String, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db.base import BigIntPK, Base, JSONType, UTCDateTime, enum_check, utcnow
+from app.db.base import Base, BigIntPK, JSONType, UTCDateTime, enum_check, utcnow
 
 ACTOR_TYPES = ("user", "system", "contact", "webhook")
 

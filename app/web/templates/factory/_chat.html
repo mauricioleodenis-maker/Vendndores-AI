@@ -1,0 +1,19 @@
+<div id="chat-prueba">
+  <div class="fb-chat" role="log" aria-live="polite">
+    {% for m in messages %}
+    <div class="fb-msg {{ m.role }}"><strong>{{ 'Cliente' if m.role == 'user' else 'Bot' }}:</strong> {{ m.content }}</div>
+    {% else %}
+    <p class="muted">Escribe un mensaje como si fueras un cliente. No se envía nada por WhatsApp ni se agenda en un calendario real.</p>
+    {% endfor %}
+  </div>
+  {% if error %}<div class="alert alert-error" role="alert">{{ error }}</div>{% endif %}
+  <form hx-post="/admin/negocios/{{ tenant.id }}/bot/{{ bot.id }}/probar" hx-target="#chat-prueba" hx-swap="outerHTML">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="hidden" name="history" value="{{ history_json }}">
+    <div class="field">
+      <label for="chat-text">Mensaje de prueba</label>
+      <input id="chat-text" name="text" maxlength="1000" required autocomplete="off">
+    </div>
+    <button class="btn btn-primary" type="submit">Enviar</button>
+  </form>
+</div>

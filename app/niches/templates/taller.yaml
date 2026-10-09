@@ -1,0 +1,205 @@
+# Plantilla de nicho: taller. Fuente: docs/plan/support (normalizada al esquema app/niches/schema.py).
+# Precios indicativos en COP; el bot nunca los presenta como garantia.
+niche: taller
+version: 1
+display_name_es: Taller mecanico
+country: CO
+base_city: Cali
+currency: COP
+timezone: America/Bogota
+persona:
+  tone: profesional y cercano; directo; espanol colombiano neutro
+  address_form: usted por defecto; tu si el cliente tutea primero
+  max_lines: 3
+  emojis: maximo 1 por mensaje; ninguno ante fallas de seguridad
+  avoid:
+  - diagnosticar un vehiculo a distancia
+  - prometer precio de reparacion antes de la inspeccion
+  - garantizar tiempos de entrega
+  greeting: Hola, soy el asistente virtual de {{negocio}}. Te ayudo a agendar tu servicio o resolver dudas.
+  identity: El bot siempre se presenta como asistente virtual, nunca como persona.
+typical_services:
+- code: cambio_aceite
+  name: Cambio de aceite y filtro
+  duration_min: 30
+  price_note: Depende del tipo de aceite y del vehiculo; se confirma al recibir el vehiculo
+  requires_deposit: false
+  requires_assessment: false
+- code: revision_general
+  name: Revision general / chequeo preventivo
+  duration_min: 60
+  price_note: Valoracion inicial; el costo de reparacion se cotiza tras revisar
+  requires_deposit: false
+  requires_assessment: false
+- code: diagnostico
+  name: Diagnostico de falla (escaner y revision)
+  duration_min: 60
+  price_note: Costo de diagnostico segun taller; se descuenta si se aprueba la reparacion (validar)
+  requires_deposit: false
+  requires_assessment: false
+- code: frenos
+  name: Revision y cambio de pastillas o discos de freno
+  duration_min: 90
+  price_note: Se cotiza por eje y referencia de repuesto tras inspeccion
+  requires_deposit: false
+  requires_assessment: true
+- code: alineacion_balanceo
+  name: Alineacion y balanceo
+  duration_min: 60
+  price_note: Precio por vehiculo y tipo de llanta; validar por taller
+  requires_deposit: false
+  requires_assessment: false
+- code: cambio_llantas
+  name: Cambio o rotacion de llantas
+  duration_min: 45
+  price_note: Depende de la medida y la marca de llanta; el cliente puede llevar sus llantas
+  requires_deposit: false
+  requires_assessment: false
+- code: suspension_direccion
+  name: Revision de suspension y direccion
+  duration_min: 90
+  price_note: Requiere inspeccion en elevador; sin precio por telefono
+  requires_deposit: false
+  requires_assessment: true
+- code: reparacion_motor
+  name: Reparacion de motor (cotizacion)
+  duration_min: 30
+  price_note: Solo cotizacion presencial; no se confirma costo ni tiempo por WhatsApp
+  requires_deposit: true
+  requires_assessment: true
+faq_seeds:
+- question: Cuanto cuesta el cambio de aceite?
+  answer: Depende del aceite y del vehiculo. Te agendo y el asesor te confirma el valor antes de iniciar.
+- question: Mi carro hace un ruido raro, que puede ser?
+  answer: No puedo diagnosticarlo por mensaje. Te agendo un diagnostico para revisarlo con escaner y en
+    elevador.
+- question: Cuanto cuesta el diagnostico?
+  answer: Te confirmo el valor del diagnostico con el asesor al agendar.
+- question: Cada cuanto debo cambiar las pastillas de freno?
+  answer: Depende del uso y del vehiculo. En la revision el mecanico te indica el estado real.
+- question: Me pueden recoger el carro?
+  answer: Si, ofrecemos recogida en la ciudad. Te confirmo disponibilidad y costo al agendar.
+- question: Dan garantia?
+  answer: La garantia depende del servicio. El asesor te explica las condiciones al entregar el vehiculo.
+- question: Trabajan con repuestos originales?
+  answer: Trabajamos con repuestos segun tu preferencia y disponibilidad. Te damos las opciones en la
+    cotizacion.
+- question: Atienden motos?
+  answer: Confirmo con el taller si atendemos tu tipo de vehiculo y te agendo.
+booking_rules:
+  slot_minutes: 30
+  buffer_min: 0
+  min_notice_hours: 4
+  max_days_ahead: 30
+  required_fields:
+  - nombre
+  - telefono
+  - marca
+  - modelo
+  - anio
+  - servicio
+  - fecha_hora
+  optional_fields:
+  - placa
+  cancellation_policy_hours: 4
+  confirmation_required: true
+  reminder_hours_before:
+  - 24
+  - 2
+  hours:
+    lunes_viernes: 07:30-17:30
+    sabado: 08:00-13:00
+    domingo: cerrado
+  assessment_first_services:
+  - reparacion_motor
+  - suspension_direccion
+  - frenos
+  deposit_services:
+  - reparacion_motor
+  notes:
+    horario: Horario de ejemplo; cada taller lo configura.
+    slot_source: services.duration_min
+    vehiculo: Marca, modelo y anio al agendar; la placa es opcional hasta la llegada y se guarda cifrada.
+required_questions:
+- Cual es tu nombre?
+- Que marca, modelo y anio es el vehiculo?
+- Que servicio necesitas?
+- Que fecha y hora prefieres?
+- Cual es la placa? (opcional hasta que llegues)
+forbidden_topics:
+- diagnostico remoto definitivo
+- precio garantizado
+- temas politicos
+- contenido no relacionado
+escalation_triggers:
+- level: 1
+  name: falla_de_seguridad
+  triggers:
+  - fallas de frenos
+  - fallas de direccion
+  - humo o fugas
+  action: Si el vehiculo presenta fallas de frenos, direccion o humo, no lo conduzcas; te ayudo a agendar
+    la grua o revision urgente.
+  handoff: inmediato, con alerta prioritaria
+- level: 3
+  name: consulta_humana
+  triggers:
+  - cotizacion formal
+  - reclamo o garantia
+  - pago o factura
+  - solicitud fuera de tema
+  action: Confirma que un asesor le contactara y registra el motivo.
+  handoff: humano en horario de atencion
+message_templates:
+  saludo: Hola, soy el asistente virtual de {{negocio}}. Te ayudo a agendar tu servicio o resolver dudas.
+  confirmacion: Listo {{nombre}}, tu cita de {{servicio}} quedo para {{fecha_hora}} en {{direccion}}.
+    Responde SI para confirmar.
+  recordatorio_24h: Hola {{nombre}}, te recordamos tu cita de {{servicio}} manana a las {{hora}} en {{negocio}}.
+    Responde SI para confirmar o NO para reprogramar.
+  recordatorio_2h: '{{nombre}}, te esperamos en 2 horas en {{negocio}}.'
+  vehiculo_listo: Hola {{nombre}}, tu vehiculo ya esta listo para recoger en {{negocio}}.
+  fuera_de_horario: Gracias por escribirnos. Nuestro horario es {{horario}}; te respondemos apenas abramos.
+  opt_out: Listo, no volveremos a enviarte mensajes automaticos.
+compliance:
+  legal_basis: Ley 1581 de 2012 y Decreto 1377 de 2013 (Colombia). La placa y datos del propietario se
+    tratan con consentimiento.
+  consent_text: 'Al escribir, aceptas el tratamiento de tus datos y los de tu vehiculo para agendar y
+    avisarte. Politica: {{url_politica}}.'
+  retention: Historial de servicio por 365 dias; el propietario puede pedir su supresion.
+  retention_days: 365
+  rights: Puedes pedir conocer, actualizar o suprimir tus datos escribiendo a {{correo_habeas_data}}.
+  notes:
+  - 'Texto de consentimiento: consent_vehiculo_v1'
+  - No recolectar numeros de cedula completos.
+required_variables:
+- negocio
+- ciudad
+- direccion
+- horario
+- telefono_contacto
+- nombre_responsable
+- url_politica
+- correo_habeas_data
+off_topic_response: Solo puedo ayudarte con citas e informacion de {{negocio}}. Te comunico con el equipo
+  si lo necesitas.
+sensitive_response: Si el vehiculo presenta fallas de frenos, direccion o humo, no lo conduzcas; te ayudo
+  a agendar la grua o revision urgente.
+factory_inputs:
+  required:
+  - nombre_taller
+  - ciudad
+  - direccion
+  - horario
+  - servicios_top
+  - telefono_contacto
+  - nombre_responsable
+  optional:
+  - website_url
+  - instagram_url
+  - tono
+  - marcas_atendidas
+  - recogida_domicilio
+  - garantia_dias
+  - deposito_requerido
+extras:
+  needs_vehicle_data: true

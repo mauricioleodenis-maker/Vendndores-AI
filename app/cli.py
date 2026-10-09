@@ -131,26 +131,20 @@ async def _init_db() -> str:
 
 
 async def _rotate_keys() -> str:
-    from app.core.crypto import get_crypto, pack_blob, unpack_blob, make_aad
+    from app.core.crypto import EncryptedBlob, get_crypto, make_aad
     from app.db.models.tenants import TenantSecret
 
     crypto = get_crypto()
     rotated = 0
     async with session_scope() as session:
-        rows = (
-            await session.execute(
-                select(TenantSecret).where(TenantSecret.key_version != crypto.active_version)
-            )
-        ).scalars()
-        from app.core.crypto import EncryptedBlob
-
-        for row in rows:
+        stmt = select(TenantSecret).where(TenantSecret.key_version != crypto.active_version)
+        for row in (await session.execute(stmt)).scalars():
             aad = make_aad("tenant_secrets", row.tenant_id, "ciphertext")
-            blob = crypto.rotate(EncryptedBlob(row.ciphertext, row.nonce, row.key_version), aad=aad)
-            row.ciphertext, row.nonce, row.key_version = blob.ciphertext, blob.nonce, blob.key_version
+            old = EncryptedBlob(row.ciphertext, row.nonce, row.key_version)
+            new = crypto.rotate(old, aad=aad)
+            row.ciphertext, row.nonce, row.key_version = new.ciphertext, new.nonce, new.key_version
             rotated += 1
-    _ = (pack_blob, unpack_blob)
-    return f"Secretos re-cifrados: {rotated}"
+    return f"Secretos re-cifrados: {rotated} (otras tablas cifradas las rota su modulo)"
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -170,8 +164,10 @@ def build_parser() -> argparse.ArgumentParser:
 async def _dispatch(args: argparse.Namespace) -> str:
     try:
         if args.command == "create-owner":
-            password = args.password or os.environ.get("VAI_OWNER_PASSWORD") or getpass.getpass(
-                "Contraseña (min 12): "
+            password = (
+                args.password
+                or os.environ.get("VAI_OWNER_PASSWORD")
+                or getpass.getpass("Contraseña (min 12): ")
             )
             return await _create_owner(args.email, password, args.name)
         if args.command == "seed":

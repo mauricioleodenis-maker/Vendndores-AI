@@ -33,7 +33,10 @@ class UserSession(Base):
     """``sessions``: la PK es el sha256 del token de la cookie (el token nunca se guarda)."""
 
     __tablename__ = "sessions"
-    __table_args__ = (Index("ix_sessions_user_id", "user_id"), Index("ix_sessions_expires_at", "expires_at"))
+    __table_args__ = (
+        Index("ix_sessions_user_id", "user_id"),
+        Index("ix_sessions_expires_at", "expires_at"),
+    )
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
     user_id: Mapped[uuid.UUID] = mapped_column(

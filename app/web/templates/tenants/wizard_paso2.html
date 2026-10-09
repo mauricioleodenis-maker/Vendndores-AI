@@ -1,0 +1,20 @@
+{% from "partials/macros.html" import csrf %}
+{% include "tenants/_steps_bar.html" %}
+<form hx-post="/admin/negocios/{{ tenant.id }}/paso2" hx-target="#wizard" hx-swap="innerHTML" method="post" action="/admin/negocios/{{ tenant.id }}/paso2">
+  {{ csrf() }}
+  <h2>Servicios y precios</h2>
+  <p class="muted">Dejamos sugerencias del nicho; edita, borra el nombre para quitar una fila o agrega más. Sin precio, el bot dirá que se confirma en la valoración.</p>
+  {% for k, msg in errors.items() %}{% if k.startswith('service_') or k == 'hours' %}<div class="alert alert-error" role="alert">{{ msg }}</div>{% endif %}{% endfor %}
+  <div id="servicios">
+    {% for s in services %}{% include "tenants/_servicio_fila.html" %}{% endfor %}
+  </div>
+  <button class="btn btn-ghost" type="button" hx-get="/admin/negocios/nuevo/servicio-fila" hx-target="#servicios" hx-swap="beforeend">Agregar servicio</button>
+  <h2>Horarios</h2>
+  <p class="muted">Formato 09:00-13:00, 14:00-18:00. Déjalo vacío si ese día está cerrado.</p>
+  {% for d, label, text in days %}
+  <div class="field"><label for="h-{{ d }}">{{ label }}</label><input id="h-{{ d }}" name="hours_{{ d }}" value="{{ text }}" maxlength="100"></div>
+  {% endfor %}
+  <div class="field"><label for="f-notes">Notas para la IA</label><textarea id="f-notes" name="notes" rows="3" maxlength="2000">{{ notes }}</textarea></div>
+  <button class="btn btn-ghost" type="button" hx-get="/admin/negocios/{{ tenant.id }}/wizard?paso=1" hx-target="#wizard" hx-swap="innerHTML">Atrás</button>
+  <button class="btn btn-primary" type="submit">Siguiente</button>
+</form>

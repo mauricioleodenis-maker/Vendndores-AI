@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import HTMLResponse
@@ -37,9 +38,8 @@ async def audit_list(
         limit=PAGE_SIZE + 1,
         offset=(page - 1) * PAGE_SIZE,
     )
-    base = "/admin/auditoria?"
-    if action:
-        base += f"action={action}"
+    params = {k: v for k, v in (("action", action), ("tenant_id", tenant_id)) if v}
+    base = "/admin/auditoria" + (f"?{urlencode(params)}" if params else "")
     return render(
         request,
         "audit/list.html",
@@ -49,7 +49,7 @@ async def audit_list(
             "page": page,
             "action": action,
             "tenant_id": tenant_id,
-            "base_url": base.rstrip("?&") or "/admin/auditoria",
+            "base_url": base,
         },
     )
 
