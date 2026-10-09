@@ -109,6 +109,13 @@ _URGENT = _rx(
     r"dolor\s+(?:\w+\s+){0,4}(?:fuerte|intenso|insoportable|terrible)",
     r"(?:fuerte|intenso|insoportable)\s+dolor|me\s+duele\s+(?:muchisimo|demasiado)",
     r"cara\s+(?:muy\s+)?inflamada|hinchazon\s+en\s+(?:la\s+)?cara",
+    r"(?:se\s+me\s+)?(?:hincho|hincha|cierra)\s+(?:toda\s+)?(?:la\s+)?(?:cara|garganta|lengua)|"
+    r"garganta\s+(?:se\s+)?(?:me\s+)?cierr|me\s+cuesta\s+(?:tragar|respirar)|reaccion\s+alergica|anafilax",
+    r"(?:se\s+)?(?:trago|tragó|ingirio)\s+(?:\w+\s+){0,3}(?:y\s+)?(?:no\s+respira|azul)|"
+    r"esta\s+azul|(?:se\s+me\s+)?salio\s+(?:un\s+)?diente\s+(?:\w+\s+){0,8}sangra\s+mucho|"
+    r"sangra\s+(?:muchisimo|mucho)|\d{2}\s+pastillas|demasiados\s+(?:analgesicos|medicamentos|pastillas)",
+    r"(?:frenos?|direccion)\s+(?:\w+\s+){0,4}(?:fall|fueron|perd|no\s+respond)|se\s+me\s+fueron\s+los\s+frenos|"
+    r"sin\s+frenos|(?:sale|sali\w*|echa)\s+humo|huele\s+a\s+gasolina|fuga\s+de\s+gasolina",
 )
 _CRISIS = _rx(
     r"suicid|quitarme\s+la\s+vida|quitarle\s+la\s+vida\s+a\s+mi|acabar\s+con\s+mi\s+vida|"

@@ -171,6 +171,6 @@ async def _run_turn(
 
 from app.voice.admin import admin_router  # noqa: E402
 
-router.include_router(admin_router)
+routers = [admin_router]  # descubrimiento: fuera del prefijo de webhooks
 
-__all__ = ["router"]
+__all__ = ["router", "routers"]
