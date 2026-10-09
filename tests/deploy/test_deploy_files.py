@@ -17,7 +17,9 @@ def test_env_example_documents_every_setting() -> None:
     documented = set(re.findall(r"^VAI_([A-Z0-9_]+)=", text, flags=re.M))
     expected = {name.upper() for name in Settings.model_fields}
     assert expected - documented == set()
-    assert documented - expected == set()
+    # WOMPI_* viven en app/payments (clases de ajustes propias, mismo prefijo VAI_).
+    extra = {n for n in documented - expected if not n.startswith("WOMPI_")}
+    assert extra == set()
 
 
 def test_compose_files_are_valid_yaml_with_services() -> None:

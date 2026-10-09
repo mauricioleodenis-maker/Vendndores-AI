@@ -105,6 +105,19 @@ async def _deliver_step(
         session.add(msg)
         await session.flush()
         await session.commit()  # el registro queda antes de llamar al proveedor
+    # Reclama el mensaje (FOR UPDATE SKIP LOCKED) hasta el commit del envio: dos corridas
+    # solapadas o un reintento tras caida no pueden enviar el mismo 'queued' dos veces.
+    claimed = (
+        await session.execute(
+            select(OutreachMessage)
+            .where(OutreachMessage.id == msg.id, OutreachMessage.status == "queued")
+            .with_for_update(skip_locked=True)
+            .execution_options(populate_existing=True)
+        )
+    ).scalar_one_or_none()
+    if claimed is None:
+        return "busy"
+    msg = claimed
     assert lead.phone_e164 is not None and tpl.twilio_content_sid is not None
     result = await sender.send_step(
         session, msg, to_e164=lead.phone_e164, content_sid=tpl.twilio_content_sid
@@ -200,6 +213,8 @@ async def dispatch_campaign(
             target.status = "skipped"
             _bump(campaign, "datos_incompletos")
             out["skipped"] += 1
+            continue
+        if outcome == "busy":
             continue
         if outcome == "sent":
             target.status = "sent" if step == 1 and follow_tpl is not None else "done"

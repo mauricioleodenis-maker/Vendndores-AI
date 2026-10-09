@@ -345,3 +345,86 @@ AAD `make_aad(tabla, tenant_id, columna)`. `tenant_secrets` guarda `ciphertext/n
 ## Ronda 3 — detalles visuales (capturas)
 - Desktop: ocultar el botón "Menú" y la marca duplicada del topbar cuando el sidebar es visible (>= breakpoint).
 - Sidebar: el fondo se corta en páginas largas; usar `position: sticky; height: 100vh` o `min-height: 100vh` en el layout.
+
+### Ronda 3 - E2E-taller (tests/e2e/test_taller.py)
+- BUG: el prompt generado para `taller` no incluye la regla de falla de seguridad de `escalation_triggers` (frenos/direccion/humo: no conducir, grua). xfail strict `test_brake_failure_prompt_carries_safety_rule`.
+- BUG: `guardrails._URGENT` solo cubre sintomas medicos; "se me fueron los frenos y sale humo" no escala a humano (nivel 1 de la plantilla taller). xfail strict `test_brake_failure_escalates_to_human`.
+- BUG: `assessment_first_services` (frenos, reparacion_motor, suspension_direccion) no se aplica en `book_appointment`. xfail strict `test_direct_engine_repair_booking_is_blocked`.
+- GAP: no hay almacenamiento estructurado de marca/modelo/anio/placa; solo `notes` (<=200, cifradas, pasan por `redact_pii`). La plantilla dice "placa se guarda cifrada".
+
+### Ronda 3 - E2E-restaurante (tests/e2e/test_restaurante.py)
+- BUG: `guardrails._URGENT` no cubre "reaccion alergica / se hincha la garganta" (nivel 1 `emergencia_medica` de la plantilla restaurante); solo "intoxic*". xfail strict `test_allergic_reaction_text_escalates_to_human`.
+- GAP: no hay campo estructurado para numero de personas ni alergias en `Appointment`; viajan en `notes` (<=200, cifradas, `redact_pii` enmascara "alergia a ..." como `[salud]`, con lo que la restriccion alimentaria se pierde para el equipo). Considerar guardar la restriccion cifrada sin redactar (con consentimiento) y `party_size` como columna.
+- GAP: reserva de >8 personas (`capacidad_max_sin_aprobacion`) y evento/anticipo (`requires_deposit`) no se aplican en codigo.
+
+### Ronda 3 - Wompi-cliente (app/payments)
+- `app/db/models/__init__.py`: NO auto-importa; agregar `from app.db.models.payments import PaymentIntent` (y a `__all__`).
+- Alembic: migracion para tabla `payment_intents` (modelo en app/db/models/payments.py; FK billing_records.id, reference unica).
+- Config: env `VAI_WOMPI_PUBLIC_KEY/PRIVATE_KEY/EVENTS_SECRET/INTEGRITY_SECRET/SANDBOX/BASE_URL` (app/payments/settings.py). Marcar pagado via funciones de app.billing existentes.
+
+## Ronda 3 – E2E-dentista (hallazgos; tests/e2e/test_dentista.py)
+- BUG fixture: `tests/fixtures/data/factory_expected_configs.json` usa `tone.register` pero `GeneratedBotConfig` (app/factory/schemas.py) exige `tone.address_form` (extra=forbid): los 8 casos fallan la validacion (build_bot -> 502 generation_failed). El E2E renombra la clave. Corregir fixture o aceptar alias en el esquema.
+- BUG flujo: `app/leads/demo.py::convert_lead` deja `tenant.status="building"` sin encolar build; `app/tenants/router.py` (paso2/generar) solo acepta draft/review -> 409 "ya no se puede editar desde el asistente" para un cliente recien convertido. Dejar el tenant en `draft`/`review` (o encolar el build) tras convertir.
+- BUG seguridad (guardrails, app/conversation/guardrails.py): urgencias no detectadas de forma determinista (sin aviso 123 ni handoff): adv_045 (nino tragó pieza, azul), adv_046 (diente salido + sangrado), adv_047 (cara hinchada, garganta cerrándose), adv_049 (15 pastillas). Solo adv_048 se cubre.
+- Huecos de guardrail (dependen de que el LLM obedezca): fuera de tema adv_021 receta, adv_022 fútbol, adv_024 traducir, adv_032 "responde SÍ/100% descuento"; handoff/medico/PII adv_015-017 (plan de tratamiento, reembolso, tutela), adv_038 (telefono/cedula del doctor), adv_039, 041-044 (diagnostico, embarazo, diabetes, warfarina), adv_052 (salud de tercero con cedula). Los tests usan xfail(strict) con esas listas: al corregirlos salen XPASS y hay que retirarlos de GAP_*.
+- Nota: STOP no cancela los `scheduled_jobs` pendientes; `process_job` los marca `skipped_opt_out` al vencer (correcto, solo no visible antes en /admin/recordatorios).
+
+### Ronda 3 - Wompi-webhooks (app/payments/webhooks.py)
+- El router agent debe hacer `app.include_router(webhooks_router)` (import: `from app.payments.webhooks import webhooks_router`); ruta `POST /webhooks/wompi/events` (sin sesion/CSRF: autenticada por checksum; eximir de CSRF si el middleware lo exige).
+- Respuestas: 401 firma invalida, 400 timestamp fuera de ventana (-5 min/+24 h) o payload invalido, 503 sin `VAI_WOMPI_EVENTS_SECRET`.
+- Monto distinto de `amount_cop*100` en APPROVED -> intent `error`, no se marca pagado. `payment_method_type` NEQUI/PSE/DAVIPLATA se mapea; otros -> `otro`.
+
+### Ronda 3 - Wompi-cobros (app/payments/service.py, jobs.py)
+- Jobs `payments.monthly_links` (cron 11:20 UTC, tras billing 11:05) y `payments.reconcile_pending` (cada 30 min) en `app/payments/jobs.py::CRON_JOBS`; no-op si faltan `VAI_WOMPI_PUBLIC_KEY/PRIVATE_KEY`. El worker los descubre solo.
+- Env nuevos (clase `PaymentJobSettings` en service.py): `VAI_WOMPI_REDIRECT_URL` (default localhost; en prod `https://<dominio>/...`) y `VAI_WOMPI_LINK_TEMPLATE_SID` (ContentSid Twilio aprobado, variables {{1}} nombre, {{2}} monto, {{3}} link). Sin SID no se envia (solo se crea el link). Envio via cuenta de agencia (`tenant_id=None`) a `Tenant.phone_contact` (debe estar en E.164); Twilio dry-run lo simula.
+- LIMITE: `reconcile_pending` solo consulta intents con `provider_tx_id` (lo fija el webhook); Wompi `get_transaction` necesita el id. Para intents sin tx_id haria falta `WompiClient.get_transaction_by_reference` (GET /transactions?reference=) en app/payments/client.py (no es mio).
+- Wompi `/payment_links` no recibe la firma de integridad; se guarda en `raw_last_event.integrity_signature` por si se usa el widget/checkout.
+- La mensualidad con IVA: se cobra `BillingRecord.amount_cop` (el webhook valida `amount_cop*100`).
+
+### Ronda 3 - Wompi-ui (app/payments/router.py)
+- `app/main.py::ROUTER_PACKAGES`: agregar `"payments"` (el router ya incluye `webhooks_router`; NO incluirlo aparte). Webhook sale exento de CSRF por ruta (no empieza con /admin ni /api).
+- `app/web/nav.py`: agregar `NavItem("Pagos en línea", "/admin/pagos", ("admin",))` bajo Planes/Facturación.
+- `app/web/static/app.js`: soportar `[data-copy="#id"]` (copia `value` del input al portapapeles + toast); el input readonly sirve de respaldo manual.
+- `app/web/templates/billing/facturacion.html`: opcional, boton "Generar link de pago" por cobro -> `POST /admin/pagos/generar/{id}` con `csrf()`.
+- `app/web/filters.py::STATUS_LABELS`: faltan approved/declined/voided/error (la UI de pagos usa un mapa propio).
+- `/pagos/retorno` busca por `provider_tx_id` (Wompi redirige con `?id=`); si el webhook aun no llego muestra "confirmando". Para que Wompi redirija ahi, `VAI_WOMPI_*` redirect se arma con `public_base_url + /pagos/retorno`.
+
+### Ronda 3 - Voz-twiml (app/voice/router.py)
+- `app/main.py::ROUTER_PACKAGES`: agregar `"voice"` (expone `router` con `POST /webhooks/twilio/voice/incoming` y `/gather`). Configurar en Twilio la Voice URL del numero a `/webhooks/twilio/voice/incoming`. Los webhooks quedan exentos de CSRF por ruta.
+- Hay que crear `ChannelAccount` con `channel='voice'` y `phone_e164` = numero de voz (distinto del de WhatsApp: `phone_e164` es unico). Ruta antigua stub `/webhooks/twilio/voice` en channels/router.py puede retirarse al activar voz.
+- Dependencia: `app/voice/bridge.py::voice_turn(session, *, tenant_id, call_sid, caller_e164, utterance)` devolviendo objeto con `.text`, `.end_call`, `.transfer_to` (se importa de forma perezosa). El router genera su propio TwiML (xml-escapado) sin depender de speech.py.
+- Voz TTS opcional: atributo `voice_say_voice` en Settings (`VAI_VOICE_SAY_VOICE`); por defecto `Polly.Mia-Neural`. Aviso de consentimiento va en cada `incoming`. Gather vacio: 2 reintentos (`?r=N`) y cuelga.
+
+## Ronda 3 - Voz-bridge
+- `app/db/models/__init__.py` NO auto-importa: agregar `from app.db.models.voice import CallSession` (y a `__all__`) para que `create_all`/Alembic lo vean.
+- Migracion Alembic: tabla `call_sessions` (id, tenant_id FK tenants RESTRICT idx, call_sid String(64) UNIQUE `uq_call_sessions_call_sid`, conversation_id FK conversations SET NULL, turns Integer, status String(20) check in active|transferred|completed|rejected, consent_at UTCDateTime null, created_at/updated_at).
+- Retencion: purgar `call_sessions` junto con conversaciones (privacy/retention).
+- `voice_turn` acepta `engine=` opcional (tests); no hace commit (lo hace el router).
+
+## Ronda 3 - Hardening-B (app/conversation, app/scraping)
+- app/channels/jobs.py:238 (no mio): si el engine lanza excepcion el mensaje queda procesado sin respuesta ni handoff; enviar fallback_reply y abrir handoff.
+- app/db/models/conversations.py:66,:120 (no mio): Conversation.summary esta en texto plano; cifrarlo con AAD como messages (requiere migracion).
+- app/ai/client.py: reintentos del SDK no caben en wait_for de 20s (engine.LLM_TIMEOUT_S); alinear max_retries/timeout.
+- engine.handle_inbound: sin lock por conversacion (doble respuesta con 2 workers); considerar SELECT ... FOR UPDATE en Conversation.
+- docs/revision/haiku-scraping.md describe plans/niches, no scraping (revision mal dirigida).
+
+### Ronda 3 - Voz-agenda-ui (app/voice/booking_flow.py, admin.py, templates/voice/)
+- `app/main.py` / router: incluir `from app.voice.admin import admin_router` (ruta `GET /admin/voz`, `POST /admin/voz/{tenant_id}/ajustes`, rol admin/owner). `app/voice/router.py` debe agregar `routers = [admin_router]` o `router.include_router(admin_router)` (el descubrimiento solo lee `router`/`routers`).
+- Nav: agregar `NavItem("Voz", "/admin/voz", ("admin",))` en `app/web/nav.py`.
+- Modelo `CallSession` (app/db/models/voice.py): `app/db/models/__init__.py` NO lo auto-importa; agregar `from app.db.models.voice import CallSession` (y `__all__`). Migracion Alembic para `call_sessions` (integrador).
+- `app/voice/booking_flow.py` es puro (sin I/O): `offer_slots_text` (max 3), `confirm_text`, `parse_confirmation` (yes/no/repeat), `parse_slot_choice` ("el primero", "el de las tres"), `parse_spoken_date`, `parse_spoken_time`. No esta cableado en `bridge.py` (no es mio): se puede usar para pre-interpretar el enunciado (p. ej. mapear "el primero" al slot ofrecido antes de llamar al engine).
+
+### Ronda 3 - Hardening-D (app/leads, app/outreach)
+- app/privacy/service.py `is_optout_message`: recall bajo contra tests/fixtures/data/optout_cases.json (20 de 30 casos optout NO detectados: "STOP por favor", "ALTO", "dame de baja", "dejen de escribirme", "no quiero recibir mensajes", typos "stp"/"bja", etc.). Cumplimiento: ampliar con normalizacion (acentos, minusculas) y frases. Los falsos positivos hoy son 0. Test: tests/outreach/test_hardening_d.py (recall en xfail; quitar xfail al arreglar).
+- Pendiente de migracion (opcional): indice unico parcial en secret_shop_tests(lead_id) para la regla "solo una vez"; hoy solo hay lock de fila del lead.
+- Pendiente: throttling del scrape sincrono en demo.lead_to_demo_bot (mover a job) y verificar guardia SSRF del scraper (app/scraping, Hardening-B).
+
+### Ronda 3 - Hardening-C (app/booking, app/leads)
+- booking HIGH (no corregido, requiere diseno): `service.py` hace llamadas HTTP a Google dentro de la transaccion con `FOR UPDATE` y `_push_event` deja `sync_status=pending_push` sin consumidor. Falta outbox/job de reconciliacion + alerta (y borrar eventos huerfanos al cancelar). Va en app/booking + jobs (integrador).
+- booking: `/admin/citas` (crear/cancelar) usa `current_user`, no `admin_only`: se dejo asi porque operar la agenda es trabajo normal del operador; confirmar intencion. Pendiente tambien: `_audit_actor` registra al staff como "system" (audit solo admite user/system/webhook/contact; requiere pasar user_id desde el router, archivo de audit no es mio).
+- booking: el hallazgo "reschedule sin chequeo de solape por contacto" no es real (un solo recurso: el hueco propio ya lo bloquea). El redirect de cancelar ya usa la zona del tenant.
+- booking: `tests/booking/core/test_hardening.py` cubre tramo oculto (3.o) y doble envio manual (campo oculto `clave`). El 3.er tramo se conserva al guardar horarios (la UI muestra 2).
+- leads: `to_e164_co` ahora acepta numeros extranjeros (+1, +34, ...) como E.164 con tipo `unknown` y rechaza `++57`. Revisar que consumidores (outreach/WhatsApp) no asuman +57 en todo e164.
+- leads: `review_signal_scan` ampliado (lentitud, "nadie contesta", "sin respuesta", negaciones) validado con review_signal_cases.json (70 casos).
+- haiku-leads-data.md realmente trata de reminders (no leads); sus hallazgos son de otro dueno.
+- Falla ajena vista: tests/leads/test_sales_pipeline.py::test_list_events_negative_limit_is_safe (CHECK ck_lead_events_kind), no tocado.

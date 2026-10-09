@@ -62,7 +62,7 @@
   <div class="card-header"><h2>Nueva cita manual</h2></div>
   {% if services %}
   <form method="post" action="/admin/citas/nueva" class="form-grid">
-    {{ csrf() }}<input type="hidden" name="tenant_id" value="{{ tenant.id }}">
+    {{ csrf() }}<input type="hidden" name="clave" value="{{ form_key }}"><input type="hidden" name="tenant_id" value="{{ tenant.id }}">
     <div class="field span-2">
       <label for="c-servicio">Servicio <span class="required" aria-hidden="true">*</span></label>
       <select id="c-servicio" name="service_id" required>{% for s in services %}<option value="{{ s.id }}">{{ s.name }} ({{ s.duration_min }} min)</option>{% endfor %}</select>

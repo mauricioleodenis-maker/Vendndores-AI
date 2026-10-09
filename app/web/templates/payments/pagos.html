@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% from "partials/macros.html" import empty_state, csrf, pager %}
+{% block title %}Pagos en línea{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Pagos en línea</h1>
+</div>
+{% if flash %}<div class="alert alert-{{ flash.kind }}" role="status" data-toast="{{ flash.message }}" data-toast-kind="{{ flash.kind }}">{{ flash.message }}</div>{% endif %}
+{% if not enabled %}<div class="alert alert-warn" role="status">Wompi no está configurado (VAI_WOMPI_PUBLIC_KEY / VAI_WOMPI_PRIVATE_KEY). No se pueden generar links.</div>{% endif %}
+
+<div class="card">
+  <h2>Cobros por pagar sin link</h2>
+  {% if payable %}
+  <div class="table-wrap">
+  <table class="cards">
+    <thead><tr><th>Empresa</th><th>Periodo</th><th class="num">Monto</th><th>Vence</th><th>Acciones</th></tr></thead>
+    <tbody>
+    {% for p in payable %}
+      <tr>
+        <td data-label="Empresa">{{ p.tenant_name }}</td>
+        <td data-label="Periodo">{{ p.record.period or '-' }}</td>
+        <td class="num nowrap" data-label="Monto">{{ p.record.amount_cop | cop }}</td>
+        <td data-label="Vence">{{ p.record.due_date | fecha }}</td>
+        <td data-label="Acciones">
+          <form class="inline-form" method="post" action="/admin/pagos/generar/{{ p.record.id }}">
+            {{ csrf() }}
+            <label class="sr-only" for="e-{{ p.record.id }}">Correo del cliente (opcional)</label>
+            <input id="e-{{ p.record.id }}" name="email" type="email" maxlength="254" placeholder="Correo (opcional)" autocomplete="off">
+            <button class="btn btn-primary btn-sm" type="submit" {% if not enabled %}disabled{% endif %}>Generar link de pago</button>
+          </form>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  {{ empty_state('Nada por generar', 'Todos los cobros pendientes ya tienen link de pago.') }}
+  {% endif %}
+</div>
+
+<div class="card">
+  <form class="table-toolbar" method="get" action="/admin/pagos">
+    <div class="field">
+      <label for="f-estado">Estado</label>
+      <select id="f-estado" name="estado">
+        <option value="">Todos</option>
+        {% for code, label in estados %}<option value="{{ code }}" {% if code == estado %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+    </div>
+    <button class="btn btn-ghost" type="submit">Filtrar</button>
+    <span class="muted">{{ total }} pago{{ '' if total == 1 else 's' }}</span>
+  </form>
+
+  {% if rows %}
+  <div class="table-wrap">
+  <table class="cards">
+    <thead><tr><th>Empresa</th><th>Periodo</th><th class="num">Monto</th><th>Estado</th><th>Creado</th><th>Link</th></tr></thead>
+    <tbody>
+    {% for r in rows %}
+      <tr>
+        <td data-label="Empresa">{{ r.tenant_name }}</td>
+        <td data-label="Periodo">{{ r.record.period or '-' }}</td>
+        <td class="num nowrap" data-label="Monto">{{ r.intent.amount_cop | cop }}</td>
+        <td data-label="Estado"><span class="badge badge-{{ r.cls }}">{{ r.label }}</span></td>
+        <td data-label="Creado">{{ r.intent.created_at | hace }}</td>
+        <td data-label="Link">
+          {% if r.intent.link_url and r.intent.status == 'pending' %}
+          <input class="copy-field" id="l-{{ r.intent.id }}" type="text" readonly value="{{ r.intent.link_url }}" aria-label="Link de pago">
+          <button class="btn btn-ghost btn-sm" type="button" data-copy="#l-{{ r.intent.id }}">Copiar link</button>
+          <a class="btn btn-ghost btn-sm" href="{{ r.intent.link_url }}" target="_blank" rel="noopener noreferrer">Abrir</a>
+          {% else %}<span class="muted">-</span>{% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {{ pager('/admin/pagos' ~ ('?estado=' ~ (estado | urlencode) if estado else ''), page, has_more) }}
+  {% else %}
+  {{ empty_state('Sin pagos', 'Aún no se han generado links de pago' ~ (' en este estado' if estado else '') ~ '.') }}
+  {% endif %}
+</div>
+{% endblock %}

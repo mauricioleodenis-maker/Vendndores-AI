@@ -39,6 +39,16 @@ _SKIP_EXT = re.compile(
     r"\.(?:jpe?g|png|gif|webp|svg|ico|pdf|zip|rar|mp[34]|avi|mov|docx?|xlsx?|pptx?|css|js|xml|json)$",
     re.I,
 )
+# Sufijos publicos multi-etiqueta frecuentes (subconjunto de la PSL, sin dependencia externa).
+_PUBLIC_SUFFIXES_2L = frozenset({
+    "com.co", "net.co", "org.co", "gov.co", "edu.co", "mil.co", "nom.co", "info.co",
+    "com.mx", "org.mx", "gob.mx", "edu.mx", "net.mx", "com.ar", "org.ar", "gob.ar", "net.ar",
+    "com.br", "org.br", "gov.br", "net.br", "com.pe", "org.pe", "gob.pe", "edu.pe",
+    "com.ec", "gob.ec", "com.ve", "com.uy", "com.py", "com.bo", "com.cl", "com.pa",
+    "com.gt", "com.sv", "com.hn", "com.ni", "com.do", "com.cu", "com.pr", "com.es",
+    "co.uk", "org.uk", "ac.uk", "gov.uk", "me.uk", "co.nz", "com.au", "net.au", "org.au",
+    "co.za", "co.jp", "co.in", "com.cn", "com.tr", "com.sg", "com.hk", "co.il", "co.kr",
+})  # fmt: skip
 _SECOND_LEVEL = frozenset({"com", "net", "org", "gov", "edu", "co", "mil"})
 # (patron, puntos): se suma por coincidencia en ruta o texto del enlace.
 _PRIORITY: tuple[tuple[re.Pattern[str], int], ...] = tuple(
@@ -69,8 +79,11 @@ def registrable_domain(host: str) -> str:
     except ValueError:
         pass
     labels = [p for p in host.split(".") if p]
-    if len(labels) > 2 and ".".join(labels[-2:]) in _SHARED_SUFFIXES:
+    tail2 = ".".join(labels[-2:])
+    if len(labels) > 2 and (tail2 in _SHARED_SUFFIXES or tail2 in _PUBLIC_SUFFIXES_2L):
         return ".".join(labels[-3:])
+    if len(labels) == 2 and tail2 in _PUBLIC_SUFFIXES_2L:
+        return host  # el propio sufijo publico: solo coincide consigo mismo
     if len(labels) <= 2:
         return ".".join(labels)
     keep = 3 if labels[-2] in _SECOND_LEVEL and len(labels[-1]) == 2 else 2

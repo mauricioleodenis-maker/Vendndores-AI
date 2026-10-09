@@ -15,17 +15,20 @@ from app.db.models.conversations import Conversation, Handoff, Message
 from app.db.models.leads import Lead, LeadEvent, LeadSource, ReviewSignal, SecretShopTest
 from app.db.models.niches import NicheTemplate
 from app.db.models.outreach import Campaign, CampaignTarget, MessageTemplate, OutreachMessage
+from app.db.models.payments import PaymentIntent
 from app.db.models.plans import BillingRecord, Offer, Plan, Subscription, UsageCounter
 from app.db.models.privacy import SuppressionEntry
 from app.db.models.scheduling import ScheduledJob, WebhookEvent
 from app.db.models.tenants import ChannelAccount, Tenant, TenantProfile, TenantSecret
 from app.db.models.users import User, UserSession
+from app.db.models.voice import CallSession
 
 __all__ = [
     "Appointment",
     "AuditLog",
     "BillingRecord",
     "BotConfig",
+    "CallSession",
     "CalendarConnection",
     "Campaign",
     "CampaignTarget",
@@ -45,6 +48,7 @@ __all__ = [
     "NicheTemplate",
     "Offer",
     "OutreachMessage",
+    "PaymentIntent",
     "Plan",
     "Resource",
     "ReviewSignal",

@@ -70,6 +70,19 @@ docker compose run --rm web python -m app.cli create-owner
    - Suba volumen gradualmente; ante quejas o bloqueos, pause la campaña o apague `VAI_OUTREACH_ENABLED` (kill switch).
    - Respete siempre los STOP/BAJA: se registran en la lista de supresión (Ley 1581).
 
+## Pagos en línea (Wompi)
+
+1. Cree las llaves en el panel de Wompi y configure `VAI_WOMPI_PUBLIC_KEY`, `VAI_WOMPI_PRIVATE_KEY`, `VAI_WOMPI_EVENTS_SECRET` y `VAI_WOMPI_INTEGRITY_SECRET` (ver `.env.example`). Con `VAI_WOMPI_SANDBOX=true` todo corre en pruebas.
+2. En Wompi, apunte la URL de eventos a `https://<dominio>/webhooks/wompi/events` (se valida por firma, sin sesión).
+3. En `/admin/pagos` genere el link de pago de cada cobro. El worker crea links mensuales y reconcilia pendientes solo si hay llaves.
+4. Para enviar el link por WhatsApp defina `VAI_WOMPI_LINK_TEMPLATE_SID` (plantilla aprobada por Meta).
+
+## Voz (llamadas)
+
+1. En Twilio, configure la Voice URL del número de voz a `https://<dominio>/webhooks/twilio/voice/incoming`.
+2. Cree un canal `voice` con ese número (distinto del de WhatsApp) y ajuste la voz en `/admin/voz` (`VAI_VOICE_SAY_VOICE`, por defecto `Polly.Mia-Neural`).
+3. Cada llamada reproduce el aviso de consentimiento y se registra en `call_sessions`.
+
 ## Calidad y seguridad
 
 `make check` ejecuta ruff, `pip-audit`, `bandit` y las pruebas (los mismos controles de CI). El contenedor corre sin root, con `cap_drop: ALL`, `no-new-privileges` y límite de procesos; en producción `web`, `worker` y `caddy` son de solo lectura. `FORWARDED_ALLOW_IPS` es `127.0.0.1` por defecto y solo se abre en el compose de producción (puerto 8000 sin publicar).

@@ -48,6 +48,17 @@ def _phone_type(num: phonenumbers.PhoneNumber) -> str:
     return "unknown"
 
 
+def _foreign_e164(digits: str) -> tuple[str | None, str]:
+    """Numero internacional (no +57) valido: se conserva en E.164 con tipo ``unknown``."""
+    try:
+        num = phonenumbers.parse(f"+{digits}", None)
+    except phonenumbers.NumberParseException:
+        return None, "unknown"
+    if not phonenumbers.is_valid_number(num):
+        return None, "unknown"
+    return phonenumbers.format_number(num, phonenumbers.PhoneNumberFormat.E164), "unknown"
+
+
 def to_e164_co(raw: str | None) -> tuple[str | None, str]:
     """Devuelve ``(e164, phone_type)`` con phone_type en mobile|landline|unknown.
 
@@ -60,10 +71,17 @@ def to_e164_co(raw: str | None) -> tuple[str | None, str]:
     digits = re.sub(r"\D", "", text)
     if not digits or len(digits) > 15:
         return None, "unknown"
-    if digits.startswith("0057"):
-        digits = digits[4:]
-    elif digits.startswith("57") and len(digits) in (10, 12):
+    if text.startswith("++"):
+        return None, "unknown"
+    international = text.startswith("+") or digits.startswith("00")
+    if digits.startswith("00"):
         digits = digits[2:]
+    if international and not digits.startswith("57"):
+        return _foreign_e164(digits)
+    if digits.startswith("57") and len(digits) in (10, 12):
+        digits = digits[2:]
+    elif digits.startswith("57") and international:
+        return None, "unknown"
     if len(digits) == 7 and digits[0] in "2345678":
         digits = "602" + digits
     try:

@@ -154,3 +154,13 @@ async def test_limita_cola_y_respeta_deadline(web, page_html, monkeypatch) -> No
 async def test_html_anidado_no_rompe_el_crawl(web) -> None:
     web.add("https://x.com", "<div>" * 20000 + "texto suficiente para pasar el minimo")
     assert isinstance(await crawler.crawl_business_site("https://x.com"), list)
+
+
+def test_registrable_domain_public_suffixes():
+    from app.scraping.crawler import registrable_domain
+
+    assert registrable_domain("www.tienda.com.mx") == "tienda.com.mx"
+    assert registrable_domain("a.b.negocio.co.uk") == "negocio.co.uk"
+    assert registrable_domain("x.com.mx") == "x.com.mx"
+    assert registrable_domain("com.mx") == "com.mx"
+    assert registrable_domain("foo.bar.example.com") == "example.com"

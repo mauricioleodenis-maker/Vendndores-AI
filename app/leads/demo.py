@@ -151,8 +151,8 @@ async def lead_to_demo_bot(
     if not settings.demo_enabled:
         raise AppError("demo_disabled", "Las demos están deshabilitadas", 403)
     lead = await pipeline.get_lead(session, lead_id, for_update=True)
-    if lead.disposition == "perdido":
-        raise ConflictError("El lead está marcado como perdido")
+    if lead.disposition != "activo":
+        raise ConflictError("El lead no está activo (perdido o no contactar)")
     if lead.converted_tenant_id is not None:
         raise ConflictError("El lead ya es cliente")
     expires = utcnow() + timedelta(days=settings.demo_token_ttl_days)

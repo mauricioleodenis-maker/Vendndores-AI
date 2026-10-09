@@ -32,6 +32,8 @@ NAV_ITEMS: tuple[NavItem, ...] = (
         ("admin",),
         (NavItem("Facturación", "/admin/facturacion", ("admin",)),),
     ),
+    NavItem("Pagos", "/admin/pagos", ("admin",)),
+    NavItem("Voz", "/admin/voz", ("admin",)),
     NavItem("Kit de ventas", "/admin/kit-ventas"),
     NavItem("Auditoría", "/admin/auditoria", ()),  # solo owner
     NavItem("Ajustes", "/admin/ajustes"),

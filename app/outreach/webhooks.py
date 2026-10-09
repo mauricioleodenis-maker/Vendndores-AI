@@ -51,7 +51,13 @@ def _twiml(body: str = EMPTY_TWIML) -> Response:
     return Response(content=body, media_type="application/xml")
 
 
+MAX_BODY_BYTES = 64 * 1024
+
+
 async def _params(request: Request) -> dict[str, str]:
+    declared = request.headers.get("content-length", "")
+    if declared.isdigit() and int(declared) > MAX_BODY_BYTES:
+        raise AppError("payload_grande", "Cuerpo demasiado grande", 413)
     form = await request.form()
     params: dict[str, str] = {}
     for key, value in form.multi_items():

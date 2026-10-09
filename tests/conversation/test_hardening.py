@@ -79,3 +79,20 @@ async def test_llm_not_configured_hands_off_instead_of_raising(
     from sqlalchemy import select
 
     assert (await session.execute(select(Handoff))).scalars().first() is not None
+
+
+def test_crisis_suicidal_gets_crisis_reply_and_handoff():
+    from app.conversation.guardrails import DEFAULT_REPLIES, check_input
+
+    for t in ("quiero suicidarme", "ya no quiero vivir", "pienso en quitarme la vida"):
+        v = check_input(t, templates=None, prior_injections=0, prior_offtopic_streak=0)
+        assert v.reply == DEFAULT_REPLIES["crisis_reply"], t
+        assert "106" in v.reply and "192" in v.reply
+        assert v.handoff_reason == "medical_urgent" and "crisis" in v.flags
+
+
+def test_affirmation_with_but_is_not_affirmation():
+    from app.conversation.guardrails import is_affirmation
+
+    assert is_affirmation("sí")
+    assert not is_affirmation("sí, pero a las 4")

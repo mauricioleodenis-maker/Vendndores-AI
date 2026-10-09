@@ -7,7 +7,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
-from typing import Literal
+from functools import lru_cache
+from typing import Any, Literal
 
 import holidays
 from sqlalchemy import func, select
@@ -63,10 +64,15 @@ def defer(reason: str, until: datetime | None) -> GateDecision:
 
 
 # --------------------------------------------------------------------------- calendario
+@lru_cache(maxsize=8)
+def _co_holidays(year: int) -> Any:
+    return holidays.CO(years=year)
+
+
 def _is_business_day(d: date) -> bool:
     if d.weekday() == 6:  # domingo
         return False
-    return d not in holidays.CO(years=d.year)
+    return d not in _co_holidays(d.year)
 
 
 def in_send_window(now: datetime) -> bool:

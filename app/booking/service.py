@@ -14,7 +14,7 @@ from app.audit.service import log_event
 from app.booking import availability
 from app.booking.calendar_base import CalendarProvider
 from app.booking.providers import get_provider
-from app.core.clock import ensure_utc, to_bogota, utcnow
+from app.core.clock import ensure_utc, utcnow
 from app.core.errors import AppError, NotFoundError
 from app.core.logging import get_logger
 from app.db.models.booking import Appointment
@@ -296,12 +296,10 @@ class BookingService:
     ) -> None:
         """El horario debe caer en la grilla calculada (horario, festivos, notice, buffer)."""
         provider = await self._provider_for(session, tenant_id)
-        day = to_bogota(starts_at).date()
-        tenant = (
+        tz_name = (
             await session.execute(select(Tenant.timezone).where(Tenant.id == tenant_id))
         ).scalar_one_or_none()
-        if tenant:
-            day = starts_at.astimezone(availability.zone_for(tenant)).date()
+        day = starts_at.astimezone(availability.zone_for(tz_name or "America/Bogota")).date()
         slots = await availability.compute_slots(
             session,
             tenant_id,
@@ -344,20 +342,31 @@ class BookingService:
                 f"El contacto ya tiene {max_active} citas activas",
                 409,
             )
-        clash = (
-            await session.execute(
-                select(func.count())
-                .select_from(Appointment)
-                .where(
-                    Appointment.tenant_id == tenant_id,
-                    Appointment.contact_id == contact_id,
-                    Appointment.status.in_(availability.ACTIVE_STATUSES),
-                    Appointment.starts_at < ends_at,
-                    Appointment.ends_at > starts_at,
-                )
+        await self._check_contact_overlap(session, tenant_id, contact_id, starts_at, ends_at)
+
+    async def _check_contact_overlap(
+        self,
+        session: AsyncSession,
+        tenant_id: uuid.UUID,
+        contact_id: uuid.UUID,
+        starts_at: datetime,
+        ends_at: datetime,
+        exclude_id: uuid.UUID | None = None,
+    ) -> None:
+        stmt = (
+            select(func.count())
+            .select_from(Appointment)
+            .where(
+                Appointment.tenant_id == tenant_id,
+                Appointment.contact_id == contact_id,
+                Appointment.status.in_(availability.ACTIVE_STATUSES),
+                Appointment.starts_at < ends_at,
+                Appointment.ends_at > starts_at,
             )
-        ).scalar_one()
-        if clash:
+        )
+        if exclude_id is not None:
+            stmt = stmt.where(Appointment.id != exclude_id)
+        if (await session.execute(stmt)).scalar_one():
             raise AppError("overlapping_contact", "El contacto ya tiene una cita a esa hora", 409)
 
     async def _push_event(

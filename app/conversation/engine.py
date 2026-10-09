@@ -125,13 +125,14 @@ async def _converse(
     final_text = ""
     exhausted = True
     tools = tool_definitions()
-    for _ in range(MAX_TOOL_ITERATIONS):
+    for i in range(MAX_TOOL_ITERATIONS + 1):
+        last = i == MAX_TOOL_ITERATIONS  # ultima: sin tools
         try:
             resp = await _call_llm(
                 llm,
                 system=system,
                 messages=list(messages),
-                tools=tools,
+                tools=None if last else tools,
                 max_tokens=700,
                 temperature=0.3,
             )
@@ -143,8 +144,9 @@ async def _converse(
             result.usage = usage
             return _finish(result, tctx)
         merge_usage(usage, resp.usage)
-        if not resp.tool_calls:
-            final_text, exhausted = resp.text, False
+        if not resp.tool_calls or last:
+            final_text = resp.text
+            exhausted = bool(resp.tool_calls) and not resp.text
             break
         blocks: list[dict[str, Any]] = []
         if resp.text:

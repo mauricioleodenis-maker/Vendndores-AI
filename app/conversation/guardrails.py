@@ -33,6 +33,12 @@ DEFAULT_REPLIES: dict[str, str] = {
         "Si es una urgencia, acude a urgencias o llama al 123. Ya avisé a una persona del "
         "equipo para que te escriba y te ayude a conseguir una cita prioritaria."
     ),
+    "crisis_reply": (
+        "Lamento mucho que te sientas así; no estás solo/a y tu vida importa. Por favor "
+        "comunícate ahora con la línea de salud mental: en Bogotá llama al 106 y en el resto "
+        "de Colombia a la línea 192 opción 4 (gratuitas, 24 horas), o a urgencias al 123. "
+        "Ya avisé a una persona del equipo para que te escriba."
+    ),
     "medical_reply": (
         "No puedo recomendarte medicamentos ni dosis ni dar diagnósticos; eso lo valora el "
         "profesional en consulta. Si es urgente, acude a urgencias o llama al 123. "
@@ -104,6 +110,12 @@ _URGENT = _rx(
     r"(?:fuerte|intenso|insoportable)\s+dolor|me\s+duele\s+(?:muchisimo|demasiado)",
     r"cara\s+(?:muy\s+)?inflamada|hinchazon\s+en\s+(?:la\s+)?cara",
 )
+_CRISIS = _rx(
+    r"suicid|quitarme\s+la\s+vida|quitarle\s+la\s+vida\s+a\s+mi|acabar\s+con\s+mi\s+vida|"
+    r"terminar\s+con\s+mi\s+vida|no\s+quiero\s+(?:seguir\s+)?vivir|ya\s+no\s+quiero\s+vivir|"
+    r"quiero\s+morirme|hacerme\s+dano|hacerme\s+mal\s+a\s+mi\s+mismo|matarme|"
+    r"mejor\s+(?:estar|estaria)\s+muert",
+)
 _MEDICAL_ADVICE = _rx(
     r"(?:que|cual)\s+(?:\w+\s+){0,2}(?:pastilla|medicamento|pildora|antibiotico|analgesico|"
     r"calmante|jarabe|pomada|crema)\s+(?:\w+\s+){0,3}(?:tomo|tomar|uso|usar|aplico|recomiendas|me\s+das)",
@@ -143,7 +155,7 @@ _OFFTOPIC = _rx(
     r"\bnovi[oa]\b|romantic|te\s+amo|\bcoquet|sexo|sexual|desnud",
     r"hackear|\bhack\b|\bvirus\b|\bmalware\b|\bphishing\b",
     r"(?:hacer|fabricar|armar)\s+(?:una\s+)?bomba|bomba\s+casera|explosiv|arma\s+casera|"
-    r"\bdrogas?\b|como\s+matar|suicid",
+    r"\bdrogas?\b|como\s+matar",
     r"programa\w*\s+en\s+(?:python|java|js|c\+\+)|escribe\s+(?:un\s+)?(?:codigo|script|programa)|"
     r"\bcodigo\s+en\b|\bpython\b|\bjavascript\b|\bsql\b",
     r"traduce\s+(?:esto|el\s+texto)|dime\s+un\s+secreto|cuentame\s+algo|"
@@ -231,6 +243,7 @@ def check_input(
 
     folded = fold(clean)
     hits = {
+        "crisis": bool(_CRISIS.search(folded)),
         "urgent": bool(_URGENT.search(folded)),
         "injection": bool(_INJECTION.search(folded))
         or bool(_INJECTION.search(text))
@@ -243,7 +256,10 @@ def check_input(
         "complaint": bool(_COMPLAINT.search(folded)),
     }
     verdict.flags = [name for name, hit in hits.items() if hit]
-    if hits["urgent"]:
+    if hits["crisis"]:
+        verdict.reply = reply_for(templates, "crisis_reply")
+        verdict.handoff_reason = "medical_urgent"
+    elif hits["urgent"]:
         verdict.reply = reply_for(templates, "urgent_reply")
         verdict.handoff_reason = "medical_urgent"
     elif hits["injection"]:
@@ -290,6 +306,8 @@ _NEGATE = {
     "cancelala",
     "cancelalo",
     "mejor",
+    "pero",
+    "aunque",
 }
 
 

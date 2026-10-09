@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}Estado del pago{% endblock %}
+{% block public %}
+<section class="login-card card">
+  <h1>{{ title }}</h1>
+  <p class="alert alert-{{ 'ok' if status == 'approved' else ('error' if status in ('declined', 'error') else 'info') }}" role="status">{{ message }}</p>
+  <p class="muted">Puedes cerrar esta página.</p>
+</section>
+{% endblock %}

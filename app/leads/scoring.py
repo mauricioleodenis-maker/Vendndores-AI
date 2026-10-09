@@ -17,13 +17,36 @@ NO_RESPONSE_PATTERNS: dict[str, str] = {
     "no_responden": r"\bno (me )?respond\w*",
     "no_contestan_canal": r"\bno contestan (el |la )?(whatsapp|telefono|llamad\w*)",
     "dejaron_en_visto": r"\bdejaro?n? (me )?en visto\b|\ben visto\b",
+    "nadie_responde": r"\bnadie (me |nos |le |lo )?(respond|contest|coge|cogio|atiend|devolv)\w*",
+    "nunca_lo_respondieron": r"\bnunca (lo |la |los |las )(respond|contest)\w*",
+    "ni_contestaron": r"\bni (me |nos )?(respond|contest)\w*",
+    "sin_respuesta": r"\bsin respuesta\b",
+    "demoran_responder": r"\b(tard|demor)\w*[^.!?]{0,40}\b(responder|contestar)\b",
+    "lentos_responder": r"\blent\w* para (responder|contestar)\b",
+    "respuesta_tardia": (
+        r"\b(respond|contest)\w* (al (segundo|tercer|cuarto|quinto|otro) dia"
+        r"|a las [^.!?]{0,25}(dia siguiente|muy tarde)|(dos|tres|cuatro) dias despues)"
+    ),
+    "hasta_que_alguien": r"\b(antes de que|hasta que|para que) alguien (respond|contest)\w*",
+    "dejan_hablando_solo": r"\bdejan? hablando solo",
+    "responder_mas_rapido": r"\b(respond|contest)\w* [^.!?]{0,30}\bmas rapido",
     "no_atienden": r"\bno (me )?atiend\w*",
-    "no_devolvieron_llamada": r"\bno (me )?devolviero?n? la llamada",
+    "no_devolvieron_llamada": (
+        r"\b(no|nunca) (me |nos )?devol\w* (la |el |mi )?(llamada|mensaje|llamado)"
+    ),
     "imposible_comunicar": r"\bimposible (comunicar\w*|contactar\w*|hablar)",
     "tardan_responder": r"\btarda\w* (mucho )?en (responder|contestar)",
 }
 _COMPILED = {k: re.compile(v) for k, v in NO_RESPONSE_PATTERNS.items()}
 _EXCERPT_LEN = 280
+# Negaciones ("nunca me dejaron en visto") y contexto que NO es dolor de atencion al cliente.
+_NEGATED_VISTO = re.compile(r"\b(nunca|jamas|no)\b[^.!?]{0,12}$")
+_RECOVERED = re.compile(
+    r"\bpero (me )?(devolv|respond|contest)\w* [^.!?]{0,30}(minutos|rapido|enseguida|al rato)"
+)
+_OWNER_REPLY = re.compile(
+    r"\brespond\w* (a )?(mi |la |una |esta )?(resena|opinion|comentario|critica)\b"
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -40,14 +63,24 @@ def _fold(text: str) -> str:
     return " ".join(stripped.lower().split())
 
 
+def _matches(name: str, rx: re.Pattern[str], folded: str) -> bool:
+    for m in rx.finditer(folded):
+        if name == "dejaron_en_visto" and _NEGATED_VISTO.search(folded[: m.start()]):
+            continue
+        return True
+    return False
+
+
 def review_signal_scan(reviews: Iterable[str]) -> list[SignalMatch]:
     """Devuelve una coincidencia por resena que mencione falta de respuesta (regex es-CO)."""
     out: list[SignalMatch] = []
     for i, review in enumerate(reviews):
         if not review or not review.strip():
             continue
-        folded = _fold(review)
-        hits = tuple(name for name, rx in _COMPILED.items() if rx.search(folded))
+        folded = _OWNER_REPLY.sub(" ", _fold(review))
+        if _RECOVERED.search(folded):
+            continue
+        hits = tuple(name for name, rx in _COMPILED.items() if _matches(name, rx, folded))
         if hits:
             out.append(SignalMatch(i, hits, " ".join(review.split())[:_EXCERPT_LEN]))
     return out

@@ -83,7 +83,7 @@ async def list_events(
         select(LeadEvent)
         .where(LeadEvent.lead_id == lead_id)
         .order_by(LeadEvent.ts.desc(), LeadEvent.id)
-        .limit(min(limit, 500))
+        .limit(max(1, min(limit, 500)))
     )
     return list((await session.execute(stmt)).scalars())
 

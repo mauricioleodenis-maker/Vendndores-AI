@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
@@ -39,6 +40,7 @@ MAX_DAYS_AHEAD = 730  # tope de fecha aceptada (evita OverflowError y citas absu
 MAX_TIME_OFF_DAYS = 366
 MIN_YEAR = 2000
 SERVICE = BookingService()
+_CLAVE_RE = re.compile(r"[0-9a-f]{32}")
 
 
 @dataclass(slots=True)
@@ -220,6 +222,7 @@ async def citas_page(
             "services": services,
             "tz": tz,
             "holiday": availability.holiday_name(day),
+            "form_key": uuid.uuid4().hex,
         }
     )
     return render(request, "booking/citas.html", ctx)
@@ -233,6 +236,7 @@ async def crear_cita(
     hora: Annotated[str, Form(max_length=5)],
     telefono: Annotated[str, Form(max_length=30)],
     nombre: Annotated[str, Form(max_length=120)] = "",
+    clave: Annotated[str, Form(max_length=32)] = "",
     _user: User = Depends(current_user),
     session: AsyncSession = Depends(get_session),
 ) -> RedirectResponse:
@@ -253,7 +257,7 @@ async def crear_cita(
         return _redirect(back, error="La fecha está fuera del rango permitido")
     try:
         contact = await get_or_create_contact(session, tenant.id, e164, nombre.strip() or None)
-        key = f"manual:{uuid.uuid4().hex}"
+        key = f"manual:{clave if _CLAVE_RE.fullmatch(clave) else uuid.uuid4().hex}"
         await SERVICE.book(
             session,
             tenant.id,
@@ -387,12 +391,43 @@ async def guardar_horarios(
                 new_rows.append(
                     WorkingHours(tenant_id=tenant.id, weekday=wd, start_time=start, end_time=end)
                 )
-        _check_no_overlap(new_rows)
+        # La UI solo muestra MAX_WINDOWS_PER_DAY tramos por dia: los tramos extra ya
+        # guardados (3.o en adelante) se conservan en vez de borrarse en silencio.
+        stored = (
+            (
+                await session.execute(
+                    select(WorkingHours)
+                    .where(WorkingHours.tenant_id == tenant.id, WorkingHours.resource_id.is_(None))
+                    .order_by(WorkingHours.weekday, WorkingHours.start_time)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        per_day: dict[int, list[WorkingHours]] = {}
+        for h in stored:
+            per_day.setdefault(int(h.weekday), []).append(h)
+        hidden = [h for rows in per_day.values() for h in rows[MAX_WINDOWS_PER_DAY:]]
+        _check_no_overlap(
+            new_rows
+            + [
+                WorkingHours(
+                    tenant_id=tenant.id,
+                    weekday=h.weekday,
+                    start_time=h.start_time,
+                    end_time=h.end_time,
+                )
+                for h in hidden
+            ]
+        )
     except AppError as exc:
         return _redirect(back, error=exc.message)
+    hidden_ids = {h.id for h in hidden}
     await session.execute(
         delete(WorkingHours).where(
-            WorkingHours.tenant_id == tenant.id, WorkingHours.resource_id.is_(None)
+            WorkingHours.tenant_id == tenant.id,
+            WorkingHours.resource_id.is_(None),
+            WorkingHours.id.not_in(hidden_ids) if hidden_ids else True,
         )
     )
     session.add_all(new_rows)

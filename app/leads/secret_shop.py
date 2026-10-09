@@ -77,6 +77,7 @@ def is_after_hours(moment: datetime, hours: Any = None) -> bool:
                     return False
                 end = int(c["day"]) * 1440 + int(c.get("hour", 0)) * 60 + int(c.get("minute", 0))
             except (KeyError, TypeError, ValueError):
+                log.warning("secret_shop.bad_period")
                 continue
             if end < start:  # cruza el domingo -> lunes
                 end += 7 * 1440
@@ -267,6 +268,15 @@ async def expire_unanswered(session: AsyncSession, *, now: datetime | None = Non
             "secret_shop_replied",
             {"test_id": str(test.id), "outcome": "sin_respuesta", "timeout_hours": TIMEOUT_HOURS},
         )
+    await log_event(
+        session,
+        actor=None,
+        actor_type="system",
+        action="secret_shop.timeout",
+        entity_type="secret_shop_test",
+        entity_id=tests[0].id,
+        diff={"count": len(tests)},
+    )
     await session.flush()
     return len(tests)
 
@@ -295,6 +305,7 @@ async def pending_reviews(
             SecretShopTest.sent_at <= cutoff,
         )
         .order_by(SecretShopTest.sent_at)
+        .limit(500)
     )
     return list((await session.execute(stmt)).scalars())
 

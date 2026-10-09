@@ -354,9 +354,20 @@ async def test_tool_loop_capped_at_four_iterations(
 ) -> None:
     llm.queue(*[tool_call("get_business_info", topic="horarios") for _ in range(6)])
     out = await _say(session, llm, biz, "¿horarios?")
-    assert len(llm.calls) == engine_mod.MAX_TOOL_ITERATIONS == 4
+    assert len(llm.calls) == engine_mod.MAX_TOOL_ITERATIONS + 1 == 5
+    assert llm.calls[-1]["tools"] is None  # ultima llamada sin tools
     assert out == [DEFAULT_REPLIES["fallback_reply"]]
     assert (await session.execute(select(Handoff))).scalar_one().reason == "tool_failure"
+
+
+async def test_last_iteration_gets_final_text_with_tool_results(
+    session: AsyncSession, biz: Biz, llm: FakeLLM
+) -> None:
+    llm.queue(*[tool_call("get_business_info", topic="horarios") for _ in range(4)])
+    llm.queue(LLMResponse(text="Abrimos de lunes a viernes."))
+    out = await _say(session, llm, biz, "¿horarios?")
+    assert len(llm.calls) == 5 and llm.calls[-1]["tools"] is None
+    assert out != [DEFAULT_REPLIES["fallback_reply"]]
 
 
 async def test_llm_failure_falls_back_and_hands_off(session: AsyncSession, biz: Biz) -> None:

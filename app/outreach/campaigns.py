@@ -107,7 +107,7 @@ async def create_campaign(session: AsyncSession, actor: User, data: CampaignIn) 
 
 
 # --------------------------------------------------------------------------- audiencia
-def _audience_stmt(audience: dict[str, Any]) -> Any:
+def _audience_stmt(audience: dict[str, Any], *, limit: bool = True) -> Any:
     stmt = select(Lead).where(
         Lead.disposition == "activo",
         Lead.phone_type == "mobile",
@@ -120,17 +120,21 @@ def _audience_stmt(audience: dict[str, Any]) -> Any:
         stmt = stmt.where(func.lower(Lead.city) == str(audience["city"]).lower())
     if audience.get("stage"):
         stmt = stmt.where(Lead.stage == audience["stage"])
-    return stmt.order_by(Lead.score.desc(), Lead.id).limit(MAX_AUDIENCE)
+    stmt = stmt.order_by(Lead.score.desc(), Lead.id)
+    return stmt.limit(MAX_AUDIENCE) if limit else stmt
 
 
 async def select_audience(
     session: AsyncSession, audience: dict[str, Any]
 ) -> tuple[list[Lead], int]:
     """Leads elegibles (activos, moviles, no suprimidos) y cuantos se excluyeron por supresion."""
-    leads = list((await session.execute(_audience_stmt(audience))).scalars())
     tag = audience.get("tag")
     if tag:
-        leads = [lead for lead in leads if tag in (lead.tags or [])]
+        # El tag vive en JSON: se filtra en Python, asi que el tope va DESPUES del filtro.
+        everyone = (await session.execute(_audience_stmt(audience, limit=False))).scalars()
+        leads = [lead for lead in everyone if tag in (lead.tags or [])][:MAX_AUDIENCE]
+    else:
+        leads = list((await session.execute(_audience_stmt(audience))).scalars())
     suppressed = await _suppressed_hashes(
         session, [phone_hash(lead.phone_e164) for lead in leads if lead.phone_e164]
     )

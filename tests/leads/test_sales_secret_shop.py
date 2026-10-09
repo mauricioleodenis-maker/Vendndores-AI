@@ -197,3 +197,28 @@ async def test_expire_unanswered_batches_and_rescores(session: AsyncSession) -> 
         await session.execute(select(LeadEvent).where(LeadEvent.kind == "secret_shop_replied"))
     ).scalars()
     assert len(list(evs)) == 3
+
+
+async def test_expire_unanswered_writes_audit_log(session: AsyncSession) -> None:
+    from app.db.models.audit import AuditLog
+
+    lead = await make_lead(session, name="Aud")
+    session.add(
+        SecretShopTest(
+            lead_id=lead.id,
+            channel="whatsapp",
+            sent_at=NOW - timedelta(hours=30),
+            scenario="precio",
+            message_text="hola",
+        )
+    )
+    await session.flush()
+    await ss.expire_unanswered(session, now=NOW)
+    rows = (
+        await session.execute(select(AuditLog).where(AuditLog.action == "secret_shop.timeout"))
+    ).scalars()
+    assert len(list(rows)) == 1
+
+
+async def test_pending_reviews_is_bounded(session: AsyncSession) -> None:
+    assert await ss.pending_reviews(session, now=NOW) == []

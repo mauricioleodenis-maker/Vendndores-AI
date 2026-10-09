@@ -204,3 +204,9 @@ async def test_convert_blocked_for_inactive(session: AsyncSession, owner_user: A
     lead = await make_lead(session, disposition="no_contactar")
     with pytest.raises(ConflictError):
         await demo.convert_lead(session, lead.id, plan_code="pro", actor=owner_user)
+
+
+async def test_demo_blocked_for_do_not_contact(session: AsyncSession, owner_user: Any) -> None:
+    lead = await make_lead(session, disposition="no_contactar")
+    with pytest.raises(ConflictError):
+        await demo.lead_to_demo_bot(session, lead.id, actor=owner_user)

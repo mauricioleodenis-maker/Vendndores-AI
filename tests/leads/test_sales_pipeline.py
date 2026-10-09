@@ -76,3 +76,11 @@ async def test_disposition_rules(session: AsyncSession, owner_user: Any, make_us
     assert lead.disposition == "activo"
     with pytest.raises(AppError):
         await pipeline.set_disposition(session, lead, "otro", actor=owner_user)
+
+
+async def test_list_events_negative_limit_is_safe(session: AsyncSession) -> None:
+    from app.leads import pipeline
+
+    lead = await make_lead(session)
+    await pipeline.add_event(session, lead, "note", {})
+    assert len(await pipeline.list_events(session, lead.id, limit=-5)) == 1

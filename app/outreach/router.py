@@ -323,10 +323,14 @@ async def ui_create(
     user: User = Depends(operator),
 ) -> RedirectResponse:
     try:
+        followup_id = uuid.UUID(followup_template_id) if followup_template_id.strip() else None
+    except ValueError:
+        return _redirect("/admin/campanas/nueva", error="La plantilla de seguimiento no es válida.")
+    try:
         data = CampaignIn(
             name=name,
             template_id=template_id,
-            followup_template_id=followup_template_id or None,  # type: ignore[arg-type]
+            followup_template_id=followup_id,
             daily_limit=daily_limit,
             audience=AudienceFilter(
                 niche=niche or None, city=city or None, min_score=min_score, stage=stage or None

@@ -54,6 +54,8 @@ ROUTER_PACKAGES: tuple[str, ...] = (
     "dashboard",
     "saleskit",
     "ventas",
+    "payments",
+    "voice",
 )
 
 

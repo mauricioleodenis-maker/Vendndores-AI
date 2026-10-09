@@ -64,6 +64,7 @@ class Settings(BaseSettings):
     demo_token_ttl_days: int = 7
     demo_max_messages: int = 30
     demo_whatsapp_number: str = ""
+    voice_say_voice: str = "Polly.Mia-Neural"
 
     @model_validator(mode="after")
     def _validate_prod(self) -> Settings:
