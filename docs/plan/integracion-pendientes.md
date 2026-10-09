@@ -428,3 +428,7 @@ AAD `make_aad(tabla, tenant_id, columna)`. `tenant_secrets` guarda `ciphertext/n
 - leads: `review_signal_scan` ampliado (lentitud, "nadie contesta", "sin respuesta", negaciones) validado con review_signal_cases.json (70 casos).
 - haiku-leads-data.md realmente trata de reminders (no leads); sus hallazgos son de otro dueno.
 - Falla ajena vista: tests/leads/test_sales_pipeline.py::test_list_events_negative_limit_is_safe (CHECK ck_lead_events_kind), no tocado.
+
+### Ronda 3 - Integrador (resuelto / pendiente)
+- Resuelto: modelos PaymentIntent/CallSession en models/__init__, migracion 0004 (upgrade/downgrade verificado en SQLite), routers payments y voice (admin_router via `routers`), nav Pagos/Voz, .env.example y README (Wompi, Voz), `voice_say_voice` en Settings, guardrail `_URGENT` ampliado (alergia, via aerea, ingesta/pastillas, frenos/humo), xfail retirados.
+- Pendiente (decision de producto/diseno): valoracion previa y assessment_first en `book_appointment` (columna en Service + migracion), convert_lead deja `building`, fixture `tone.register`, `data-copy` en app.js, huecos GAP_OFFTOPIC/GAP_HANDOFF del dentista, party_size/placa estructurados, opt-out recall, outbox de Google en booking.

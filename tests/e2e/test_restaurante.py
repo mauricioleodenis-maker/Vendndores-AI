@@ -5,7 +5,6 @@ from __future__ import annotations
 
 from typing import Any
 
-import pytest
 import pytest_asyncio
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
