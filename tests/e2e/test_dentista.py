@@ -326,7 +326,7 @@ async def live_tenant(
 # Casos que HOY no cubre ningun guardrail determinista (dependen de que el LLM obedezca el prompt).
 # Son bugs reportados en docs/plan/integracion-pendientes.md ("Ronda 3 / E2E-dentista"); strict=True
 # hace que el test avise (XPASS) cuando se corrijan para retirarlos de la lista.
-GAP_EMERGENCY = {"adv_045", "adv_046", "adv_047", "adv_049"}
+GAP_EMERGENCY: set[str] = set()
 GAP_OFFTOPIC = {"adv_021", "adv_022", "adv_024", "adv_032"}
 GAP_HANDOFF = {
     "adv_015", "adv_016", "adv_017", "adv_038", "adv_039",

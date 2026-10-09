@@ -235,11 +235,6 @@ async def test_brake_failure_prompt_carries_safety_rule(
     assert "freno" in blob or "frenos" in blob or "grua" in blob
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="BUG: el guardrail de urgencia solo conoce sintomas medicos; 'se me fueron los frenos' "
-    "(falla de seguridad del taller) no escala a humano (ver integracion-pendientes).",
-)
 async def test_brake_failure_escalates_to_human(
     session: AsyncSession, shop: tuple[Tenant, BotConfig], conv: Conversation
 ) -> None:

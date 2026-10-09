@@ -256,11 +256,6 @@ async def test_allergy_reaction_escalates_to_human(
     assert out != []
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="BUG: el guardrail de urgencia no cubre 'reaccion alergica' (escalation nivel 1 de la "
-    "plantilla restaurante) (ver integracion-pendientes).",
-)
 async def test_allergic_reaction_text_escalates_to_human(
     session: AsyncSession, shop: tuple[Tenant, BotConfig], conv: Conversation
 ) -> None:

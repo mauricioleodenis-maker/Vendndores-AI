@@ -51,7 +51,9 @@ async def test_docs_hidden_in_prod(monkeypatch):
 
 
 def test_discovers_auth_and_audit_routers():
-    paths = {p for router in discover_routers() for r in router.routes if (p := getattr(r, "path", None))}
+    paths = {
+        p for router in discover_routers() for r in router.routes if (p := getattr(r, "path", None))
+    }
     assert "/login" in paths and "/admin/auditoria" in paths
     assert "auth" in ROUTER_PACKAGES and "dashboard" in ROUTER_PACKAGES
 
