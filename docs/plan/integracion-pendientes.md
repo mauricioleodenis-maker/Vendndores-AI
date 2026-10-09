@@ -338,3 +338,10 @@ AAD `make_aad(tabla, tenant_id, columna)`. `tenant_secrets` guarda `ciphertext/n
 - HECHO: ítem "Recordatorios" en el menú (`app/web/nav.py`).
 - Humo en vivo (uvicorn + SQLite, owner + seed): todas las páginas /admin responden 200, sin `<style>`/`style=`/`<script>` inline, sin enlaces ni estáticos rotos.
 - PENDIENTE (no bloqueante): resto de "Mejoras" de producto/refactor (flash firmado, pg_trgm, catálogo borrador vs publicado, outbox, key_id de auditoría, etc.).
+
+## Ronda 3 – E2E-estetica (bug)
+- La regla "valoracion previa obligatoria" (clinica_estetica: botox, peeling, rellenos, laser) NO se aplica en codigo. `services` no tiene columna `requires_valuation/assessment` (solo `GeneratedBotConfig.requires_valuation`, que llega al prompt de fabrica) y `app/conversation/tools.py::book_appointment` reserva cualquier servicio sin exigir cita de valoracion previa del contacto. Solo hay guia en el prompt. Sugerido: columna en `Service` (migracion) + chequeo en `book_appointment` (rechazar si el servicio la requiere y el contacto no tiene cita de valoracion completada/confirmada). Test que lo cubre: `tests/e2e/test_clinica_estetica.py::test_direct_botox_booking_is_blocked_until_valuation` (xfail strict; quitar el xfail al corregir).
+
+## Ronda 3 — detalles visuales (capturas)
+- Desktop: ocultar el botón "Menú" y la marca duplicada del topbar cuando el sidebar es visible (>= breakpoint).
+- Sidebar: el fondo se corta en páginas largas; usar `position: sticky; height: 100vh` o `min-height: 100vh` en el layout.
