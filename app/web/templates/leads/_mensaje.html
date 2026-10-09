@@ -1,0 +1,28 @@
+{# Un mensaje copiable. Requiere: st (MessageStep), lead, box_id, volver ('' | 'cola'), blocked #}
+{% set digits = (lead.phone_e164 or '') | replace('+', '') %}
+<div class="field">
+  <textarea id="{{ box_id }}" rows="{{ 5 if st.text | length > 220 else 3 }}" aria-label="Mensaje: {{ st.title }}">{{ st.text }}</textarea>
+</div>
+{% if st.alternatives %}
+<div class="msg-alts" role="group" aria-label="Versiones del mensaje (envía solo una)">
+  <button type="button" class="btn btn-ghost btn-sm" data-msg-alt data-msg-target="{{ box_id }}" data-text="{{ st.text }}">Original</button>
+  {% for label, text in st.alternatives %}
+  <button type="button" class="btn btn-ghost btn-sm" data-msg-alt data-msg-target="{{ box_id }}" data-text="{{ text }}">{{ label }}</button>
+  {% endfor %}
+</div>
+{% endif %}
+{% if not blocked %}
+<div class="btn-row msg-actions">
+  <button type="button" class="btn btn-primary" data-msg-copy data-msg-target="{{ box_id }}">Copiar</button>
+  {% if st.wa_url and digits %}
+  <a class="btn" href="{{ st.wa_url }}" target="_blank" rel="noopener noreferrer" data-msg-wa data-phone="{{ digits }}" data-msg-target="{{ box_id }}">Abrir en WhatsApp<span class="sr-only"> (se abre en otra pestaña)</span></a>
+  {% endif %}
+  <form class="inline-form" method="post" action="/admin/leads/{{ lead.id }}/mensajes/{{ st.key }}/enviado">
+    {{ csrf() }}
+    <input type="hidden" name="volver" value="{{ volver }}">
+    <button class="btn btn-ghost" type="submit">{{ 'Enviado otra vez' if st.sent_at else 'Marcar enviado' }}</button>
+  </form>
+  {% if st.sent_at %}<span class="badge badge-ok">Enviado {{ st.sent_at | fecha_hora }}</span>{% elif st.due %}<span class="badge badge-warn">Toca hoy</span>{% endif %}
+</div>
+{% endif %}
+{% if st.tip %}<p class="help">{{ st.tip }}</p>{% endif %}

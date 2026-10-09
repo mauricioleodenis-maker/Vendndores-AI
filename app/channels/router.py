@@ -13,6 +13,7 @@ from app.core.deps import get_session
 from app.core.errors import AppError
 from app.core.jobs import enqueue
 from app.core.logging import get_logger
+from app.leads import demo_whatsapp
 
 log = get_logger(__name__)
 
@@ -61,6 +62,16 @@ async def whatsapp_inbound(
 ) -> Response:
     params = await _form_params(request)
     channel = await service.resolve_channel(session, params.get("To", ""), "whatsapp")
+    if channel is None and demo_whatsapp.is_demo_number(params.get("To", "")):
+        # numero de demo de la agencia: firma con el token de la plataforma
+        platform = get_settings().twilio_auth_token.get_secret_value()
+        if not _signature_ok(request, params, platform):
+            raise _forbidden()
+        text = await demo_whatsapp.handle_inbound(
+            session, params.get("From", ""), params.get("Body", "")
+        )
+        await session.commit()
+        return twiml(demo_whatsapp.message_twiml(text))
     if channel is None:
         log.warning("twilio.unknown_destination")
         raise _forbidden()

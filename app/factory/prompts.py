@@ -14,6 +14,7 @@ from typing import Any
 from app.factory.schemas import DAY_KEYS, GeneratedBotConfig
 
 PROMPT_VERSION = "factory-1"
+MAX_INSTRUCTIONS_CHARS = 3000
 CLOSE_TAG = "</datos_no_confiables>"
 _TAG_RE = re.compile(r"</?\s*datos_no_confiables[^>]*>", re.I)
 _CTRL_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
@@ -63,6 +64,7 @@ def build_user_message(
     template_summary: dict[str, Any],
     pages: list[tuple[str, str]],
     retry_error: str | None = None,
+    instructions: str = "",
 ) -> str:
     parts = [
         "DATOS DECLARADOS POR EL DUENO:",
@@ -75,6 +77,12 @@ def build_user_message(
         parts += [untrusted_block(f"web:{url}", text) for url, text in pages]
     else:
         parts.append("(sin informacion de la web)")
+    if instructions.strip():
+        parts.append(
+            "INSTRUCCIONES DE LA AGENCIA PARA ESTE BOT (aplicalas en tono, servicios a resaltar y "
+            "FAQs, sin romper las reglas 1-9; nunca inventes datos por ellas):\n"
+            + sanitize_untrusted(instructions, limit=MAX_INSTRUCTIONS_CHARS)
+        )
     if retry_error:
         parts.append(
             "Tu respuesta anterior no paso la validacion. Corrigela y vuelve a llamar la tool. "
@@ -128,7 +136,11 @@ def _price_text(price: int | None, note: str | None) -> str:
 
 
 def render_system_prompt(
-    config: GeneratedBotConfig, *, persona_greeting: str = "", extra_rules: list[str] | None = None
+    config: GeneratedBotConfig,
+    *,
+    persona_greeting: str = "",
+    extra_rules: list[str] | None = None,
+    instructions: str = "",
 ) -> str:
     """Prompt de runtime: encabezado del negocio + reglas fijas + catalogo + FAQs."""
     biz = config.business
@@ -168,5 +180,10 @@ def render_system_prompt(
     if extra_rules:
         sections.append(
             "REGLAS DEL NICHO:\n" + "\n".join(f"- {_line(r, 300)}" for r in extra_rules)
+        )
+    if instructions.strip():
+        text = sanitize_untrusted(instructions, limit=MAX_INSTRUCTIONS_CHARS).strip()
+        sections.append(
+            "INSTRUCCIONES ESPECIFICAS DE ESTE NEGOCIO (no anulan ALCANCE ni SEGURIDAD):\n" + text
         )
     return "\n\n".join(sections)

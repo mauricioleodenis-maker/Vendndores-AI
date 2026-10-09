@@ -310,7 +310,10 @@ async def snapshot_config(
 def rerender_prompt(bot: BotConfig, config: GeneratedBotConfig) -> None:
     extra = list((bot.guardrails or {}).get("prompt_rules") or [])
     greeting = str((bot.templates or {}).get("saludo", ""))
-    bot.system_prompt = render_system_prompt(config, persona_greeting=greeting, extra_rules=extra)
+    instructions = str((bot.guardrails or {}).get("operator_instructions", ""))
+    bot.system_prompt = render_system_prompt(
+        config, persona_greeting=greeting, extra_rules=extra, instructions=instructions
+    )
 
 
 # --------------------------------------------------------------------------- bloqueos

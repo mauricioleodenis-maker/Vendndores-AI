@@ -175,13 +175,18 @@ async def _generate(
     owner: dict[str, Any],
     template_summary: dict[str, Any],
     pages: list[tuple[str, str]],
+    instructions: str = "",
 ) -> tuple[GeneratedBotConfig, dict[str, int], int]:
     tool = emit_bot_config_tool()
     usage = {"tokens_in": 0, "tokens_out": 0}
     error: str | None = None
     for attempt in (1, 2):
         message = build_user_message(
-            owner=owner, template_summary=template_summary, pages=pages, retry_error=error
+            owner=owner,
+            template_summary=template_summary,
+            pages=pages,
+            retry_error=error,
+            instructions=instructions,
         )
         resp = await llm.complete(
             system=GENERATOR_SYSTEM,
@@ -317,6 +322,7 @@ def _persisted_parts(
         "never_collect": tpl.booking_rules.never_collect,
         "consent_text": _fill(tpl.compliance.consent_text),
         "prompt_rules": [f"Evita: {a}" for a in tpl.persona.avoid],
+        "operator_instructions": inputs.instructions.strip(),
     }
     templates = {k: _fill(v) for k, v in tpl.message_templates.items()}
     return {"booking_rules": rules, "guardrails": guardrails, "templates": templates}
@@ -355,7 +361,11 @@ async def build_bot(
     owner = _owner_payload(inputs)
     client = llm or get_llm()
     raw, usage, attempts = await _generate(
-        client, owner=owner, template_summary=_template_summary(tpl), pages=pages
+        client,
+        owner=owner,
+        template_summary=_template_summary(tpl),
+        pages=pages,
+        instructions=inputs.instructions,
     )
     config = _normalize(raw, inputs, tpl)
 

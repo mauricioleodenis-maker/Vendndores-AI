@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.audit import service as audit
 from app.core.config import get_settings
-from app.core.deps import current_user, get_session
+from app.core.deps import current_user, get_session, require_role
 from app.core.errors import AppError, ForbiddenError
 from app.core.jobs import enqueue
 from app.core.logging import get_logger
@@ -27,7 +27,7 @@ from app.core.rate_limit import enforce
 from app.db.models.leads import LEAD_STAGES, Lead, LeadSource
 from app.db.models.users import User
 from app.leads import csv_import as ci
-from app.leads import listing
+from app.leads import listing, messages, pipeline
 from app.leads.export import export_leads_csv
 from app.leads.listing import BANDS, LeadFilters
 from app.leads.places import NICHE_QUERIES, PlacesNotConfiguredError
@@ -743,6 +743,95 @@ async def page_add_note(
     lead = await listing.get_lead(session, lead_id)
     await listing.add_note(session, lead, text, user)
     return RedirectResponse(f"/admin/leads/{lead.id}", status_code=303)
+
+
+@router.post("/admin/leads/{lead_id}/instrucciones")
+async def page_set_instructions(
+    lead_id: uuid.UUID,
+    text: Annotated[str, Form(max_length=listing.MAX_INSTRUCTIONS_CHARS)] = "",
+    user: User = Depends(current_user),
+    session: AsyncSession = Depends(get_session),
+) -> Response:
+    lead = await listing.get_lead(session, lead_id)
+    await listing.set_demo_instructions(session, lead, text, user)
+    return RedirectResponse(f"/admin/leads/{lead.id}", status_code=303)
+
+
+messages_operator = require_role("admin", "operator")
+
+
+@router.get("/admin/mensajes", response_class=HTMLResponse)
+async def page_messages_queue(
+    request: Request,
+    user: User = Depends(messages_operator),
+    session: AsyncSession = Depends(get_session),
+) -> Response:
+    groups = await messages.daily_queue(session, user)
+    return render(request, "leads/mensajes_cola.html", {"groups": groups, "me": user})
+
+
+@router.get("/admin/leads/{lead_id}/mensajes", response_class=HTMLResponse)
+async def page_lead_messages(
+    request: Request,
+    lead_id: uuid.UUID,
+    user: User = Depends(messages_operator),
+    session: AsyncSession = Depends(get_session),
+) -> Response:
+    lead = await listing.get_lead(session, lead_id)
+    steps, reply_at = await messages.steps_for(session, lead, user)
+    return render(
+        request,
+        "leads/mensajes.html",
+        {
+            "lead": lead,
+            "steps": steps,
+            "reply_at": reply_at,
+            "objections": messages.objection_replies(lead, user),
+            "me": user,
+            "blocked": lead.disposition != "activo",
+        },
+    )
+
+
+@router.post("/admin/leads/{lead_id}/mensajes/{step}/enviado")
+async def page_mark_sent(
+    lead_id: uuid.UUID,
+    step: str,
+    volver: str = Form(""),
+    user: User = Depends(messages_operator),
+    session: AsyncSession = Depends(get_session),
+) -> Response:
+    lead = await listing.get_lead(session, lead_id)
+    await messages.mark_sent(session, lead, step, user)
+    target = "/admin/mensajes" if volver == "cola" else f"/admin/leads/{lead.id}/mensajes"
+    return RedirectResponse(target, status_code=303)
+
+
+@router.post("/admin/leads/{lead_id}/respondio")
+async def page_mark_replied(
+    lead_id: uuid.UUID,
+    volver: str = Form(""),
+    user: User = Depends(messages_operator),
+    session: AsyncSession = Depends(get_session),
+) -> Response:
+    lead = await listing.get_lead(session, lead_id)
+    await messages.mark_replied(session, lead, user)
+    target = "/admin/mensajes" if volver == "cola" else f"/admin/leads/{lead.id}/mensajes"
+    return RedirectResponse(target, status_code=303)
+
+
+@router.post("/admin/leads/{lead_id}/no-contactar")
+async def page_do_not_contact(
+    lead_id: uuid.UUID,
+    user: User = Depends(messages_operator),
+    session: AsyncSession = Depends(get_session),
+) -> Response:
+    """El negocio dijo NO / STOP: sale de la cola y no se puede volver a marcar envio."""
+    lead = await listing.get_lead(session, lead_id)
+    await pipeline.set_disposition(
+        session, lead, "no_contactar", actor=user, reason="pidió no ser contactado (manual)"
+    )
+    return RedirectResponse(f"/admin/leads/{lead.id}/mensajes", status_code=303)
 
 
 from app.leads.sales_router import router as sales_router  # noqa: E402

@@ -1,0 +1,12 @@
+.msg-step { border-left: 4px solid var(--border); }
+.msg-step.is-sent { border-left-color: var(--ok); }
+.msg-step.is-due { border-left-color: var(--warn); }
+.msg-step textarea, .msg-queue-item textarea { width: 100%; font: inherit; line-height: 1.45; }
+.msg-head { justify-content: space-between; align-items: baseline; }
+.msg-alts { display: flex; flex-wrap: wrap; gap: 6px; }
+.msg-queue-item { display: grid; gap: 8px; }
+.msg-queue-item h3 { margin: 0; font-size: 1rem; }
+@media (max-width: 640px) {
+  .msg-actions .btn, .msg-actions .inline-form, .msg-actions .inline-form .btn { flex: 1 1 100%; min-height: 44px; }
+  .msg-step textarea, .msg-queue-item textarea { font-size: 16px; }
+}

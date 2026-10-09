@@ -12,7 +12,14 @@ from app.db.models.bots import BotConfig, LlmUsage
 from app.db.models.catalog import Faq, KbDocument, Service
 from app.db.models.contacts import Consent, Contact
 from app.db.models.conversations import Conversation, Handoff, Message
-from app.db.models.leads import Lead, LeadEvent, LeadSource, ReviewSignal, SecretShopTest
+from app.db.models.leads import (
+    DemoWhatsappSession,
+    Lead,
+    LeadEvent,
+    LeadSource,
+    ReviewSignal,
+    SecretShopTest,
+)
 from app.db.models.niches import NicheTemplate
 from app.db.models.outreach import Campaign, CampaignTarget, MessageTemplate, OutreachMessage
 from app.db.models.payments import PaymentIntent
@@ -39,6 +46,7 @@ __all__ = [
     "Faq",
     "Handoff",
     "KbDocument",
+    "DemoWhatsappSession",
     "Lead",
     "LeadEvent",
     "LeadSource",

@@ -70,6 +70,23 @@ docker compose run --rm web python -m app.cli create-owner
    - Suba volumen gradualmente; ante quejas o bloqueos, pause la campaña o apague `VAI_OUTREACH_ENABLED` (kill switch).
    - Respete siempre los STOP/BAJA: se registran en la lista de supresión (Ley 1581).
 
+## Mensajes de WhatsApp para prospectar (envío manual)
+
+Usted envía estos mensajes a mano desde su WhatsApp; la app solo los prepara y registra.
+
+1. Ponga su nombre en `/admin/ajustes` (si no, los mensajes salen con `[TU_NOMBRE]`).
+2. Abra **Mensajes WhatsApp** (`/admin/mensajes`): la cola de hoy, por puntaje, con tres grupos: pruebas secretas, aperturas y seguimientos que tocan hoy.
+3. Cada lead tiene su secuencia en `/admin/leads/{id}/mensajes` (botón en la ficha del lead), con los datos del negocio ya rellenos:
+   - **Prueba secreta**: pregunta de cliente común para medir cuánto tardan en responder (una sola vez por negocio; regístrela en la sección *Ventas* de la ficha).
+   - **Apertura**: se presenta con su nombre real y hace una pregunta sobre cómo manejan el WhatsApp; no menciona la venta e incluye la salida "si prefieren que no les escriba".
+   - **Propuesta** (cuando respondan; incluye el tiempo medido si hubo demora de más de 15 min), **demo**, **seguimientos** de los días 1, 3 y 7 y **15 respuestas a objeciones** con precios reales.
+4. Edite si quiere y pulse **Copiar** o **Abrir en WhatsApp**; luego **Marcar enviado** (registra el envío y avanza la etapa).
+5. Si dicen NO o STOP, pulse **Marcar como no contactar**: el lead sale de la cola y no se puede volver a marcar.
+6. Cuando le respondan, pulse **Respondió**: se detienen los seguimientos y el lead pasa al grupo *Respondieron* con la propuesta lista.
+7. Tras registrar una prueba secreta, la cola le avisa a los 15 y a los 60 minutos que revise si respondieron.
+
+**Demo por WhatsApp.** Defina `VAI_DEMO_WHATSAPP_NUMBER` (número de la agencia en Twilio) y apunte su webhook de entrada a `https://SU_DOMINIO/webhooks/twilio/whatsapp`. El enlace `wa.me/...?text=DEMO-<slug>` de cada demo conecta al negocio con su bot de prueba; se responde con el mismo tope de mensajes que la demo web.
+
 ## Pagos en línea (Wompi)
 
 1. Cree las llaves en el panel de Wompi y configure `VAI_WOMPI_PUBLIC_KEY`, `VAI_WOMPI_PRIVATE_KEY`, `VAI_WOMPI_EVENTS_SECRET` y `VAI_WOMPI_INTEGRITY_SECRET` (ver `.env.example`). Con `VAI_WOMPI_SANDBOX=true` todo corre en pruebas.

@@ -129,6 +129,7 @@ def _factory_input(lead: Lead, niche: str) -> FactoryInput:
         website_url=lead.website,
         instagram_url=lead.instagram,
         notes=" ".join(notes),
+        instructions=lead.demo_instructions or "",
     )
 
 

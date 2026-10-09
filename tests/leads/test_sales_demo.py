@@ -210,3 +210,18 @@ async def test_demo_blocked_for_do_not_contact(session: AsyncSession, owner_user
     lead = await make_lead(session, disposition="no_contactar")
     with pytest.raises(ConflictError):
         await demo.lead_to_demo_bot(session, lead.id, actor=owner_user)
+
+
+async def test_demo_uses_lead_instructions(
+    session: AsyncSession, owner_user: Any, fakes: dict[str, Any]
+) -> None:
+    from app.leads import listing
+
+    lead = await make_lead(session)
+    await listing.set_demo_instructions(
+        session, lead, "  Resalta el blanqueamiento. Tono de tú.  ", owner_user
+    )
+    assert lead.demo_instructions == "Resalta el blanqueamiento. Tono de tú."
+    await demo.lead_to_demo_bot(session, lead.id, actor=owner_user, scrape=False)
+    inputs, _ = fakes["build"][0]
+    assert inputs.instructions == "Resalta el blanqueamiento. Tono de tú."

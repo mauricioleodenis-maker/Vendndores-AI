@@ -118,6 +118,8 @@ class Lead(TimestampMixin, Base):
         Uuid, ForeignKey("tenants.id", ondelete="SET NULL"), nullable=True
     )
     notes: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    # instrucciones del operador para el bot demo de este lead (tono, que resaltar, que evitar)
+    demo_instructions: Mapped[str] = mapped_column(Text, nullable=False, default="")
     last_contacted_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
     next_action_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
 
@@ -184,3 +186,17 @@ class SecretShopTest(TimestampMixin, Base):
     after_hours: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     outcome: Mapped[str | None] = mapped_column(String(30), nullable=True)
     notes: Mapped[str] = mapped_column(Text, nullable=False, default="")
+
+
+class DemoWhatsappSession(TimestampMixin, Base):
+    """Quien escribio ``DEMO-<slug>`` al numero de demo de la agencia: a que demo habla."""
+
+    __tablename__ = "demo_whatsapp_sessions"
+
+    id: Mapped[uuid.UUID] = uuid_pk()
+    phone_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
+    )
+    history: Mapped[Any] = mapped_column(JSONType, nullable=False, default=list)
+    expires_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)

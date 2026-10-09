@@ -24,6 +24,7 @@ PAGE_SIZE = 25
 KANBAN_COLUMN_LIMIT = 40
 BANDS = ("caliente", "tibio", "frio")
 MAX_NOTE_CHARS = 2000
+MAX_INSTRUCTIONS_CHARS = 3000
 UPLOAD_TTL_S = 3600
 _SHA_RE = re.compile(r"^[0-9a-f]{64}$")
 
@@ -206,6 +207,23 @@ async def add_note(session: AsyncSession, lead: Lead, text: str, actor: User) ->
     session.add(event)
     await session.flush()
     return event
+
+
+async def set_demo_instructions(session: AsyncSession, lead: Lead, text: str, actor: User) -> None:
+    """Guarda el prompt propio del lead; se aplica al crear o regenerar su bot demo."""
+    text = text.strip()[:MAX_INSTRUCTIONS_CHARS]
+    if text == (lead.demo_instructions or ""):
+        return
+    lead.demo_instructions = text
+    await audit.log_event(
+        session,
+        actor=actor,
+        action="lead.demo_instructions",
+        entity_type="lead",
+        entity_id=lead.id,
+        diff={"chars": len(text)},
+    )
+    await session.flush()
 
 
 # --------------------------------------------------------------------------- subidas CSV (preview)

@@ -25,6 +25,7 @@ NAV_ITEMS: tuple[NavItem, ...] = (
     NavItem("Citas", "/admin/citas"),
     NavItem("Recordatorios", "/admin/recordatorios"),
     NavItem("Leads", "/admin/leads"),
+    NavItem("Mensajes WhatsApp", "/admin/mensajes"),
     NavItem("Campañas", "/admin/campanas"),
     NavItem(
         "Planes",

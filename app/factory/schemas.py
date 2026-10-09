@@ -40,6 +40,7 @@ class FactoryInput(BaseModel):
     services: list[dict[str, Any]] = []
     hours: dict[str, Any] = {}
     notes: str = ""
+    instructions: str = ""
 
 
 class _Strict(BaseModel):

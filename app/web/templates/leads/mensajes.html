@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% from "partials/macros.html" import badge, csrf with context %}
+{% block title %}Mensajes · {{ lead.name }}{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="/static/mensajes.css">
+<script src="/static/mensajes.js" defer></script>
+<div class="page-header">
+  <h1>Mensajes para {{ lead.name }}</h1>
+  <div class="page-actions">
+    <a class="btn btn-ghost" href="/admin/leads/{{ lead.id }}">Ficha del lead</a>
+    <a class="btn btn-ghost" href="/admin/leads/{{ lead.id }}#ventas">Ventas (prueba y demo)</a>
+    <a class="btn btn-ghost" href="/admin/mensajes">Cola de hoy</a>
+  </div>
+</div>
+<p class="muted">Todo viene relleno con los datos del negocio; puedes editar el texto antes de copiar.
+ {% if lead.phone_e164 %}WhatsApp: <strong>{{ lead.phone_e164 }}</strong>{% else %}<strong>Este lead no tiene teléfono.</strong>{% endif %}
+ · Etapa: {{ badge(lead.stage) }}</p>
+<p class="sr-only" role="status" aria-live="polite" data-msg-live></p>
+{% if blocked %}<div class="alert alert-error" role="alert">Este lead está marcado como «{{ lead.disposition | replace('_', ' ') }}». No lo contactes.</div>{% endif %}
+{% if not me.full_name %}<div class="alert alert-info">Pon tu nombre en <a href="/admin/ajustes">Ajustes</a> para que salga en los mensajes en vez de [TU_NOMBRE].</div>{% endif %}
+
+{% if not blocked %}
+<section class="card row">
+  <p class="muted">{% if reply_at %}Última respuesta registrada: <strong>{{ reply_at | fecha_hora }}</strong>.{% else %}¿Te respondieron por WhatsApp? Regístralo para detener los seguimientos y pasar a la propuesta.{% endif %}</p>
+  <form class="inline-form" method="post" action="/admin/leads/{{ lead.id }}/respondio">
+    {{ csrf() }}
+    <button class="btn" type="submit">Respondió</button>
+  </form>
+</section>
+{% endif %}
+
+{% for st in steps %}
+<section class="card stack msg-step {% if st.sent_at %}is-sent{% elif st.due %}is-due{% endif %}">
+  <div class="row msg-head">
+    <h2>{{ loop.index }}. {{ st.title }}</h2>
+    <span class="muted">{{ st.when }}</span>
+  </div>
+  {% with box_id = 'm-' ~ st.key, volver = '' %}{% include "leads/_mensaje.html" %}{% endwith %}
+</section>
+{% endfor %}
+
+<section class="card stack">
+  <h2>Si les responden con dudas</h2>
+  {% for q, a in objections %}
+  <div class="stack">
+    <h3>{{ q }}</h3>
+    <div class="field"><textarea id="o-{{ loop.index }}" rows="3" aria-label="Respuesta: {{ q }}">{{ a }}</textarea></div>
+    <div class="btn-row"><button type="button" class="btn btn-primary" data-msg-copy data-msg-target="o-{{ loop.index }}">Copiar</button></div>
+  </div>
+  {% endfor %}
+</section>
+
+{% if not blocked %}
+<section class="card stack">
+  <h2>¿Dijeron NO o STOP?</h2>
+  <p class="help">Agradece y sácalo de la lista. Sale de la cola y no se puede volver a contactar (Ley 1581).</p>
+  <form class="inline-form" method="post" action="/admin/leads/{{ lead.id }}/no-contactar">
+    {{ csrf() }}
+    <button class="btn btn-danger" type="submit">Marcar como no contactar</button>
+  </form>
+</section>
+{% endif %}
+{% endblock %}

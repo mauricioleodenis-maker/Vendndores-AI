@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% from "partials/macros.html" import badge, csrf, empty_state with context %}
+{% block title %}Mensajes de hoy{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="/static/mensajes.css">
+<script src="/static/mensajes.js" defer></script>
+<div class="page-header"><h1>Mensajes de WhatsApp para hoy</h1></div>
+<p class="muted">Copia, pega en WhatsApp y marca como enviado. Van primero los leads con mejor puntaje; solo salen leads activos con teléfono.</p>
+<p class="sr-only" role="status" aria-live="polite" data-msg-live></p>
+{% if not me.full_name %}<div class="alert alert-info">Pon tu nombre en <a href="/admin/ajustes">Ajustes</a> para que salga en los mensajes en vez de [TU_NOMBRE].</div>{% endif %}
+{% set titles = {'revisar': 'Revisar pruebas secretas (15 y 60 min)', 'respondieron': 'Respondieron: sigue la propuesta', 'seguimiento': 'Seguimientos que tocan hoy', 'apertura': 'Aperturas (sin vender todavía)', 'prueba': 'Pruebas secretas (como cliente)'} %}
+{% for key in ['revisar', 'respondieron', 'seguimiento', 'apertura', 'prueba'] %}
+<section class="card stack">
+  <h2>{{ titles[key] }} <span class="badge badge-neutral">{{ groups[key] | length }}</span></h2>
+  {% for item in groups[key] %}
+  <div class="card card-flat msg-queue-item">
+    <h3><a href="/admin/leads/{{ item.lead.id }}/mensajes">{{ item.lead.name }}</a> <span class="muted">· {{ item.lead.niche | nicho_es }} · {{ item.lead.city }} · {{ item.lead.score }} pts</span></h3>
+    {% if item.note %}<p class="help">{{ item.note }}</p>
+    <div class="btn-row"><a class="btn btn-primary" href="/admin/leads/{{ item.lead.id }}#ventas">Registrar respuesta</a></div>{% endif %}
+    {% if item.step %}
+    {% with st = item.step, lead = item.lead, box_id = 'q-' ~ key ~ '-' ~ loop.index, volver = 'cola', blocked = false %}{% include "leads/_mensaje.html" %}{% endwith %}
+    {% if key in ('seguimiento', 'apertura') %}
+    <form class="inline-form" method="post" action="/admin/leads/{{ item.lead.id }}/respondio">
+      {{ csrf() }}<input type="hidden" name="volver" value="cola">
+      <button class="btn btn-ghost btn-sm" type="submit">Ya respondió</button>
+    </form>
+    {% endif %}
+    {% endif %}
+  </div>
+  {% else %}
+  {{ empty_state('Nada pendiente aquí') }}
+  {% endfor %}
+</section>
+{% endfor %}
+{% endblock %}

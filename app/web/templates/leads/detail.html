@@ -3,6 +3,7 @@
 {% block title %}{{ lead.name }}{% endblock %}
 {% block content %}
 <h1>{{ lead.name }}</h1>
+<p><a class="btn btn-primary" href="/admin/leads/{{ lead.id }}/mensajes">Mensajes de WhatsApp para copiar</a></p>
 {% include "leads/_tabs.html" %}
 <div class="lead-grid">
   <section class="card">
@@ -39,6 +40,22 @@
     </form>
   </section>
 </div>
+
+<div id="ventas" hx-get="/admin/leads/{{ lead.id }}/ventas" hx-trigger="load" hx-swap="innerHTML"><p class="muted">Cargando ventas…</p></div>
+
+<section class="card">
+  <h2>Prompt del bot demo</h2>
+  <p class="muted">Instrucciones solo para este lead: tono, servicios a resaltar, qué evitar. Se aplican al crear o regenerar su demo; no cambian las reglas de seguridad.</p>
+  <form method="post" action="/admin/leads/{{ lead.id }}/instrucciones">
+    {{ csrf() }}
+    <div class="field">
+      <label for="f-instr">Instrucciones</label>
+      <textarea id="f-instr" name="text" rows="6" maxlength="3000" placeholder="Ej.: Resalta el blanqueamiento y la ortodoncia invisible. Tono cercano, de tú. No menciones precios de implantes.">{{ lead.demo_instructions or '' }}</textarea>
+    </div>
+    <button class="btn btn-primary" type="submit">Guardar instrucciones</button>
+    {% if lead.demo_tenant_id %}<span class="muted">Ya tiene demo: regénérala para aplicar los cambios.</span>{% endif %}
+  </form>
+</section>
 
 <section class="card">
   <h2>Agregar nota</h2>
