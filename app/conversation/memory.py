@@ -163,7 +163,7 @@ async def maybe_summarize(
                     }
                 ],
                 max_tokens=700,
-                temperature=0.0,
+                effort="low",
             ),
             timeout=SUMMARY_TIMEOUT_S,
         )

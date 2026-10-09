@@ -61,6 +61,9 @@ DEFAULT_HANDOFFS: tuple[tuple[str, HandoffAction], ...] = (
 )
 
 
+FACTORY_TIMEOUT_S = 180.0  # generar el bot completo con razonamiento tarda mas que un chat
+
+
 class FactoryGenerationError(AppError):
     def __init__(self, detail: str = "") -> None:
         super().__init__(
@@ -192,9 +195,11 @@ async def _generate(
             system=GENERATOR_SYSTEM,
             messages=[{"role": "user", "content": message}],
             tools=[tool],
-            tool_choice={"type": "tool", "name": "emit_bot_config"},
-            max_tokens=6000,
-            temperature=0.2,
+            # Sonnet 5.5 rechaza tool_choice forzado: auto + instruccion + reintento
+            tool_choice={"type": "auto"},
+            max_tokens=16000,
+            effort="medium",
+            timeout=FACTORY_TIMEOUT_S,
         )
         usage["tokens_in"] += int(resp.usage.get("input_tokens", 0))
         usage["tokens_out"] += int(resp.usage.get("output_tokens", 0))

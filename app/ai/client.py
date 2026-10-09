@@ -62,7 +62,8 @@ class LLMClient(Protocol):
         tools: list[dict[str, Any]] | None = None,
         tool_choice: dict[str, Any] | None = None,
         max_tokens: int = 1024,
-        temperature: float = 0.2,
+        effort: str | None = None,
+        timeout: float | None = None,
     ) -> LLMResponse: ...
 
 
@@ -128,15 +129,20 @@ class AnthropicClient:
         tools: list[dict[str, Any]] | None = None,
         tool_choice: dict[str, Any] | None = None,
         max_tokens: int = 1024,
-        temperature: float = 0.2,
+        effort: str | None = None,
+        timeout: float | None = None,
     ) -> LLMResponse:
         kwargs: dict[str, Any] = {
             "model": self.model,
             "system": _system_blocks(system),
             "messages": messages,
             "max_tokens": max_tokens,
-            "temperature": temperature,
         }
+        if effort:
+            # Sonnet 5.5 piensa por defecto con esfuerzo alto: bajarlo acota latencia y costo
+            kwargs["output_config"] = {"effort": effort}
+        if timeout:
+            kwargs["timeout"] = timeout
         if tools:
             kwargs["tools"] = tools
             if tool_choice:
@@ -176,7 +182,8 @@ class FakeLLM:
         tools: list[dict[str, Any]] | None = None,
         tool_choice: dict[str, Any] | None = None,
         max_tokens: int = 1024,
-        temperature: float = 0.2,
+        effort: str | None = None,
+        timeout: float | None = None,
     ) -> LLMResponse:
         self.calls.append(
             {"system": system, "messages": messages, "tools": tools, "tool_choice": tool_choice}

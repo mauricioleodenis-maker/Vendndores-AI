@@ -134,7 +134,7 @@ async def _converse(
                 messages=list(messages),
                 tools=None if last else tools,
                 max_tokens=700,
-                temperature=0.3,
+                effort="low",
             )
         except Exception as exc:  # noqa: BLE001 - timeout/proveedor: respuesta segura + handoff
             log.error("conversation.llm_failed", error=type(exc).__name__)

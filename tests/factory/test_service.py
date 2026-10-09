@@ -45,7 +45,7 @@ async def test_build_bot_uses_forced_tool_and_persists_draft(
 ) -> None:
     bot, llm = await _build(session, tenant, owner_input)
     call = llm.calls[0]
-    assert call["tool_choice"] == {"type": "tool", "name": "emit_bot_config"}
+    assert call["tool_choice"] == {"type": "auto"}
     schema = call["tools"][0]["input_schema"]
     assert schema == GeneratedBotConfig.model_json_schema()
     assert schema["additionalProperties"] is False
