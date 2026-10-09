@@ -20,8 +20,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.audit import service as audit
 from app.core.config import get_settings
 from app.core.deps import current_user, get_session
-from app.core.errors import AppError
+from app.core.errors import AppError, ForbiddenError
 from app.core.jobs import enqueue
+from app.core.logging import get_logger
 from app.core.rate_limit import enforce
 from app.db.models.leads import LEAD_STAGES, Lead, LeadSource
 from app.db.models.users import User
@@ -33,15 +34,18 @@ from app.leads.places import NICHE_QUERIES, PlacesNotConfiguredError
 from app.leads.scoring import DEFAULT, band_for
 from app.leads.search import (
     JOB_NAME,
+    PRIVILEGED_ROLES,
     SearchParams,
     create_search_source,
     get_source,
-    parse_neighborhoods,
+    mark_failed,
     plan_search,
     source_status,
+    split_neighborhoods,
 )
 from app.web.templating import render
 
+log = get_logger(__name__)
 router = APIRouter(tags=["leads"])
 
 CSV_CONTENT_TYPES = frozenset(
@@ -54,6 +58,7 @@ CSV_CONTENT_TYPES = frozenset(
     }
 )
 SEARCH_LIMIT_PER_HOUR = 10
+ENQUEUE_FAILED_MESSAGE = "No se pudo iniciar la busqueda. Intenta de nuevo en unos minutos."
 NICHE_CHOICES = tuple(NICHE_QUERIES) + ("otro",)
 FIELD_LABELS = {
     "niche": "Nicho",
@@ -186,6 +191,8 @@ async def launch_search(
     session: AsyncSession, params: SearchParams, user: User, request: Request
 ) -> uuid.UUID:
     """Crea la fuente, confirma la transaccion y encola el job."""
+    if user.role not in PRIVILEGED_ROLES:
+        raise ForbiddenError("Solo un administrador puede lanzar busquedas pagadas.")
     if not get_settings().google_places_api_key.get_secret_value():
         raise PlacesNotConfiguredError()
     await enforce(f"leads:search:{user.id}", limit=SEARCH_LIMIT_PER_HOUR, window_s=3600)
@@ -201,7 +208,12 @@ async def launch_search(
     )
     source_id = source.id
     await session.commit()  # el worker debe ver la fuente al correr el job
-    await enqueue(JOB_NAME, str(source_id))
+    try:
+        await enqueue(JOB_NAME, str(source_id))
+    except Exception:
+        log.exception("places_enqueue_failed", source_id=str(source_id))
+        await mark_failed(session, source_id, ENQUEUE_FAILED_MESSAGE)
+        raise AppError("search_enqueue_failed", ENQUEUE_FAILED_MESSAGE, 503) from None
     return source_id
 
 
@@ -349,10 +361,10 @@ async def api_search(
 @router.get("/api/leads/sources/{source_id}/status")
 async def api_source_status(
     source_id: uuid.UUID,
-    _user: User = Depends(current_user),
+    user: User = Depends(current_user),
     session: AsyncSession = Depends(get_session),
 ) -> dict[str, Any]:
-    return source_status(await get_source(session, source_id))
+    return source_status(await get_source(session, source_id, user))
 
 
 @router.get("/api/leads", response_model=LeadListOut)
@@ -511,7 +523,7 @@ async def export_csv(
 
 
 @router.get("/admin/leads/buscar", response_class=HTMLResponse)
-async def page_search(request: Request, _user: User = Depends(current_user)) -> Response:
+async def page_search(request: Request, user: User = Depends(current_user)) -> Response:
     configured = bool(get_settings().google_places_api_key.get_secret_value())
     return render(
         request,
@@ -520,6 +532,7 @@ async def page_search(request: Request, _user: User = Depends(current_user)) -> 
             {
                 "view": "buscar",
                 "configured": configured,
+                "can_launch": user.role in PRIVILEGED_ROLES,
                 "monthly_budget": get_settings().google_places_budget_usd_month,
                 "form": {"niche": "dentista", "city": "Cali", "max_results": 60, "min_reviews": 0},
             }
@@ -539,11 +552,12 @@ async def page_search_submit(
     user: User = Depends(current_user),
     session: AsyncSession = Depends(get_session),
 ) -> Response:
+    hoods, dropped = split_neighborhoods(neighborhoods)
     try:
         params = SearchParams(
             niche=niche,
             city=city,
-            neighborhoods=parse_neighborhoods(neighborhoods),
+            neighborhoods=hoods,
             max_results=int(max_results or 60),
             min_reviews=int(min_reviews or 0),
         )
@@ -561,17 +575,17 @@ async def page_search_submit(
         return render(
             request,
             "leads/_search_result.html",
-            {"estimate": estimate, "params": params, "dry_run": True},
+            {"estimate": estimate, "params": params, "dry_run": True, "dropped": dropped},
         )
     try:
         source_id = await launch_search(session, params, user, request)
     except AppError as exc:
         return render(request, "leads/_search_result.html", {"errors": [exc.message]})
-    source = await get_source(session, source_id)
+    source = await get_source(session, source_id, user)
     return render(
         request,
         "leads/_status.html",
-        {"status": source_status(source), "estimate": estimate},
+        {"status": source_status(source), "estimate": estimate, "dropped": dropped},
     )
 
 
@@ -579,10 +593,10 @@ async def page_search_submit(
 async def page_source_status(
     request: Request,
     source_id: uuid.UUID,
-    _user: User = Depends(current_user),
+    user: User = Depends(current_user),
     session: AsyncSession = Depends(get_session),
 ) -> Response:
-    source = await get_source(session, source_id)
+    source = await get_source(session, source_id, user)
     return render(request, "leads/_status.html", {"status": source_status(source)})
 
 

@@ -2,24 +2,23 @@
 {% from "partials/macros.html" import badge, empty_state, pager %}
 {% block title %}Leads{% endblock %}
 {% block content %}
-<h1>Leads</h1>
+<div class="page-header"><h1>Leads</h1><div class="page-actions"><a class="btn btn-sm" href="{{ export_url }}">Exportar CSV</a></div></div>
 {% include "leads/_tabs.html" %}
 {% with action="/admin/leads", show_stage=True %}{% include "leads/_filters.html" %}{% endwith %}
-<p class="muted"><a href="{{ export_url }}">Exportar CSV</a></p>
 {% if leads %}
 <div class="table-wrap">
-<table>
+<table class="cards">
   <thead><tr><th>Negocio</th><th>Nicho / ciudad</th><th>Teléfono</th><th>Reseñas</th><th>Puntaje</th><th>Etapa</th></tr></thead>
   <tbody>
   {% for l in leads %}
     <tr>
-      <td><a href="/admin/leads/{{ l.id }}">{{ l.name }}</a>
+      <td data-label="Negocio"><a href="/admin/leads/{{ l.id }}">{{ l.name }}</a>
         {% if l.disposition != 'activo' %} {{ badge(l.disposition) }}{% endif %}</td>
-      <td>{{ l.niche | nicho_es }}<br><span class="muted">{{ l.city }}</span></td>
-      <td>{{ l.phone_e164 or '-' }}</td>
-      <td>{% if l.rating is not none %}{{ l.rating }} ★{% else %}-{% endif %} <span class="muted">({{ l.review_count or 0 }})</span></td>
-      <td>{% with score=l.score %}{% include "leads/_band.html" %}{% endwith %}</td>
-      <td>{{ badge(l.stage) }}</td>
+      <td data-label="Nicho / ciudad">{{ l.niche | nicho_es }}<br><span class="muted">{{ l.city }}</span></td>
+      <td data-label="Teléfono">{{ l.phone_e164 or '-' }}</td>
+      <td data-label="Reseñas">{% if l.rating is not none %}{{ l.rating }} ★{% else %}-{% endif %} <span class="muted">({{ l.review_count or 0 }})</span></td>
+      <td data-label="Puntaje">{% with score=l.score %}{% include "leads/_band.html" %}{% endwith %}</td>
+      <td data-label="Etapa">{{ badge(l.stage) }}</td>
     </tr>
   {% endfor %}
   </tbody>

@@ -133,3 +133,16 @@ async def test_error_list_capped(session):
     rows = [ci.RowError(i, "x") for i in range(80)]
     rep = await ci.import_csv(session, src, rows, dry_run=True)
     assert rep.invalid == 80 and len(rep.errors) == ci.MAX_ERRORS_REPORTED
+
+
+def test_sanitizes_control_chars_and_non_http_maps_url():
+    text = "name,phone,link\n" + '"Cafe\x07 X\nY",3001234567,javascript:alert(1)\n'
+    rows, _ = parse(text)
+    cand = rows[0]
+    assert cand.name == "Cafe X Y"
+    assert cand.maps_url is None
+
+
+def test_keeps_https_maps_url():
+    rows, _ = parse("name,phone,link\nA,3001234567,https://maps.google.com/?cid=1\n")
+    assert rows[0].maps_url == "https://maps.google.com/?cid=1"

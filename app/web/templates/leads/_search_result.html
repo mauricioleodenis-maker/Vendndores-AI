@@ -1,9 +1,13 @@
 {% if errors %}
-<div class="alert alert-error" role="alert"><ul>{% for e in errors %}<li>{{ e }}</li>{% endfor %}</ul></div>
+<div class="alert alert-error" role="alert"><strong>No se pudo continuar.</strong><ul>{% for e in errors %}<li>{{ e }}</li>{% endfor %}</ul></div>
 {% elif estimate %}
+{% if dropped %}<div class="alert alert-warn" role="status">Se usaron {{ params.neighborhoods | length }} barrios; se descartaron {{ dropped }} por superar el máximo.</div>{% endif %}
 <div class="card">
-  <h2>Estimado de costo</h2>
-  <p>Hasta <strong>{{ estimate.max_requests }}</strong> solicitudes a Google, costo máximo aproximado <strong>US$ {{ '%.2f' | format(estimate.max_cost_usd) }}</strong>. No se hizo ninguna llamada.</p>
+  <div class="card-header"><h2>Estimado de costo</h2><span class="badge badge-info">Sin llamadas a Google</span></div>
+  <div class="kpis">
+    <div class="kpi"><div class="value">{{ estimate.max_requests }}</div><div class="label">Solicitudes (máx.)</div></div>
+    <div class="kpi kpi-warn"><div class="value">US$ {{ '%.2f' | format(estimate.max_cost_usd) }}</div><div class="label">Costo máximo aprox.</div></div>
+  </div>
   <h3>Consultas ({{ estimate.queries | length }})</h3>
   <ul>{% for q in estimate.queries %}<li>{{ q }}</li>{% endfor %}</ul>
 </div>

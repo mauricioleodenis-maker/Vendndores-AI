@@ -49,6 +49,53 @@ def trigram_similarity(a: str, b: str) -> float:
     return len(ta & tb) / len(ta | tb)
 
 
+class NameIndex:
+    """Indice en memoria de ``(id, name_key, trigramas)`` por ciudad para dedupe difuso en lote.
+
+    Evita recargar todos los leads de la ciudad por cada fila (O(N^2) de consultas) y permite
+    ver los leads creados antes en la misma importacion via ``add``.
+    """
+
+    def __init__(self) -> None:
+        self._by_city: dict[str, list[tuple[UUID, str, frozenset[str]]]] = {}
+
+    async def _load(
+        self, session: AsyncSession, city: str
+    ) -> list[tuple[UUID, str, frozenset[str]]]:
+        if city not in self._by_city:
+            rows = (
+                await session.execute(
+                    select(Lead.id, Lead.name_key).where(
+                        Lead.city == city, Lead.disposition != "perdido", Lead.name_key != ""
+                    )
+                )
+            ).all()
+            self._by_city[city] = [(i, k, frozenset(trigrams(k))) for i, k in rows]
+        return self._by_city[city]
+
+    async def best(
+        self, session: AsyncSession, city: str, name_key: str, exclude_id: UUID | None
+    ) -> tuple[float, UUID] | None:
+        mine = frozenset(trigrams(name_key))
+        if not mine:
+            return None
+        best: tuple[float, UUID] | None = None
+        for lead_id, _key, tg in await self._load(session, city):
+            if lead_id == exclude_id or not tg:
+                continue
+            # Cota superior de Jaccard: min/max de tamanos; descarta sin intersectar.
+            if min(len(mine), len(tg)) / max(len(mine), len(tg)) < NAME_SIMILARITY_THRESHOLD:
+                continue
+            sim = len(mine & tg) / len(mine | tg)
+            if sim >= NAME_SIMILARITY_THRESHOLD and (best is None or sim > best[0]):
+                best = (sim, lead_id)
+        return best
+
+    def add(self, city: str, lead_id: UUID, name_key: str) -> None:
+        if city in self._by_city and name_key:
+            self._by_city[city].append((lead_id, name_key, frozenset(trigrams(name_key))))
+
+
 async def find_duplicate(
     session: AsyncSession,
     *,
@@ -58,6 +105,7 @@ async def find_duplicate(
     name_key: str = "",
     city: str = "",
     exclude_id: UUID | None = None,
+    name_index: NameIndex | None = None,
 ) -> DuplicateMatch | None:
     """Primer duplicado segun la prioridad; ignora leads ``perdido`` salvo por place_id."""
 
@@ -80,18 +128,11 @@ async def find_duplicate(
         if hit:
             return DuplicateMatch(hit, MATCH_DOMAIN)
     if name_key and city:
-        stmt = select(Lead).where(
-            Lead.city == city, Lead.disposition != "perdido", Lead.name_key != ""
-        )
-        if exclude_id is not None:
-            stmt = stmt.where(Lead.id != exclude_id)
-        best: tuple[float, Lead] | None = None
-        for cand in (await session.execute(stmt)).scalars():
-            sim = trigram_similarity(name_key, cand.name_key)
-            if sim >= NAME_SIMILARITY_THRESHOLD and (best is None or sim > best[0]):
-                best = (sim, cand)
-        if best:
-            return DuplicateMatch(best[1], MATCH_NAME)
+        found = await (name_index or NameIndex()).best(session, city, name_key, exclude_id)
+        if found:
+            cand = await session.get(Lead, found[1])
+            if cand is not None:
+                return DuplicateMatch(cand, MATCH_NAME)
     return None
 
 

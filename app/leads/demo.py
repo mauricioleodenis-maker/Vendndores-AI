@@ -20,6 +20,7 @@ from app.conversation.engine import sandbox_reply
 from app.core.clock import utcnow
 from app.core.config import get_settings
 from app.core.errors import AppError, ConflictError, NotFoundError
+from app.core.logging import get_logger
 from app.core.rate_limit import enforce
 from app.db.models.bots import BotConfig
 from app.db.models.leads import Lead
@@ -35,6 +36,9 @@ _SALT = "vai-demo-chat-v1"
 DEMO_NOTICE = "Esto es una demostración: no es el asistente real del negocio."
 MAX_TEXT = 500
 MAX_HISTORY = 12
+IP_MSGS_PER_MIN = 20
+
+log = get_logger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -146,7 +150,7 @@ async def lead_to_demo_bot(
     settings = get_settings()
     if not settings.demo_enabled:
         raise AppError("demo_disabled", "Las demos están deshabilitadas", 403)
-    lead = await pipeline.get_lead(session, lead_id)
+    lead = await pipeline.get_lead(session, lead_id, for_update=True)
     if lead.disposition == "perdido":
         raise ConflictError("El lead está marcado como perdido")
     if lead.converted_tenant_id is not None:
@@ -241,10 +245,17 @@ async def demo_chat_reply(
     text: str,
     *,
     llm: LLMClient | None = None,
+    tenant: Tenant | None = None,
+    client_ip: str | None = None,
 ) -> str:
-    """Una respuesta del chat de demo con tope de mensajes por demo (``demo_max_messages``)."""
+    """Una respuesta del chat de demo con tope de mensajes por demo (``demo_max_messages``).
+
+    Ademas del tope por demo, limita por IP (anti-abuso de costo LLM) y convierte cualquier
+    fallo inesperado del modelo en un error controlado (sin filtrar detalles).
+    """
     settings = get_settings()
-    tenant = await load_demo_tenant(session, token)
+    if tenant is None:
+        tenant = await load_demo_tenant(session, token)
     message = (text or "").strip()
     if not message:
         raise AppError("empty_message", "Escribe un mensaje", 422)
@@ -253,9 +264,19 @@ async def demo_chat_reply(
         limit=settings.demo_max_messages,
         window_s=settings.demo_token_ttl_days * 86400,
     )
-    return await sandbox_reply(
-        session, tenant.id, clean_history(history), message[:MAX_TEXT], llm=llm
-    )
+    if client_ip:
+        await enforce(f"demo-ip:{client_ip}", limit=IP_MSGS_PER_MIN, window_s=60)
+    try:
+        return await sandbox_reply(
+            session, tenant.id, clean_history(history), message[:MAX_TEXT], llm=llm
+        )
+    except AppError:
+        raise
+    except Exception as exc:
+        log.warning("demo.chat_failed", error_type=type(exc).__name__)
+        raise AppError(
+            "demo_unavailable", "La demostración no está disponible ahora. Intenta de nuevo.", 503
+        ) from exc
 
 
 # --------------------------------------------------------------------------- conversion
@@ -269,7 +290,7 @@ async def convert_lead(
     actor: User,
 ) -> ConvertResult:
     """Promueve el tenant demo a cliente: suscripcion + cobro de setup, lead -> ``cerrado``."""
-    lead = await pipeline.get_lead(session, lead_id)
+    lead = await pipeline.get_lead(session, lead_id, for_update=True)
     if lead.disposition != "activo":
         raise ConflictError("El lead no está activo (perdido o no contactar)")
     if lead.converted_tenant_id is not None:

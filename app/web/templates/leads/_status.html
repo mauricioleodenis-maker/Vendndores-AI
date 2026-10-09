@@ -1,22 +1,26 @@
+{% if dropped %}<div class="alert alert-warn" role="status">Se usaron {{ estimate.queries | length }} consultas; se descartaron {{ dropped }} barrios por superar el máximo de 20.</div>{% endif %}
 <div id="estado-busqueda" class="card" aria-live="polite"
   {% if not status.finished %}hx-get="/admin/leads/sources/{{ status.source_id }}/status" hx-trigger="load delay:2s" hx-swap="outerHTML"{% endif %}>
-  <h2>Búsqueda
+  <div class="card-header">
+  <h2>Búsqueda</h2>
     {% if status.status == 'queued' %}<span class="badge badge-neutral">En cola</span>
     {% elif status.status == 'running' %}<span class="badge badge-info">En curso</span>
     {% elif status.status == 'done' %}<span class="badge badge-ok">Terminada</span>
     {% elif status.status == 'partial' %}<span class="badge badge-warn">Parcial</span>
     {% else %}<span class="badge badge-danger">Fallida</span>{% endif %}
-  </h2>
-  {% if status.error %}<div class="alert alert-warn" role="alert">{{ status.error }}</div>{% endif %}
+  </div>
+  {% if status.error %}<div class="alert {{ 'alert-error' if status.status == 'failed' else 'alert-warn' }}" role="alert">{{ status.error }}</div>{% endif %}
   {% if status.finished %}
-  <ul>
-    <li>Lugares encontrados: {{ status.found or 0 }}</li>
-    <li>Leads nuevos: {{ status.created or 0 }} · Fusionados con existentes: {{ status.merged or 0 }}</li>
-    <li>Sin teléfono ni web (omitidos): {{ status.skipped_no_phone or 0 }}</li>
-    <li>Solicitudes a Google: {{ status.requests or 0 }} (≈ US$ {{ '%.2f' | format(status.cost_usd or 0) }})</li>
-  </ul>
-  <a class="btn btn-primary" href="/admin/leads">Ver leads</a>
+  <div class="kpis">
+    <div class="kpi kpi-ok"><div class="value">{{ status.created or 0 }}</div><div class="label">Leads nuevos</div></div>
+    <div class="kpi"><div class="value">{{ status.merged or 0 }}</div><div class="label">Fusionados</div></div>
+    <div class="kpi"><div class="value">{{ status.found or 0 }}</div><div class="label">Lugares encontrados</div></div>
+  </div>
+  <p class="muted">Omitidos sin teléfono ni web: {{ status.skipped_no_phone or 0 }} · Solicitudes a Google: {{ status.requests or 0 }} (≈ US$ {{ '%.2f' | format(status.cost_usd or 0) }})</p>
+  <div class="btn-row"><a class="btn btn-primary" href="/admin/leads">Ver leads</a>{% if status.status != 'done' %}<a class="btn" href="/admin/leads/buscar">Nueva búsqueda</a>{% endif %}</div>
+  <span data-toast="{{ 'Búsqueda terminada' if status.status == 'done' else 'Búsqueda finalizada con avisos' }}" data-toast-kind="{{ 'ok' if status.status == 'done' else 'warn' }}"></span>
   {% else %}
-  <p class="muted">Buscando en Google… esta página se actualiza sola.</p>
+  <p class="muted"><span class="spinner" aria-hidden="true"></span> Buscando en Google… esta página se actualiza sola. Puede tardar un par de minutos.</p>
+  <div class="skeleton"></div>
   {% endif %}
 </div>

@@ -89,11 +89,14 @@ def missing_expected_crons(crons: list[CronJob]) -> list[str]:
 async def startup(ctx: dict[str, Any]) -> None:
     configure_logging()
     configure_database(make_engine())
+    missing = missing_expected_crons(_crons)
+    if missing and get_settings().env == "prod":
+        raise RuntimeError(f"Faltan crons esperados en el worker: {', '.join(missing)}")
     log.info(
         "worker_started",
         jobs=sorted(JOB_REGISTRY),
         crons=sorted(c.name for c in _crons),
-        missing_crons=missing_expected_crons(_crons),
+        missing_crons=missing,
     )
 
 
@@ -104,12 +107,21 @@ async def shutdown(ctx: dict[str, Any]) -> None:
 _crons = load_job_modules()
 
 
+def resolve_redis_dsn() -> str:
+    settings = get_settings()
+    if settings.redis_url:
+        return settings.redis_url
+    if settings.env == "prod":
+        raise RuntimeError("REDIS_URL es obligatorio para el worker en produccion")
+    return "redis://localhost:6379"
+
+
 class WorkerSettings:
     functions = [func(fn, name=name) for name, fn in JOB_REGISTRY.items()]
     cron_jobs = _crons
     on_startup = startup
     on_shutdown = shutdown
-    redis_settings = RedisSettings.from_dsn(get_settings().redis_url or "redis://localhost:6379")
+    redis_settings = RedisSettings.from_dsn(resolve_redis_dsn())
     max_jobs = 10
     job_timeout = 300
     keep_result = 3600

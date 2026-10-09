@@ -1,50 +1,52 @@
 {% extends "base.html" %}
-{% from "partials/macros.html" import csrf with context %}
+{% from "partials/macros.html" import csrf, kpi, stepper, badge with context %}
 {% block title %}Vista previa de importación{% endblock %}
 {% block content %}
-<h1>Vista previa de importación</h1>
+<div class="page-header"><h1>Vista previa de importación</h1></div>
 {% include "leads/_tabs.html" %}
+{{ stepper(['Subir archivo', 'Revisar', 'Listo'], 2) }}
 {% set s = p.report.summary() %}
 {% if p.reupload %}
 <div class="alert alert-warn" role="alert">Este archivo ya se importó antes. Marca la casilla de confirmación para repetirlo.</div>
 {% endif %}
 <div class="kpis">
-  <div class="kpi"><div class="value">{{ s.total }}</div><div class="label">Filas</div></div>
-  <div class="kpi"><div class="value">{{ s.created }}</div><div class="label">Leads nuevos</div></div>
-  <div class="kpi"><div class="value">{{ s.merged }}</div><div class="label">Ya existentes</div></div>
-  <div class="kpi"><div class="value">{{ s.invalid + s.skipped_no_phone + s.skipped_closed }}</div><div class="label">Omitidas</div></div>
+  {{ kpi('Filas', s.total) }}
+  {{ kpi('Leads nuevos', s.created, 'ok') }}
+  {{ kpi('Ya existentes', s.merged) }}
+  {{ kpi('Omitidas', s.invalid + s.skipped_no_phone + s.skipped_closed, 'warn' if (s.invalid + s.skipped_no_phone + s.skipped_closed) else '') }}
 </div>
 <p class="muted">Posibles duplicados por nombre: {{ s.possible_duplicates }} · Sin contacto: {{ s.skipped_no_phone }} · Cerrados: {{ s.skipped_closed }} · Inválidas: {{ s.invalid }}</p>
 
-<form class="card" method="post" action="/admin/leads/importar/vista-previa" hx-boost="false">
+<form class="card stack" method="post" action="/admin/leads/importar/vista-previa" hx-boost="false">
   {{ csrf() }}
   <input type="hidden" name="sha256" value="{{ p.sha256 }}">
   <input type="hidden" name="niche" value="{{ niche }}">
   <input type="hidden" name="city" value="{{ city }}">
-  <h2>Columnas detectadas</h2>
-  <div class="mapping">
+  <div class="card-header"><h2>Columnas detectadas</h2></div>
+  <p class="help">Revisa que cada campo apunte a la columna correcta y actualiza la vista previa.</p>
+  <div class="form-grid mapping">
   {% for field, label in [('name','Nombre'),('phone','Teléfono'),('address','Dirección'),('website','Sitio web'),('rating','Calificación'),('reviews_count','Nº de reseñas'),('reviews_text','Texto de reseñas'),('maps_url','Enlace de Maps'),('place_id','Place ID'),('category','Categoría'),('city','Ciudad'),('status','Estado'),('instagram','Instagram')] %}
-    <label>{{ label }}
-      <select name="col_{{ field }}">
+    <div class="field"><label for="col-{{ field }}">{{ label }}</label>
+      <select id="col-{{ field }}" name="col_{{ field }}">
         <option value="">(ninguna)</option>
         {% for h in p.headers %}<option value="{{ h }}" {% if mapping[field] == h %}selected{% endif %}>{{ h }}</option>{% endfor %}
-      </select>
-    </label>
+      </select></div>
   {% endfor %}
   </div>
-  <button class="btn" type="submit">Actualizar vista previa</button>
+  <div class="btn-row"><button class="btn" type="submit">Actualizar vista previa</button></div>
 </form>
 
 {% if p.report.preview %}
 <h2>Primeras filas</h2>
+<p class="muted">Se muestran hasta 20 filas que se crearían.</p>
 <div class="table-wrap">
-<table>
-  <thead><tr><th>Fila</th><th>Negocio</th><th>Teléfono</th><th>Web</th><th>Calificación</th><th></th></tr></thead>
+<table class="cards">
+  <thead><tr><th>Fila</th><th>Negocio</th><th>Teléfono</th><th>Web</th><th>Calificación</th><th>Aviso</th></tr></thead>
   <tbody>
   {% for r in p.report.preview %}
-    <tr><td>{{ r.row }}</td><td>{{ r.name }}</td><td>{{ r.phone or '-' }}</td><td>{{ r.website or '-' }}</td>
-      <td>{{ r.rating or '-' }} ({{ r.reviews or 0 }})</td>
-      <td>{% if r.posible_duplicado %}<span class="badge badge-warn">Posible duplicado</span>{% endif %}</td></tr>
+    <tr><td data-label="Fila">{{ r.row }}</td><td data-label="Negocio">{{ r.name }}</td><td data-label="Teléfono">{{ r.phone or '-' }}</td><td data-label="Web">{{ r.website or '-' }}</td>
+      <td data-label="Calificación">{{ r.rating or '-' }} ({{ r.reviews or 0 }})</td>
+      <td data-label="Aviso">{% if r.posible_duplicado %}<span class="badge badge-warn">Posible duplicado</span>{% endif %}</td></tr>
   {% endfor %}
   </tbody>
 </table>
@@ -52,20 +54,20 @@
 {% endif %}
 
 {% if p.report.errors %}
-<h2>Errores</h2>
-<ul>{% for e in p.report.errors %}<li>Fila {{ e.row }}: {{ e.reason }}</li>{% endfor %}</ul>
+<h2>Filas con problemas</h2>
+<div class="alert alert-warn"><ul>{% for e in p.report.errors %}<li>Fila {{ e.row }}: {{ e.reason }}</li>{% endfor %}</ul></div>
 {% endif %}
 
-<form class="card" method="post" action="/admin/leads/importar/confirmar">
+<form class="card stack" method="post" action="/admin/leads/importar/confirmar" hx-boost="false">
   {{ csrf() }}
   <input type="hidden" name="sha256" value="{{ p.sha256 }}">
   <input type="hidden" name="niche" value="{{ niche }}">
   <input type="hidden" name="city" value="{{ city }}">
   {% for field, value in mapping.items() if value %}<input type="hidden" name="col_{{ field }}" value="{{ value }}">{% endfor %}
   {% if p.reupload %}
-  <div class="field"><label><input type="checkbox" name="force" value="true"> Importar de todas formas</label></div>
+  <div class="field-check"><input type="checkbox" id="f-force" name="force" value="true"><label for="f-force">Importar de todas formas</label></div>
   {% endif %}
-  <button class="btn btn-primary" type="submit" {% if s.created == 0 and s.merged == 0 %}disabled{% endif %}>Importar {{ s.created }} leads</button>
-  <a class="btn btn-ghost" href="/admin/leads/importar">Cancelar</a>
+  <div class="btn-row"><button class="btn btn-primary" type="submit" {% if s.created == 0 and s.merged == 0 %}disabled{% endif %}>Importar {{ s.created }} leads</button>
+  <a class="btn btn-ghost" href="/admin/leads/importar">Cancelar</a></div>
 </form>
 {% endblock %}

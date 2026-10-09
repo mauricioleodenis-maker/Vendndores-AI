@@ -142,7 +142,7 @@ async def create_test(
         raise AppError("invalid_scenario", "Escenario desconocido", 422)
     if channel not in CHANNELS:
         raise AppError("invalid_channel", "Canal desconocido", 422)
-    lead = await pipeline.get_lead(session, lead_id)
+    lead = await pipeline.get_lead(session, lead_id, for_update=True)
     if lead.disposition != "activo":
         raise ConflictError("No se puede hacer la prueba a un lead perdido o «no contactar»")
     if await latest_test(session, lead.id) is not None:
@@ -239,13 +239,28 @@ async def expire_unanswered(session: AsyncSession, *, now: datetime | None = Non
         SecretShopTest.outcome.is_(None),
         SecretShopTest.sent_at <= cutoff,
     )
-    tests = list((await session.execute(stmt)).scalars())
+    tests = list((await session.execute(stmt.limit(500))).scalars())
+    if not tests:
+        return 0
+    # Batch: un SELECT para leads y otro para senales (evita N+1).
+    lead_ids = {t.lead_id for t in tests}
+    leads = {
+        lead.id: lead
+        for lead in (await session.execute(select(Lead).where(Lead.id.in_(lead_ids)))).scalars()
+    }
+    signals: dict[uuid.UUID, list[ReviewSignal]] = {}
+    for sig in (
+        await session.execute(select(ReviewSignal).where(ReviewSignal.lead_id.in_(lead_ids)))
+    ).scalars():
+        signals.setdefault(sig.lead_id, []).append(sig)
     for test in tests:
         test.outcome = "sin_respuesta"
-        lead = await session.get(Lead, test.lead_id)
+        lead = leads.get(test.lead_id)
         if lead is None:
             continue
-        await rescore(session, lead, test)
+        result = score_lead(lead, signals.get(lead.id, []), test)
+        lead.score = result.score
+        lead.score_breakdown = result.breakdown
         await pipeline.add_event(
             session,
             lead,

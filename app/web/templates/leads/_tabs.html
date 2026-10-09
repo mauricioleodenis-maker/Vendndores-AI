@@ -1,7 +1,7 @@
 <link rel="stylesheet" href="/static/leads.css">
-<nav class="lead-tabs" aria-label="Vistas de leads">
-  <a class="btn {% if view == 'tabla' %}btn-primary{% endif %}" href="/admin/leads">Tabla</a>
-  <a class="btn {% if view == 'kanban' %}btn-primary{% endif %}" href="/admin/leads/kanban">Kanban</a>
-  <a class="btn {% if view == 'buscar' %}btn-primary{% endif %}" href="/admin/leads/buscar">Buscar en Google</a>
-  <a class="btn {% if view == 'importar' %}btn-primary{% endif %}" href="/admin/leads/importar">Importar CSV</a>
+<nav class="tabs lead-tabs" aria-label="Vistas de leads">
+  <a class="tab btn {% if view == 'tabla' %}btn-primary active{% endif %}" href="/admin/leads"{% if view == 'tabla' %} aria-current="page"{% endif %}>Tabla</a>
+  <a class="tab btn {% if view == 'kanban' %}btn-primary active{% endif %}" href="/admin/leads/kanban"{% if view == 'kanban' %} aria-current="page"{% endif %}>Kanban</a>
+  <a class="tab btn {% if view == 'buscar' %}btn-primary active{% endif %}" href="/admin/leads/buscar"{% if view == 'buscar' %} aria-current="page"{% endif %}>Buscar en Google</a>
+  <a class="tab btn {% if view == 'importar' %}btn-primary active{% endif %}" href="/admin/leads/importar"{% if view == 'importar' %} aria-current="page"{% endif %}>Importar CSV</a>
 </nav>

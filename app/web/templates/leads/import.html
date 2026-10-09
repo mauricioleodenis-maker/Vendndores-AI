@@ -1,28 +1,35 @@
 {% extends "base.html" %}
-{% from "partials/macros.html" import csrf with context %}
+{% from "partials/macros.html" import csrf, stepper with context %}
 {% block title %}Importar CSV{% endblock %}
 {% block content %}
-<h1>Leads</h1>
+<div class="page-header"><h1>Leads</h1></div>
 {% include "leads/_tabs.html" %}
-<form class="card" method="post" action="/admin/leads/importar" enctype="multipart/form-data">
+{{ stepper(['Subir archivo', 'Revisar', 'Listo'], 1) }}
+<form class="card stack" method="post" action="/admin/leads/importar" enctype="multipart/form-data" hx-boost="false">
   {{ csrf() }}
-  <h2>Importar CSV de Google Maps</h2>
-  <p class="muted">Acepta exportes del scraper de Maps (español o inglés, coma o punto y coma). Máx. 5 MB y 5.000 filas. Verás una vista previa antes de guardar.</p>
-  <div class="field">
-    <label for="f-file">Archivo .csv</label>
-    <input id="f-file" type="file" name="file" accept=".csv,text/csv" required>
+  <div class="card-header"><h2>Importar CSV de Google Maps</h2></div>
+  <p class="muted">Acepta exportes del scraper de Maps (español o inglés, separados por coma o punto y coma). Máximo 5 MB y 5.000 filas. Verás una vista previa antes de guardar nada.</p>
+  <div class="form-grid">
+    <div class="field span-2">
+      <label for="f-file">Archivo .csv <span class="required" aria-hidden="true">*</span></label>
+      <input id="f-file" type="file" name="file" accept=".csv,text/csv" required aria-describedby="h-file">
+      <small class="help" id="h-file">Tus datos no se guardan hasta que confirmes.</small>
+    </div>
+    <div class="field">
+      <label for="f-niche">Nicho</label>
+      <select id="f-niche" name="niche">
+        {% for n in niche_choices %}<option value="{{ n }}" {% if n == form.niche %}selected{% endif %}>{{ n | nicho_es }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="field">
+      <label for="f-city">Ciudad por defecto <span class="required" aria-hidden="true">*</span></label>
+      <input id="f-city" name="city" value="{{ form.city }}" maxlength="100" required aria-describedby="h-city">
+      <small class="help" id="h-city">Se usa cuando la fila no trae ciudad.</small>
+    </div>
   </div>
-  <div class="field">
-    <label for="f-niche">Nicho</label>
-    <select id="f-niche" name="niche">
-      {% for n in niche_choices %}<option value="{{ n }}" {% if n == form.niche %}selected{% endif %}>{{ n | nicho_es }}</option>{% endfor %}
-    </select>
+  <div class="btn-row">
+    <button class="btn btn-primary" type="submit">Ver vista previa</button>
+    <span class="htmx-indicator inline" id="ld-import">Procesando…</span>
   </div>
-  <div class="field">
-    <label for="f-city">Ciudad por defecto</label>
-    <input id="f-city" name="city" value="{{ form.city }}" maxlength="100" required>
-    <small class="help">Se usa cuando la fila no trae ciudad.</small>
-  </div>
-  <button class="btn btn-primary" type="submit">Ver vista previa</button>
 </form>
 {% endblock %}

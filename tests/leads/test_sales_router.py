@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import rate_limit
 from app.core.deps import csrf_guard
+from app.core.errors import AppError
 from app.db.models.bots import BotConfig
 from app.db.models.leads import Lead
 from app.leads import demo, sales_router
@@ -192,3 +193,69 @@ async def test_ui_reply_without_test_and_niche_prompt(
     assert 'name="niche"' in page.text
     r = await c.post(f"/admin/leads/{otro.id}/ventas/demo", data={}, headers=h)
     assert "Elige el tipo de negocio" in r.text
+
+
+async def test_public_demo_llm_failure_is_controlled(
+    client: httpx.AsyncClient,
+    authenticated_client: httpx.AsyncClient,
+    lead: Lead,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    token = (
+        (await authenticated_client.post(f"/api/leads/{lead.id}/demo-bot"))
+        .json()["demo_link"]
+        .rsplit("/", 1)[1]
+    )
+
+    async def boom(*a: Any, **kw: Any) -> str:
+        raise RuntimeError("secreto-interno")
+
+    monkeypatch.setattr(demo, "sandbox_reply", boom)
+    anon = httpx.AsyncClient(transport=client._transport, base_url="http://test")
+    async with anon:
+        r = await anon.post(f"/demo/{token}/mensaje", data={"text": "hola", "history": "[]"})
+    assert r.status_code == 200
+    assert "no está disponible" in r.text and "secreto-interno" not in r.text
+
+
+async def test_public_demo_headers_and_ip_limit(
+    client: httpx.AsyncClient,
+    authenticated_client: httpx.AsyncClient,
+    lead: Lead,
+    session: AsyncSession,
+) -> None:
+    token = (
+        (await authenticated_client.post(f"/api/leads/{lead.id}/demo-bot"))
+        .json()["demo_link"]
+        .rsplit("/", 1)[1]
+    )
+    anon = httpx.AsyncClient(transport=client._transport, base_url="http://test")
+    async with anon:
+        page = await anon.get(f"/demo/{token}")
+        assert page.headers["referrer-policy"] == "no-referrer"
+        assert page.headers["cache-control"] == "no-store"
+        tenant = await demo.load_demo_tenant(session, token)
+        with pytest.raises(AppError) as exc:
+            for _ in range(demo.IP_MSGS_PER_MIN + 1):
+                await demo.demo_chat_reply(
+                    session, token, [], "x", tenant=tenant, client_ip="9.9.9.9"
+                )
+        assert exc.value.status == 429
+
+
+async def test_ui_reply_naive_time_is_bogota(
+    authenticated_client: httpx.AsyncClient, lead: Lead, session: AsyncSession
+) -> None:
+    from app.leads import secret_shop
+
+    c = authenticated_client
+    sent = datetime.now(UTC) - timedelta(hours=2)
+    await c.post(f"/api/leads/{lead.id}/secret-shop", json={"sent_at": sent.isoformat()})
+    # hora local de Bogota (UTC-5) hace 1h, enviada como datetime-local (sin zona)
+    local = (datetime.now(UTC) - timedelta(hours=1) - timedelta(hours=5)).strftime("%Y-%m-%dT%H:%M")
+    r = await c.post(f"/admin/leads/{lead.id}/ventas/respuesta", data={"first_reply_at": local})
+    assert r.status_code == 200 and "Respuesta registrada" in r.text
+    assert "HX-Trigger" in r.headers or "hx-trigger" in r.headers
+    test = await secret_shop.latest_test(session, lead.id)
+    await session.refresh(test)
+    assert 3000 < test.response_seconds < 4300  # ~1 h, no -4 h ni +6 h

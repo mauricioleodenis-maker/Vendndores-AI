@@ -297,3 +297,14 @@ AAD `make_aad(tabla, tenant_id, columna)`. `tenant_secrets` guarda `ciphertext/n
 
 - booking: `app/web/static/app.js` no autoenvía selects; el selector de empresa de Citas/Horarios ya no usa `onchange` inline (CSP) y muestra botón "Cambiar empresa" (solo si hay >1 empresa). Opcional: soportar `data-autosubmit` en app.js.
 - booking (DB): considerar índice `appointments(tenant_id, starts_at)` y `time_off(tenant_id, ends_at)` si no existen (consultas de agenda diaria/semanal y disponibilidad).
+
+## Mejoras (reminders+worker)
+- `app/web/nav.py`: agregar `NavItem("Recordatorios", "/admin/recordatorios")` (la pagina ya existe en `app/reminders/router.py`).
+- Indice sugerido en `ScheduledJob` (`app/db/models/scheduling.py`): `(tenant_id, status, run_at)` para el listado de `/admin/recordatorios`.
+- Base legal de recordatorios: hoy se envian si no hay revocacion (necesidad contractual de una cita agendada, Ley 1581). Si se exige consentimiento expreso, cambiar `_recordatorios_revoked` en `app/reminders/service.py` y documentarlo en `docs/revision/haiku-privacy.md`.
+- Sin enviar-antes-de-commit atomico: el bloqueo de fila (`FOR UPDATE`) evita doble envio entre workers, pero si el commit falla tras Twilio el job se reintenta (persistir SID de Twilio requeriria columna nueva).
+
+## Mejoras (leads-search-ui)
+- Barrido periodico: registrar un cron que llame `app.leads.search.expire_stale_sources(session)` (hoy las busquedas atascadas se marcan `failed` al leerlas, tras 15 min).
+- Decision de producto: las busquedas pagadas de Google requieren rol `admin`/`owner`; `operator` solo estima. Ajustar `PRIVILEGED_ROLES` en `app/leads/search.py` si se quiere abrir.
+- `lead_sources` no necesita indices nuevos (acceso por PK); `leads.place_id`/`phone_hash` ya cubiertos por el dedupe.

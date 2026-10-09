@@ -22,13 +22,22 @@ async def enqueue_due(ctx: dict[str, Any]) -> int:
     async with get_sessionmaker()() as session:
         ids = await service.claim_due(session)
         await session.commit()
+    failed: list[uuid.UUID] = []
     for jid in ids:
-        await enqueue(
-            "reminders.send", str(jid), _job_id=f"reminders:{jid}:{int(utcnow().timestamp())}"
-        )
+        try:
+            await enqueue(
+                "reminders.send", str(jid), _job_id=f"reminders:{jid}:{int(utcnow().timestamp())}"
+            )
+        except Exception:  # noqa: BLE001 - Redis caido: no abortar el ciclo ni dejar jobs colgados
+            failed.append(jid)
+    if failed:
+        log.error("reminders.enqueue_failed", count=len(failed), total=len(ids))
+        async with get_sessionmaker()() as session:
+            await service.release_claims(session, failed)
+            await session.commit()
     if ids:
-        log.info("reminders.enqueued", count=len(ids))
-    return len(ids)
+        log.info("reminders.enqueued", count=len(ids) - len(failed))
+    return len(ids) - len(failed)
 
 
 @register_job("reminders.send")

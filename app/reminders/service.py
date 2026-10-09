@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.channels.sender import (
@@ -42,11 +42,14 @@ async def claim_due(
     stale = (
         (
             await session.execute(
-                select(ScheduledJob).where(
+                select(ScheduledJob)
+                .where(
                     ScheduledJob.status == "running",
                     ScheduledJob.locked_at < now - pol.STALE_LOCK,
                     ScheduledJob.kind.in_(_KINDS),
                 )
+                # un job cuyo envio sigue en curso (fila bloqueada por process_job) no se reclama
+                .with_for_update(skip_locked=True)
             )
         )
         .scalars()
@@ -81,6 +84,18 @@ async def claim_due(
     return [j.id for j in rows]
 
 
+async def release_claims(session: AsyncSession, ids: list[uuid.UUID]) -> None:
+    """Devuelve a ``pending`` jobs reclamados que no pudieron encolarse (se reintentan al ciclo)."""
+    if not ids:
+        return
+    await session.execute(
+        update(ScheduledJob)
+        .where(ScheduledJob.id.in_(ids), ScheduledJob.status == "running")
+        .values(status="pending", locked_at=None, locked_by=None)
+    )
+    await session.flush()
+
+
 _KINDS = (pol.REMINDER_24H, pol.REMINDER_2H, pol.FOLLOWUP_NOSHOW, pol.FOLLOWUP_UNBOOKED)
 
 
@@ -104,17 +119,18 @@ def _contact_name(tenant_id: uuid.UUID, contact: Contact) -> str:
 async def _recordatorios_revoked(
     session: AsyncSession, tenant_id: uuid.UUID, contact_id: uuid.UUID
 ) -> bool:
-    base = and_(
-        Consent.tenant_id == tenant_id,
-        Consent.contact_id == contact_id,
-        Consent.purpose == "recordatorios",
-    )
-    revoked = (
-        await session.execute(select(func.count()).where(base, Consent.revoked_at.is_not(None)))
-    ).scalar_one()
-    active = (
-        await session.execute(select(func.count()).where(base, Consent.revoked_at.is_(None)))
-    ).scalar_one()
+    revoked, active = (
+        await session.execute(
+            select(
+                func.count().filter(Consent.revoked_at.is_not(None)),
+                func.count().filter(Consent.revoked_at.is_(None)),
+            ).where(
+                Consent.tenant_id == tenant_id,
+                Consent.contact_id == contact_id,
+                Consent.purpose == "recordatorios",
+            )
+        )
+    ).one()
     return bool(revoked) and not active
 
 
@@ -191,7 +207,16 @@ async def process_job(
 ) -> str:
     """Ejecuta un job reclamado. Devuelve 'done' o el motivo ('skipped_*', 'retry', 'failed')."""
     now = now or utcnow()
-    job = await session.get(ScheduledJob, job_id)
+    # Bloqueo de fila: una segunda ejecucion del mismo job espera a que la primera confirme y
+    # entonces ve un estado final (no vuelve a enviar); cancelaciones concurrentes tambien esperan.
+    job = (
+        await session.execute(
+            select(ScheduledJob)
+            .where(ScheduledJob.id == job_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+    ).scalar_one_or_none()
     if job is None or job.status != "running" or job.kind not in _KINDS:
         return "ignored"
     tenant = await session.get(Tenant, job.tenant_id)
@@ -206,7 +231,13 @@ async def process_job(
     tz = pol.tz_of(tenant.timezone)
     appt: Appointment | None = None
     if job.appointment_id:
-        appt = await session.get(Appointment, job.appointment_id)
+        appt = (
+            await session.execute(
+                select(Appointment)
+                .where(Appointment.id == job.appointment_id)
+                .execution_options(populate_existing=True)
+            )
+        ).scalar_one_or_none()
         if appt is None or appt.tenant_id != job.tenant_id:
             return _finish(job, "cancelled", "skipped_sin_cita")
 
@@ -248,7 +279,7 @@ async def process_job(
         if not ent.has_feature("followups"):
             return _finish(job, "cancelled", "skipped_plan_sin_seguimientos")
 
-    if pol.in_quiet_hours(now, tz):
+    if pol.outside_send_window(now, tz):
         nxt = pol.next_allowed(now, tz)
         is_reminder = job.kind in (pol.REMINDER_24H, pol.REMINDER_2H)
         if appt is not None and is_reminder and nxt >= ensure_utc(appt.starts_at):
@@ -270,6 +301,9 @@ async def process_job(
         "negocio": tenant.name,
         "fecha": pol.format_date_es(appt.starts_at, tz) if appt else "",
         "hora": pol.format_time_es(appt.starts_at, tz) if appt else "",
+        # frases relativas calculadas al momento del envio (el job pudo posponerse por silencio)
+        "cuando": pol.when_phrase(appt.starts_at, now, tz) if appt else "",
+        "faltan": pol.time_left_phrase(appt.starts_at, now) if appt else "",
     }
     result = await _send(session, job, phone=phone, values=values, can_text=can_text)
     if isinstance(result, str):

@@ -69,3 +69,24 @@ async def test_merge_leads(session):
     ev = (await session.execute(select(LeadEvent))).scalar_one()
     assert ev.lead_id == w.id
     assert await d.merge_leads(session, w, w) is w
+
+
+def test_normalize_website_rejects_control_chars_and_huge_urls():
+    from app.leads.normalize import normalize_website
+
+    assert normalize_website("https://a.com/\x00x") is None
+    assert normalize_website("https://a.com/" + "x" * 3000) is None
+
+
+async def test_name_index_sees_new_leads_and_skips_dissimilar(session):
+    from uuid import uuid4
+
+    from app.leads.dedupe import NameIndex
+
+    idx = NameIndex()
+    assert await idx.best(session, "Cali", "clinica dental sonrisas", None) is None
+    new_id = uuid4()
+    idx.add("Cali", new_id, "clinica dental sonrisas")
+    hit = await idx.best(session, "Cali", "clinica dental sonrisas", None)
+    assert hit and hit[1] == new_id
+    assert await idx.best(session, "Cali", "zzz", None) is None

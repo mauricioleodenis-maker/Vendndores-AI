@@ -1,9 +1,21 @@
 {% extends "base.html" %}
+{% from "partials/macros.html" import kpi, stepper %}
 {% block title %}Importación terminada{% endblock %}
 {% block content %}
-<h1>Importación terminada</h1>
+<div class="page-header"><h1>Importación terminada</h1>
+  <div class="page-actions"><a class="btn btn-primary" href="/admin/leads">Ver leads</a></div></div>
 {% include "leads/_tabs.html" %}
-<div class="alert alert-ok" role="status">Se crearon {{ summary.created }} leads nuevos y se fusionaron {{ summary.merged }} con existentes.</div>
-<p class="muted">Omitidos: {{ summary.skipped_no_phone }} sin contacto, {{ summary.skipped_closed }} cerrados, {{ summary.invalid }} inválidos.</p>
-<a class="btn btn-primary" href="/admin/leads">Ver leads</a>
+{{ stepper(['Subir archivo', 'Revisar', 'Listo'], 3) }}
+<div class="alert alert-ok" role="status" data-toast="Importación completada" data-toast-kind="ok">Se crearon {{ summary.created }} leads nuevos y se fusionaron {{ summary.merged }} con existentes.</div>
+<div class="kpis">
+  {{ kpi('Leads nuevos', summary.created, 'ok') }}
+  {{ kpi('Fusionados', summary.merged) }}
+  {{ kpi('Sin contacto', summary.skipped_no_phone, 'warn' if summary.skipped_no_phone else '') }}
+  {{ kpi('Cerrados', summary.skipped_closed) }}
+  {{ kpi('Inválidos', summary.invalid, 'danger' if summary.invalid else '') }}
+</div>
+<div class="btn-row">
+  <a class="btn btn-primary" href="/admin/leads">Ver leads</a>
+  <a class="btn btn-ghost" href="/admin/leads/importar">Importar otro archivo</a>
+</div>
 {% endblock %}

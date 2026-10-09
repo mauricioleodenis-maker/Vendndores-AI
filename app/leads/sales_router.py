@@ -12,6 +12,7 @@ from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.clock import BOGOTA
 from app.core.deps import get_session, require_role
 from app.core.errors import AppError
 from app.db.models.leads import Lead, SecretShopTest
@@ -171,7 +172,6 @@ async def _actions(
     ctx = {
         "lead": lead,
         "test": test,
-        "evidence": await secret_shop.pitch_evidence(session, lead.id) if test else None,
         "message": message,
         "error": error,
         "demo": demo_result,
@@ -182,7 +182,11 @@ async def _actions(
         "script": secret_shop.suggested_script("precio", lead.niche),
         "can_convert": lead.demo_tenant_id is not None and lead.converted_tenant_id is None,
     }
-    return render(request, "leads_sales/_acciones.html", ctx)
+    toast = {"message": message, "kind": "ok"} if message else None
+    if error:
+        toast = {"message": error, "kind": "error"}
+    headers = {"HX-Trigger": json.dumps({"toast": toast}, ensure_ascii=True)} if toast else None
+    return render(request, "leads_sales/_acciones.html", ctx, headers=headers)
 
 
 async def _guarded(
@@ -246,6 +250,9 @@ async def ui_reply(
     user: User = Depends(operator),
     session: AsyncSession = Depends(get_session),
 ) -> HTMLResponse:
+    if first_reply_at.tzinfo is None:  # datetime-local llega sin zona: es hora de Bogota
+        first_reply_at = first_reply_at.replace(tzinfo=BOGOTA)
+
     async def run() -> SecretShopTest:
         test = await secret_shop.latest_test(session, lead_id)
         if test is None:
@@ -325,7 +332,11 @@ def _chat(
             "notice": demo.DEMO_NOTICE,
         },
         status_code=status_code,
-        headers={"Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow"},
+        headers={
+            "Cache-Control": "no-store",
+            "X-Robots-Tag": "noindex, nofollow",
+            "Referrer-Policy": "no-referrer",  # el token va en la URL: no filtrarlo
+        },
     )
 
 
@@ -353,7 +364,14 @@ async def demo_message(
     turns = demo.clean_history(parsed)
     error = ""
     try:
-        reply = await demo.demo_chat_reply(session, token, turns, text)
+        reply = await demo.demo_chat_reply(
+            session,
+            token,
+            turns,
+            text,
+            tenant=tenant,
+            client_ip=request.client.host if request.client else None,
+        )
         turns = [*turns, {"role": "user", "content": text.strip()[: demo.MAX_TEXT]}]
         turns.append({"role": "assistant", "content": reply})
         turns = turns[-demo.MAX_HISTORY :]

@@ -176,3 +176,24 @@ async def test_pitch_evidence(session: AsyncSession, owner_user: Any) -> None:
 
 async def test_lead_unused_import_guard() -> None:
     assert Lead.__tablename__ == "leads"
+
+
+async def test_expire_unanswered_batches_and_rescores(session: AsyncSession) -> None:
+    leads = [await make_lead(session, name=f"N{i}") for i in range(3)]
+    for lead in leads:
+        session.add(
+            SecretShopTest(
+                lead_id=lead.id,
+                channel="whatsapp",
+                sent_at=NOW - timedelta(hours=30),
+                scenario="precio",
+                message_text="hola",
+            )
+        )
+    await session.flush()
+    assert await ss.expire_unanswered(session, now=NOW) == 3
+    assert await ss.expire_unanswered(session, now=NOW) == 0
+    evs = (
+        await session.execute(select(LeadEvent).where(LeadEvent.kind == "secret_shop_replied"))
+    ).scalars()
+    assert len(list(evs)) == 3

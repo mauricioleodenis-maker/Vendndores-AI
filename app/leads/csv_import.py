@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.crypto import get_crypto, make_aad, pack_blob, phone_hash
 from app.core.errors import AppError
 from app.db.models.leads import Lead, LeadEvent, LeadSource, ReviewSignal
-from app.leads.dedupe import MATCH_NAME, find_duplicate
+from app.leads.dedupe import MATCH_NAME, NameIndex, find_duplicate
 from app.leads.normalize import (
     instagram_handle,
     name_key,
@@ -186,6 +186,20 @@ class RowError:
     reason: str
 
 
+_CONTROL = re.compile(r"[\x00-\x1f\x7f]")
+
+
+def _clean(value: str) -> str:
+    """Sin caracteres de control (log/CSV injection) y espacios colapsados."""
+    return " ".join(_CONTROL.sub(" ", value).split())
+
+
+def _http_url(value: str, limit: int = 500) -> str | None:
+    """Solo URLs http(s); descarta ``javascript:``, ``data:`` y similares."""
+    value = value.strip()
+    return value[:limit] if value.lower().startswith(("http://", "https://")) else None
+
+
 def _parse_rating(raw: str) -> Decimal | None:
     raw = raw.strip().replace(",", ".")
     if not raw:
@@ -245,7 +259,7 @@ def parse_csv(
             def get(col: str | None, _row: dict[str, Any] = row) -> str:
                 return (_row.get(col) or "").strip() if col else ""
 
-            name = " ".join(get(colmap.name).split())[:300]
+            name = _clean(get(colmap.name))[:300]
             if not name:
                 yield RowError(i, "Fila sin nombre")
                 continue
@@ -260,8 +274,8 @@ def parse_csv(
                 phone_raw=raw_phone[:40],
                 phone_e164=e164,
                 phone_type=ptype,
-                address=get(colmap.address)[:300],
-                city=(get(colmap.city) or city)[:100],
+                address=_clean(get(colmap.address))[:300],
+                city=_clean(get(colmap.city) or city)[:100],
                 niche=niche,
                 website=(site or None) if ig is None or website_domain(site) else None,
                 website_domain=website_domain(site),
@@ -269,9 +283,9 @@ def parse_csv(
                 instagram_handle=ig,
                 rating=_parse_rating(get(colmap.rating)),
                 review_count=_parse_int(get(colmap.reviews_count)),
-                maps_url=(get(colmap.maps_url) or None) and get(colmap.maps_url)[:500],
-                place_id=(get(colmap.place_id) or None) and get(colmap.place_id)[:200],
-                category=get(colmap.category)[:100],
+                maps_url=_http_url(get(colmap.maps_url)),
+                place_id=_clean(get(colmap.place_id))[:200] or None,
+                category=_clean(get(colmap.category))[:100],
                 business_status=_status(get(colmap.status), colmap.status),
                 review_text=get(colmap.reviews_text),
             )
@@ -314,7 +328,12 @@ class CsvImportReport:
 async def find_reupload(session: AsyncSession, sha256: str) -> LeadSource | None:
     """Fuente CSV previa con el mismo hash de archivo (para avisar re-subidas)."""
     rows = (
-        await session.execute(select(LeadSource).where(LeadSource.kind == "csv_import"))
+        await session.execute(
+            select(LeadSource)
+            .where(LeadSource.kind == "csv_import")
+            .order_by(LeadSource.created_at.desc())
+            .limit(500)
+        )
     ).scalars()
     return next((s for s in rows if (s.params or {}).get("sha256") == sha256), None)
 
@@ -350,6 +369,7 @@ async def import_csv(
     report = CsvImportReport(dry_run=dry_run)
     seen: dict[str, str] = {}  # clave de dedupe intra-archivo -> nombre
     crypto = get_crypto() if not dry_run else None
+    name_index = NameIndex()
 
     for cand in candidates:
         report.total += 1
@@ -386,6 +406,7 @@ async def import_csv(
             website_domain=cand.website_domain,
             name_key=cand.name_key,
             city=cand.city,
+            name_index=name_index,
         )
         if match and match.kind != MATCH_NAME:
             report.merged += 1
@@ -441,6 +462,7 @@ async def import_csv(
             )
         session.add(lead)
         await session.flush()
+        name_index.add(cand.city, lead.id, cand.name_key)
         matches = review_signal_scan([cand.review_text]) if cand.review_text else []
         for m in matches:
             session.add(

@@ -7,16 +7,19 @@ telefono, scoring y evento ``imported``.
 from __future__ import annotations
 
 import uuid
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Annotated, Any
 
 from pydantic import BaseModel, Field, field_validator
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import AppError, NotFoundError
 from app.core.jobs import register_job
 from app.core.logging import get_logger
 from app.db.models.leads import LeadSource
+from app.db.models.users import User
 from app.db.session import get_sessionmaker
 from app.leads.csv_import import LeadCandidate, RowError
 from app.leads.csv_import import import_csv as _import_candidates
@@ -38,6 +41,9 @@ log = get_logger(__name__)
 JOB_NAME = "leads.search_places"
 MAX_NEIGHBORHOODS = 20
 DONE_STATES = frozenset({"done", "partial", "failed"})
+STALE_AFTER = timedelta(minutes=15)
+STALE_MESSAGE = "La busqueda tardo demasiado y se cancelo. Intenta de nuevo."
+PRIVILEGED_ROLES = frozenset({"owner", "admin"})
 
 Neighborhood = Annotated[str, Field(min_length=1, max_length=80)]
 
@@ -70,10 +76,16 @@ class SearchParams(BaseModel):
         return list(dict.fromkeys(v for v in cleaned if v))
 
 
+def split_neighborhoods(raw: str) -> tuple[list[str], int]:
+    """Devuelve (barrios usados, cantidad descartada por superar el maximo)."""
+    parts = [" ".join(p.split()) for chunk in raw.splitlines() for p in chunk.split(",")]
+    unique = list(dict.fromkeys(p for p in parts if p))
+    return unique[:MAX_NEIGHBORHOODS], max(0, len(unique) - MAX_NEIGHBORHOODS)
+
+
 def parse_neighborhoods(raw: str) -> list[str]:
     """'Granada, Ciudad Jardin\\nSan Fernando' -> lista limpia y sin duplicados."""
-    parts = [p.strip() for chunk in raw.splitlines() for p in chunk.split(",")]
-    return list(dict.fromkeys(p for p in parts if p))[:MAX_NEIGHBORHOODS]
+    return split_neighborhoods(raw)[0]
 
 
 def plan_search(params: SearchParams) -> CostEstimate:
@@ -133,6 +145,7 @@ async def run_search(
     """Ejecuta la busqueda de ``source`` y guarda los leads. No hace commit."""
     p = SearchParams.model_validate({**(source.params or {}), "dry_run": False})
     stats = SearchStats()
+    requests_before = int(getattr(client, "requests_made", 0))
     places: list[PlaceSummary] = []
     status, error = "done", ""
     try:
@@ -150,6 +163,9 @@ async def run_search(
     except PlacesError as exc:
         status, error = ("partial" if places else "failed"), exc.message
 
+    # solicitudes HTTP reales (incluye reintentos facturables); respaldo: llamadas logicas
+    http_requests = int(getattr(client, "requests_made", 0)) - requests_before
+    billed = max(http_requests, stats.requests)
     candidates: list[LeadCandidate | RowError] = [
         place_to_candidate(pl, row=i, niche=p.niche, city=p.city)
         for i, pl in enumerate(places, start=1)
@@ -163,7 +179,8 @@ async def run_search(
         "api_duplicates": stats.duplicates,
         "api_rejected": stats.rejected,
         "found": stats.found,
-        "cost_usd": round(stats.requests * COST_USD_PER_SEARCH_REQUEST, 4),
+        "http_requests": billed,
+        "cost_usd": round(billed * COST_USD_PER_SEARCH_REQUEST, 4),
         "queries": stats.queries,
     }
     await session.flush()
@@ -207,10 +224,57 @@ async def search_places_job(ctx: dict[str, Any], source_id: str) -> dict[str, An
         return result
 
 
-async def get_source(session: AsyncSession, source_id: uuid.UUID) -> LeadSource:
+def is_stale(source: LeadSource, *, now: datetime | None = None) -> bool:
+    if _status_of(source) in DONE_STATES:
+        return False
+    updated = source.updated_at
+    if updated is None:
+        return False
+    if updated.tzinfo is None:
+        updated = updated.replace(tzinfo=UTC)
+    return (now or datetime.now(UTC)) - updated > STALE_AFTER
+
+
+async def expire_stale_sources(session: AsyncSession, *, now: datetime | None = None) -> int:
+    """Marca como ``failed`` las busquedas queued/running sin avance (worker caido). Hace commit."""
+    cutoff = (now or datetime.now(UTC)) - STALE_AFTER
+    rows = (
+        await session.scalars(
+            select(LeadSource).where(
+                LeadSource.kind == "places_api", LeadSource.updated_at < cutoff
+            )
+        )
+    ).all()
+    n = 0
+    for src in rows:
+        if _status_of(src) not in DONE_STATES:
+            src.stats = {**(src.stats or {}), "status": "failed", "error": STALE_MESSAGE}
+            n += 1
+    if n:
+        await session.commit()
+        log.warning("places_search_expired", count=n)
+    return n
+
+
+async def mark_failed(session: AsyncSession, source_id: uuid.UUID, message: str) -> None:
     source = await session.get(LeadSource, source_id)
-    if source is None:
+    if source is not None:
+        source.stats = {**(source.stats or {}), "status": "failed", "error": message}
+        await session.commit()
+
+
+async def get_source(
+    session: AsyncSession, source_id: uuid.UUID, user: User | None = None
+) -> LeadSource:
+    """Con ``user``: solo el creador, admin u owner ven la fuente (si no, 404)."""
+    source = await session.get(LeadSource, source_id)
+    if source is None or (
+        user is not None and user.role not in PRIVILEGED_ROLES and source.created_by != user.id
+    ):
         raise NotFoundError("Busqueda no encontrada")
+    if source.kind == "places_api" and is_stale(source):
+        source.stats = {**(source.stats or {}), "status": "failed", "error": STALE_MESSAGE}
+        await session.commit()
     return source
 
 

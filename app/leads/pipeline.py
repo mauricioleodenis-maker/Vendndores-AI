@@ -37,8 +37,19 @@ def can_transition(src: str, dst: str) -> bool:
     return dst in ALLOWED.get(src, frozenset())
 
 
-async def get_lead(session: AsyncSession, lead_id: uuid.UUID) -> Lead:
-    lead = await session.get(Lead, lead_id)
+async def get_lead(session: AsyncSession, lead_id: uuid.UUID, *, for_update: bool = False) -> Lead:
+    """Carga el lead; ``for_update`` bloquea la fila (evita doble conversion/demo concurrente)."""
+    if for_update:
+        lead = (
+            await session.execute(
+                select(Lead)
+                .where(Lead.id == lead_id)
+                .with_for_update()
+                .execution_options(populate_existing=True)
+            )
+        ).scalar_one_or_none()
+    else:
+        lead = await session.get(Lead, lead_id)
     if lead is None:
         raise NotFoundError("Lead no encontrado")
     return lead

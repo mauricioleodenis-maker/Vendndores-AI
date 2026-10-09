@@ -1,19 +1,22 @@
-<section id="demo-chat" aria-labelledby="demo-titulo">
+{% from "partials/macros.html" import bubble, csrf with context %}
+<section id="demo-chat" class="card stack" aria-labelledby="demo-titulo">
   <h1 id="demo-titulo">Demostración de {{ business_name }}</h1>
   <div class="alert alert-info" role="note">{{ notice }}</div>
-  <div class="ls-chat" role="log" aria-live="polite">
+  <div class="chat" role="log" aria-live="polite">
     {% for m in history %}
-    <div class="ls-msg {{ m.role }}"><strong>{{ 'Tú' if m.role == 'user' else 'Asistente' }}:</strong> {{ m.content }}</div>
+    {{ bubble(m.content, 'out' if m.role == 'user' else 'in', 'Tú' if m.role == 'user' else 'Asistente') }}
     {% else %}
-    <p class="muted">Escribe un mensaje como si fueras un cliente del negocio.</p>
+    <p class="muted">Escribe un mensaje como si fueras un cliente del negocio. Por ejemplo: «¿Qué horarios tienen?».</p>
     {% endfor %}
   </div>
+  <span class="htmx-indicator inline" id="ld-demo"><span class="spinner" aria-hidden="true"></span> El asistente está escribiendo…</span>
   {% if error %}<div class="alert alert-warn" role="alert">{{ error }}</div>{% endif %}
-  <form method="post" action="/demo/{{ token }}/mensaje" hx-post="/demo/{{ token }}/mensaje" hx-target="#demo-chat" hx-swap="outerHTML">
+  <form class="chat-input" method="post" action="/demo/{{ token }}/mensaje" hx-post="/demo/{{ token }}/mensaje" hx-target="#demo-chat" hx-swap="outerHTML" hx-indicator="#ld-demo" hx-disabled-elt="find button[type=submit]">
+    {{ csrf() }}
     <input type="hidden" name="history" value="{{ history_json }}">
     <div class="field">
-      <label for="demo-text">Tu mensaje</label>
-      <input id="demo-text" name="text" maxlength="500" required autocomplete="off">
+      <label class="sr-only" for="demo-text">Tu mensaje</label>
+      <input id="demo-text" name="text" maxlength="500" required autocomplete="off" placeholder="Escribe tu mensaje…">
     </div>
     <button class="btn btn-primary" type="submit">Enviar</button>
   </form>

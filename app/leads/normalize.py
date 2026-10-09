@@ -89,7 +89,7 @@ def name_key(name: str | None) -> str:
     """Clave comparable: minusculas, sin tildes, sin sufijos legales ni puntuacion."""
     if not name:
         return ""
-    text = _strip_accents(name).lower().replace("&", " y ")
+    text = _strip_accents(name[:300]).lower().replace("&", " y ")
     text = re.sub(r"[.\-_/]", " ", text)
     text = _LEGAL_SUFFIX.sub(" ", text)
     return " ".join(_NON_ALNUM.sub(" ", text).split())
@@ -100,6 +100,8 @@ def normalize_website(raw: str | None) -> str | None:
     if not raw or not raw.strip():
         return None
     text = raw.strip()
+    if len(text) > 2000 or any(ord(c) < 32 for c in text):
+        return None
     if "://" not in text:
         text = "https://" + text.lstrip("/")
     try:

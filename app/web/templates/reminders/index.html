@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% from "partials/macros.html" import badge, empty_state, pager, csrf %}
+{% block title %}Recordatorios{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Recordatorios</h1>
+  <div class="page-actions"><a class="btn btn-ghost" href="/admin/citas{% if tenant %}?tenant_id={{ tenant.id }}{% endif %}">Ver citas</a></div>
+</div>
+{% if flash %}<div class="alert alert-{{ 'ok' if flash.kind == 'ok' else 'error' }}" role="status" data-toast="{{ flash.message }}" data-toast-kind="{{ flash.kind }}">{{ flash.message }}</div>{% endif %}
+{% if not tenant %}
+{{ empty_state('Sin empresas', 'Crea una empresa y agenda una cita para ver aquí los avisos programados.', '/admin/negocios/nuevo', 'Nueva empresa') }}
+{% else %}
+<p class="help">Mensajes de WhatsApp que se envían solos antes de cada cita para evitar inasistencias. Solo se envían entre las 8:00 a. m. y las 8:00 p. m.</p>
+{% if tenants|length > 1 %}
+<form class="filters" method="get" action="/admin/recordatorios">
+  <div class="field">
+    <label for="sel-tenant">Empresa</label>
+    <select id="sel-tenant" name="tenant_id">
+      {% for t in tenants %}<option value="{{ t.id }}" {% if t.id == tenant.id %}selected{% endif %}>{{ t.name }}</option>{% endfor %}
+    </select>
+  </div>
+  <button class="btn" type="submit">Cambiar empresa</button>
+</form>
+{% endif %}
+
+<div class="kpis">
+  <div class="kpi kpi-info"><div class="value">{{ counts.get('pending', 0) }}</div><div class="label">Programados</div></div>
+  <div class="kpi kpi-ok"><div class="value">{{ counts.get('done', 0) }}</div><div class="label">Enviados</div></div>
+  <div class="kpi {{ 'kpi-danger' if counts.get('failed', 0) else '' }}"><div class="value">{{ counts.get('failed', 0) }}</div><div class="label">Fallidos</div></div>
+</div>
+
+<nav class="tabs" aria-label="Filtrar por estado">
+  {% for value, label in filters %}
+  <a class="tab{% if value == estado %} active{% endif %}" href="/admin/recordatorios?tenant_id={{ tenant.id }}&estado={{ value }}" {% if value == estado %}aria-current="page"{% endif %}>{{ label }}</a>
+  {% endfor %}
+</nav>
+
+<div class="card">
+  {% if rows %}
+  <div class="table-wrap">
+  <table class="cards">
+    <thead><tr><th>Cuándo</th><th>Cliente</th><th>Tipo</th><th>Estado</th><th>Detalle</th><th></th></tr></thead>
+    <tbody>
+    {% for r in rows %}
+      <tr>
+        <td class="nowrap" data-label="Cuándo">{{ r.run_at | fecha_hora }}</td>
+        <td data-label="Cliente">{{ r.contact }}</td>
+        <td data-label="Tipo">{{ r.kind }}</td>
+        <td data-label="Estado">{{ badge(r.status, r.status_label) }}</td>
+        <td data-label="Detalle">{{ r.reason or '—' }}{% if r.status == 'failed' or r.attempts %}{% if r.attempts %} <small class="help">({{ r.attempts }} intento{{ '' if r.attempts == 1 else 's' }})</small>{% endif %}{% endif %}</td>
+        <td data-label="Acciones">
+          <div class="row-actions">
+          {% if r.can_cancel %}
+          <form method="post" action="/admin/recordatorios/{{ r.id }}/cancelar" class="inline-form" data-confirm="¿Cancelar este recordatorio? El cliente no recibirá el mensaje.">
+            {{ csrf() }}<input type="hidden" name="tenant_id" value="{{ tenant.id }}">
+            <button class="btn btn-danger btn-sm" type="submit">Cancelar</button>
+          </form>
+          {% endif %}
+          {% if r.can_retry %}
+          <form method="post" action="/admin/recordatorios/{{ r.id }}/reintentar" class="inline-form">
+            {{ csrf() }}<input type="hidden" name="tenant_id" value="{{ tenant.id }}">
+            <button class="btn btn-sm" type="submit">Reintentar</button>
+          </form>
+          {% endif %}
+          </div>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {{ pager(pager_url, page, has_more) }}
+  {% else %}
+  {{ empty_state('Aún no hay recordatorios' if not estado else 'Nada en este estado', 'Cuando se agende una cita, el aviso aparecerá aquí automáticamente.' if not estado else 'Prueba con otro filtro.') }}
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}

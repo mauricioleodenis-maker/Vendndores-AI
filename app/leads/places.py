@@ -11,6 +11,7 @@ import asyncio
 import contextlib
 import math
 import random
+import re
 import time
 from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
 from dataclasses import dataclass, field
@@ -226,6 +227,9 @@ class QpsLimiter:
             self._next = max(now, self._next) + self._interval
 
 
+PLACE_ID_RE = re.compile(r"[A-Za-z0-9_-]{1,200}")
+
+
 class PlacesBudget:
     """Tope de solicitudes pagadas por dia y por mes (contadores del rate limiter compartido)."""
 
@@ -348,10 +352,14 @@ class PlacesClient:
         params: dict[str, str] | None = None,
         cost_units: int = 1,
     ) -> dict[str, Any]:
-        await self._budget.consume(cost_units)  # una vez por llamada logica (no por reintento)
+        await self._budget.consume(
+            cost_units
+        )  # primer intento; cada reintento HTTP consume otra unidad
         headers = {"X-Goog-Api-Key": self._key, "X-Goog-FieldMask": field_mask}
         resp: httpx.Response | None = None
         for attempt in range(MAX_ATTEMPTS):
+            if attempt:
+                await self._budget.consume(cost_units)  # un reintento tambien se factura
             await self._limiter.wait()
             try:
                 resp = await self._client().request(
@@ -431,7 +439,7 @@ class PlacesClient:
         return PlacesPage(places, token if isinstance(token, str) and token else None)
 
     async def get_details(self, place_id: str) -> PlaceDetails:
-        if not place_id or "/" in place_id or len(place_id) > 200:
+        if not PLACE_ID_RE.fullmatch(place_id or ""):
             raise PlacesError("places_bad_id", "Identificador de lugar invalido.", 422)
         data = await self._request(
             "GET",

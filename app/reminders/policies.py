@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from datetime import datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
@@ -41,11 +42,11 @@ BOT_TEMPLATE_KEYS: dict[str, str] = {
 }
 DEFAULT_TEXTS: dict[str, str] = {
     REMINDER_24H: (
-        "Hola {nombre}, te recordamos tu cita de mañana, {fecha}, a las {hora} en {negocio}. "
+        "Hola {nombre}, te recordamos tu cita {cuando}, {fecha}, a las {hora} en {negocio}. "
         "Responde 1 para confirmar o 2 para reprogramar."
     ),
     REMINDER_2H: (
-        "Hola {nombre}, en 2 horas tienes tu cita en {negocio} a las {hora}. "
+        "Hola {nombre}, en {faltan} tienes tu cita en {negocio} a las {hora}. "
         "Si no puedes asistir, responde 2 para reprogramar."
     ),
     FOLLOWUP_NOSHOW: (
@@ -71,6 +72,9 @@ _MONTHS = (
 )  # fmt: skip
 
 
+_PLACEHOLDER = re.compile(r"\{\{(\w+)\}\}|\{(\w+)\}")
+
+
 def tz_of(name: str | None) -> ZoneInfo:
     try:
         return ZoneInfo(name) if name else BOGOTA
@@ -78,15 +82,35 @@ def tz_of(name: str | None) -> ZoneInfo:
         return BOGOTA
 
 
-def in_quiet_hours(now: datetime, tz: ZoneInfo = BOGOTA) -> bool:
+def outside_send_window(now: datetime, tz: ZoneInfo = BOGOTA) -> bool:
+    """True si ``now`` cae FUERA de la ventana de envio (antes de las 08:00 o desde las 20:00)."""
     local = ensure_utc(now).astimezone(tz).time()
     return not (QUIET_START <= local < QUIET_END)
+
+
+in_quiet_hours = outside_send_window  # alias retrocompatible
+
+
+def when_phrase(starts: datetime, now: datetime, tz: ZoneInfo = BOGOTA) -> str:
+    """'de hoy' / 'de mañana' / 'programada' segun el dia local de la cita respecto a ``now``."""
+    days = (ensure_utc(starts).astimezone(tz).date() - ensure_utc(now).astimezone(tz).date()).days
+    return {0: "de hoy", 1: "de mañana"}.get(days, "programada")
+
+
+def time_left_phrase(starts: datetime, now: datetime) -> str:
+    """'2 horas', '1 hora', '45 minutos' hasta la cita (minimo 1 minuto)."""
+    minutes = max(1, round((ensure_utc(starts) - ensure_utc(now)).total_seconds() / 60))
+    if minutes >= 90:
+        return f"{round(minutes / 60)} horas"
+    if minutes >= 60:
+        return "1 hora"
+    return f"{minutes} minutos" if minutes > 1 else "1 minuto"
 
 
 def next_allowed(now: datetime, tz: ZoneInfo = BOGOTA) -> datetime:
     """Primer instante (UTC) dentro de la ventana de envio, >= ``now``."""
     local = ensure_utc(now).astimezone(tz)
-    if not in_quiet_hours(now, tz):
+    if not outside_send_window(now, tz):
         return ensure_utc(now)
     day = local.date() if local.time() < QUIET_START else local.date() + timedelta(days=1)
     start = datetime.combine(day, QUIET_START, tzinfo=tz)
@@ -106,7 +130,4 @@ def format_time_es(dt: datetime, tz: ZoneInfo = BOGOTA) -> str:
 
 def render_text(template: str, values: dict[str, str]) -> str:
     """Sustituye ``{clave}``/``{{clave}}`` sin ``str.format`` (plantillas no confiables)."""
-    out = template
-    for key, value in values.items():
-        out = out.replace("{{" + key + "}}", value).replace("{" + key + "}", value)
-    return out
+    return _PLACEHOLDER.sub(lambda m: values.get(m.group(1) or m.group(2), m.group(0)), template)

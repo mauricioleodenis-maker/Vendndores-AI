@@ -366,6 +366,7 @@ async def test_failure_retries_then_fails(session, tenant, contact, monkeypatch)
     assert await service.claim_due(session, now=NOON) == []  # backoff
     for _ in range(2):
         job.status = "running"
+        await session.flush()
         await service.process_job(session, job.id, now=NOON)
     assert job.status == "failed" and job.last_error == "63018"
 

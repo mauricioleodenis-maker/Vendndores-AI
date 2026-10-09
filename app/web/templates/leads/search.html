@@ -2,39 +2,50 @@
 {% from "partials/macros.html" import csrf with context %}
 {% block title %}Buscar leads{% endblock %}
 {% block content %}
-<h1>Leads</h1>
+<div class="page-header"><h1>Leads</h1></div>
 {% include "leads/_tabs.html" %}
 {% if not configured %}
 <div class="alert alert-warn" role="alert">Falta configurar la clave de Google Places (VAI_GOOGLE_PLACES_API_KEY). Puedes estimar el costo, pero no buscar.</div>
 {% endif %}
-<form class="card" method="post" action="/admin/leads/buscar" hx-post="/admin/leads/buscar" hx-target="#resultado" hx-swap="innerHTML">
+{% if not can_launch %}
+<div class="alert alert-info" role="status">Puedes estimar el costo de una búsqueda. Para ejecutarla, pídele a un administrador.</div>
+{% endif %}
+<form class="card stack" method="post" action="/admin/leads/buscar" hx-post="/admin/leads/buscar" hx-target="#resultado" hx-swap="innerHTML" hx-indicator="#ld-buscar">
+  <div class="card-header"><h2>Nueva búsqueda en Google Maps</h2></div>
   {{ csrf() }}
-  <div class="field">
-    <label for="f-niche">Nicho</label>
-    <select id="f-niche" name="niche">
-      {% for n in niche_choices if n != 'otro' %}<option value="{{ n }}" {% if n == form.niche %}selected{% endif %}>{{ n | nicho_es }}</option>{% endfor %}
-    </select>
+  <div class="form-grid">
+    <div class="field">
+      <label for="f-niche">Nicho</label>
+      <select id="f-niche" name="niche">
+        {% for n in niche_choices if n != 'otro' %}<option value="{{ n }}" {% if n == form.niche %}selected{% endif %}>{{ n | nicho_es }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="field">
+      <label for="f-city">Ciudad <span class="required" aria-hidden="true">*</span></label>
+      <input id="f-city" name="city" value="{{ form.city }}" maxlength="100" required>
+    </div>
+    <div class="field span-2">
+      <label for="f-neighborhoods">Barrios (opcional)</label>
+      <textarea id="f-neighborhoods" name="neighborhoods" rows="3" maxlength="2000" aria-describedby="h-hoods" placeholder="Granada, Ciudad Jardín, San Fernando"></textarea>
+      <small class="help" id="h-hoods">Separados por coma o salto de línea (máximo 20). Cada barrio añade consultas y aumenta el costo, pero permite superar el tope de ~60 resultados por consulta.</small>
+    </div>
+    <div class="field">
+      <label for="f-max">Máximo de resultados</label>
+      <input id="f-max" name="max_results" type="number" min="1" max="100" value="{{ form.max_results }}" aria-describedby="h-max">
+      <small class="help" id="h-max">Entre 1 y 100.</small>
+    </div>
+    <div class="field">
+      <label for="f-min">Mínimo de reseñas</label>
+      <input id="f-min" name="min_reviews" type="number" min="0" value="{{ form.min_reviews }}" aria-describedby="h-min">
+      <small class="help" id="h-min">Descarta negocios con pocas reseñas.</small>
+    </div>
   </div>
-  <div class="field">
-    <label for="f-city">Ciudad</label>
-    <input id="f-city" name="city" value="{{ form.city }}" maxlength="100" required>
+  <div class="btn-row">
+    <button class="btn" type="submit" name="modo" value="estimar">Estimar costo (sin gastar)</button>
+    {% if can_launch %}<button class="btn btn-primary" type="submit" name="modo" value="buscar" data-confirm="Esto consume presupuesto de Google Places. ¿Continuar?">Buscar y guardar leads</button>{% endif %}
+    <span class="htmx-indicator inline" id="ld-buscar"><span class="spinner" aria-hidden="true"></span> Procesando…</span>
   </div>
-  <div class="field">
-    <label for="f-neighborhoods">Barrios (opcional)</label>
-    <textarea id="f-neighborhoods" name="neighborhoods" rows="3" maxlength="2000" placeholder="Granada, Ciudad Jardín, San Fernando"></textarea>
-    <small class="help">Separados por coma o salto de línea (máx. 20). Cada barrio multiplica las consultas y el costo, pero supera el tope de ~60 resultados por consulta.</small>
-  </div>
-  <div class="field">
-    <label for="f-max">Máximo de resultados</label>
-    <input id="f-max" name="max_results" type="number" min="1" max="100" value="{{ form.max_results }}">
-  </div>
-  <div class="field">
-    <label for="f-min">Mínimo de reseñas</label>
-    <input id="f-min" name="min_reviews" type="number" min="0" value="{{ form.min_reviews }}">
-  </div>
-  <button class="btn" type="submit" name="modo" value="estimar">Estimar costo (sin gastar)</button>
-  <button class="btn btn-primary" type="submit" name="modo" value="buscar" data-confirm="Esto consume presupuesto de Google Places. ¿Continuar?">Buscar y guardar leads</button>
   <p class="muted">Presupuesto mensual configurado: US$ {{ monthly_budget }}. Los precios son orientativos; verifica en la consola de Google.</p>
 </form>
-<div id="resultado" aria-live="polite"></div>
+<div id="resultado" class="stack" aria-live="polite"></div>
 {% endblock %}
